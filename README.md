@@ -112,12 +112,10 @@ make check        # ruff + ruff format + mypy strict + pytest
 `make setup EXTRA=local` additionally installs torch and transformers. CI
 installs neither.
 
-CI is not currently active on this repository. The workflow is written and
-verified locally, but it lives at [`ci/ci.yml`](ci/README.md) rather than
-`.github/workflows/ci.yml`, because the token this repository was pushed with is
-a GitHub App installation token lacking the `workflows` permission and GitHub
-rejects the push. `make check` runs the identical set of checks and is green on
-every commit here.
+CI runs on every push to `main` from
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml): ruff, ruff format, mypy
+strict and pytest on Python 3.11, with `UNC_BENCH_OFFLINE=1` so no test can
+reach the network. `make check` runs the identical set locally.
 
 Hardware this was developed on: 2 vCPU, 2.0 GB RAM, no GPU, Python 3.11.
 
