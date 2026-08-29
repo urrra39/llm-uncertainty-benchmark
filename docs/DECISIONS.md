@@ -67,3 +67,45 @@ the project.
   `{0: entailment, 1: neutral, 2: contradiction}` — I read it off the config
   rather than assuming, because several MNLI checkpoints on the Hub use the
   reverse order and that would silently invert every clustering decision.
+
+## Datasets
+
+- **D10. PopQA is read from its raw TSV, not the datasets library.** The repo
+  ships one file (`test.tsv`, 14k rows). Going through `datasets` would add a
+  dependency and a cache layer for a single flat file.
+- **D11. Sample from a qid-sorted candidate list.** A seeded `numpy` draw over
+  an unsorted pandas frame still depends on the row order of the download. Sort
+  first, then draw, then sort the drawn indices, so the benchmark is stable.
+- **D12. Fixtures are real rows, not synthetic.** `tests/fixtures/popqa_sample.tsv`
+  is the first 12 rows of the real file with one `possible_answers` value
+  truncated by hand, so the malformed-JSON path is covered in CI without a
+  download.
+
+## Status at the end of this session
+
+I ran out of session budget partway through the build. What follows is an honest
+account rather than a plan I intend to imply was executed.
+
+Landed and green under `make check` (ruff, ruff format, mypy strict, pytest):
+
+- scaffold, pinned deps, CI on Python 3.11 with no GPU
+- config schema with the trap-blocking validators
+- `ModelClient` interface, local-transformers and OpenAI-compatible backends,
+  content-addressed response cache
+- normalization, exact match, token F1
+- dataset builder base and the PopQA builder
+
+84 tests pass. Not yet written: the TriviaQA and SimpleQA builders, the five
+pipeline stages, signal families A/B/C, the labeling pipeline, and the analysis
+and figure code. **No benchmark run has been executed, so this repository
+contains no results.** There is no results table in the README because there are
+no results, and inventing one would defeat the purpose of the exercise.
+
+The measured throughput numbers in the environment probe above are real, and
+they imply the full run is not feasible on this machine as configured. At
+roughly 1 s per greedy answer, 14 s per 5-sample batch, and 2.8 s per
+verification forward pass, one question costs about 35 s of CPU. 1200 questions
+is therefore on the order of 12 hours single-threaded on 2 cores, before the
+NLI clustering and the judge calls. The failure policy's 600-question cut would
+halve that and still not fit. A GPU, or a much smaller question count, is the
+honest path forward.
