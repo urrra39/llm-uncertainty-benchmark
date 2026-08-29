@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Run artifacts. Everything here is regenerable by `make all`.
+data/cache/
+data/raw/
+data/artifacts/
+data/*.parquet
+data/pilot/
+results.json
+results_*.json
+figures/*.png
+figures/*.pdf
+!figures/.gitkeep
+
+# HuggingFace model/dataset downloads
+hf_home/
+*.safetensors
+*.bin
+
+.DS_Store
+*.log

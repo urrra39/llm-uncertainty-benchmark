@@ -1,0 +1,21 @@
+# Normalize line endings on checkin, leave working copy native.
+* text=auto eol=lf
+
+*.py    text diff=python
+*.md    text
+*.yaml  text
+*.yml   text
+*.toml  text
+*.csv   text
+*.tsv   text
+*.json  text
+
+*.parquet binary
+*.png     binary
+*.pdf     binary
+*.safetensors binary
+
+# Keep generated artifacts out of language stats and diffs.
+figures/*  linguist-generated=true
+data/*.csv linguist-generated=true
+uv.lock    linguist-generated=true -diff
