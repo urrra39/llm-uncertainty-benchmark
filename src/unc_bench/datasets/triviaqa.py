@@ -55,6 +55,12 @@ class TriviaQABuilder(DatasetBuilder):
         answers = frame["answer"].tolist()
 
         out: list[Question] = []
+        # The `rc.nocontext` validation split repeats a `question_id` whenever the
+        # same question was paired with more than one evidence document upstream.
+        # Stripping the context collapses those rows into identical questions, so
+        # the first occurrence of each id is kept and the rest dropped. Without
+        # this, `questions_to_frame` rejects the whole draw on duplicate qids.
+        seen: set[str] = set()
         for question, qid, answer in zip(questions, qids, answers, strict=True):
             text = str(question).strip()
             if not text:
@@ -62,6 +68,10 @@ class TriviaQABuilder(DatasetBuilder):
             aliases = _extract_aliases(answer)
             if not aliases:
                 continue
+            key = f"triviaqa-{qid}"
+            if key in seen:
+                continue
+            seen.add(key)
             out.append(
                 Question(
                     qid=f"triviaqa-{qid}",

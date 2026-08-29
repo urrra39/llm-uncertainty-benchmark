@@ -1,4 +1,4 @@
-run_name: triviaqa_150
+run_name: triviaqa_100
 
 # The model under test. Backend is swappable: point this at a vLLM
 # OpenAI-compatible server and nothing else changes.
@@ -38,7 +38,7 @@ nli:
 # set this number.
 dataset_mix:
   popqa: 0
-  triviaqa: 150
+  triviaqa: 100
   simpleqa: 0
 dataset_seed: 12345
 
