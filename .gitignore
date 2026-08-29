@@ -9,17 +9,19 @@ venv/
 .coverage
 htmlcov/
 
-# Run artifacts. Everything here is regenerable by `make all`.
+# Intermediate run artifacts: large, and regenerable by `make all`.
 data/cache/
 data/raw/
 data/artifacts/
 data/*.parquet
 data/pilot/
-results.json
-results_*.json
-figures/*.png
+
+# results.json and figures/*.png are deliberately NOT ignored. They are the
+# output of the project, they are what the README quotes, and a reader who
+# clones this repo should see the numbers without owning a CPU-hour. The pilot's
+# results file is ignored, because it is scaffolding rather than a result.
+results_pilot.json
 figures/*.pdf
-!figures/.gitkeep
 
 # HuggingFace model/dataset downloads
 hf_home/

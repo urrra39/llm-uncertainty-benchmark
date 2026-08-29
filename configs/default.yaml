@@ -1,4 +1,4 @@
-run_name: full_1200
+run_name: triviaqa_150
 
 # The model under test. Backend is swappable: point this at a vLLM
 # OpenAI-compatible server and nothing else changes.
@@ -33,14 +33,17 @@ nli:
   max_length: 128
   batch_size: 16
 
+# TriviaQA only, sized to what this machine's measured throughput affords in
+# the remaining budget. See docs/DECISIONS.md for the pilot measurement that
+# set this number.
 dataset_mix:
-  popqa: 600
-  triviaqa: 400
-  simpleqa: 200
+  popqa: 0
+  triviaqa: 150
+  simpleqa: 0
 dataset_seed: 12345
 
 pilot_gate:
-  n_questions: 100
+  n_questions: 40
   error_rate_low: 0.25
   error_rate_high: 0.65
   max_iterations: 2
@@ -58,7 +61,7 @@ judges:
     name: claude-haiku-4-5
     api_key_env: GSK_API_KEY
     max_new_tokens: 8
-  cross_validation_n: 100
+  cross_validation_n: 60
   kappa_trust_threshold: 0.7
   secondary_seed: 4242
 
@@ -71,7 +74,7 @@ analysis:
   bootstrap_resamples: 10000
   bootstrap_seed: 987654321
   ci_level: 0.95
-  ece_bins: 15
+  ece_bins: 10
   target_accuracy: 0.90
   logreg_cv_folds: 5
   logreg_seed: 31337

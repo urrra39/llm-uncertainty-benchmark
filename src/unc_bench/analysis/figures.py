@@ -1,0 +1,251 @@
+"""Figures, drawn from results.json alone.
+
+Deliberately decoupled from the pipeline: `make figures` reads the JSON and
+nothing else, so a plotting change never requires rerunning a model and the
+figures cannot disagree with the numbers in the results file.
+
+Four figures, matching the minimal analysis set: the AUROC table with CIs, the
+risk-coverage curves, a reliability diagram, and the signal correlation heatmap.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+import matplotlib
+
+# Non-interactive backend, selected before pyplot is imported. There is no
+# display here and the default backend would fail on import.
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.lines import Line2D
+
+from unc_bench.signals.base import FAMILY_LABELS
+
+FAMILY_COLORS = {
+    "A": "#1f77b4",
+    "B": "#2ca02c",
+    "C": "#d62728",
+    "T": "#7f7f7f",
+}
+DPI = 150
+
+
+def load_results(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} did not parse to an object")
+    return data
+
+
+def plot_auroc(results: dict[str, Any], out: Path, *, view: str = "primary") -> Path:
+    """Every signal's AUROC with its bootstrap CI, grouped by family.
+
+    The 0.5 line is drawn because it is the only reference that matters: a
+    signal whose CI crosses it has not been shown to carry information at this n.
+    """
+    payload = results["views"][view]
+    signals = payload["signals"]
+    ordered = list(payload["ranking"])
+    if not ordered:
+        raise ValueError("no signal has a defined AUROC; nothing to plot")
+
+    points = [signals[n]["auroc"]["point"] for n in ordered]
+    lows = [signals[n]["auroc"]["ci_low"] for n in ordered]
+    highs = [signals[n]["auroc"]["ci_high"] for n in ordered]
+    colors = [FAMILY_COLORS.get(signals[n]["family"], "#333333") for n in ordered]
+
+    fig, ax = plt.subplots(figsize=(8.5, 0.34 * len(ordered) + 2.0))
+    y = np.arange(len(ordered))
+    lower = [max(p - lo, 0.0) for p, lo in zip(points, lows, strict=True)]
+    upper = [max(hi - p, 0.0) for p, hi in zip(points, highs, strict=True)]
+    ax.errorbar(
+        points,
+        y,
+        xerr=[lower, upper],
+        fmt="o",
+        markersize=5,
+        capsize=3,
+        linestyle="none",
+        ecolor="#999999",
+        elinewidth=1.2,
+        zorder=3,
+    )
+    for yi, point, color in zip(y, points, colors, strict=True):
+        ax.plot([point], [yi], "o", color=color, markersize=6, zorder=4)
+    ax.axvline(0.5, color="#000000", linestyle="--", linewidth=1.0, zorder=2)
+    ax.set_yticks(y)
+    ax.set_yticklabels(ordered, fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlabel("AUROC for predicting an INCORRECT answer (higher is better)")
+    n = payload["n"]
+    base = payload["base_rate_incorrect"]
+    level = int(round(100 * results["analysis_config"]["ci_level"]))
+    ax.set_title(
+        f"{results['run_name']}  |  n={n}, base rate {base:.1%} incorrect\n"
+        f"{level}% percentile bootstrap CI, "
+        f"{results['analysis_config']['bootstrap_resamples']:,} resamples",
+        fontsize=10,
+    )
+    handles = [
+        Line2D([], [], marker="o", linestyle="none", color=FAMILY_COLORS[f], label=label)
+        for f, label in FAMILY_LABELS.items()
+        if f in FAMILY_COLORS
+    ]
+    ax.legend(handles=handles, fontsize=8, loc="lower right")
+    ax.grid(axis="x", alpha=0.3)
+    fig.tight_layout()
+    return _save(fig, out)
+
+
+def plot_risk_coverage(
+    results: dict[str, Any], out: Path, *, view: str = "primary", top_k: int = 5
+) -> Path:
+    """Risk-coverage curves for the best few signals, plus the random baseline.
+
+    `t_random` is always included whether or not it ranks. It is the null: a flat
+    line at the base rate, and any curve that does not sit below it is not buying
+    anything.
+    """
+    payload = results["views"][view]
+    signals = payload["signals"]
+    chosen = list(payload["ranking"][:top_k])
+    if "t_random" in signals and "t_random" not in chosen:
+        chosen.append("t_random")
+
+    fig, ax = plt.subplots(figsize=(7.0, 5.0))
+    for name in chosen:
+        rc = signals[name]["risk_coverage"]
+        if not rc["coverage"]:
+            continue
+        aurc = signals[name]["aurc"]
+        style = "--" if name == "t_random" else "-"
+        ax.plot(
+            rc["coverage"],
+            rc["risk"],
+            style,
+            linewidth=1.6,
+            color=FAMILY_COLORS.get(signals[name]["family"], "#333333"),
+            label=f"{name}  (AURC {aurc:.3f})",
+        )
+    base = payload["base_rate_incorrect"]
+    ax.axhline(base, color="#000000", linestyle=":", linewidth=1.0, label=f"base rate {base:.3f}")
+    ax.set_xlabel("coverage: fraction of questions answered, lowest-risk first")
+    ax.set_ylabel("risk: error rate among answered questions")
+    ax.set_title(
+        f"Risk-coverage, {results['run_name']}  |  n={payload['n']}",
+        fontsize=10,
+    )
+    ax.set_xlim(0.0, 1.0)
+    ax.legend(fontsize=8, loc="lower right")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    return _save(fig, out)
+
+
+def plot_calibration(
+    results: dict[str, Any], out: Path, *, view: str = "primary", top_k: int = 3
+) -> Path:
+    """Reliability diagram for the top few signals after Platt scaling.
+
+    Empty bins are simply absent from the line rather than interpolated across.
+    At n=150 over 10 bins several bins hold nothing, and a smooth curve through
+    them would be drawn entirely from data that does not exist.
+    """
+    payload = results["views"][view]
+    signals = payload["signals"]
+    chosen = list(payload["ranking"][:top_k])
+
+    fig, ax = plt.subplots(figsize=(6.0, 5.6))
+    ax.plot([0, 1], [0, 1], "k--", linewidth=1.0, label="perfect calibration")
+    for name in chosen:
+        cal = signals[name]["calibration"]
+        conf = np.array(cal["bin_confidence"], dtype=np.float64)
+        acc = np.array(cal["bin_accuracy"], dtype=np.float64)
+        counts = np.array(cal["bin_counts"], dtype=np.int64)
+        keep = (counts > 0) & np.isfinite(conf) & np.isfinite(acc)
+        if not np.any(keep):
+            continue
+        ax.plot(
+            conf[keep],
+            acc[keep],
+            "o-",
+            markersize=4,
+            linewidth=1.4,
+            color=FAMILY_COLORS.get(signals[name]["family"], "#333333"),
+            label=f"{name}  (ECE {signals[name]['ece']:.3f})",
+        )
+    ax.set_xlabel("predicted P(incorrect), Platt-scaled on the train split")
+    ax.set_ylabel("observed fraction incorrect")
+    ax.set_title(
+        f"Reliability, {results['run_name']}  |  "
+        f"{results['analysis_config']['ece_bins']} bins, held-out rows only",
+        fontsize=10,
+    )
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 1.0)
+    ax.legend(fontsize=8, loc="upper left")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    return _save(fig, out)
+
+
+def plot_correlation(results: dict[str, Any], out: Path, *, view: str = "primary") -> Path:
+    """Spearman correlation heatmap over every signal.
+
+    The question this answers: how much of the table is one measurement wearing
+    twenty-one hats. Blocks of near-1.0 inside a family mean the family has one
+    degree of freedom, and a high correlation between family A and
+    `t_answer_length` is the specific confound family T exists to expose.
+    """
+    payload = results["views"][view]
+    names = payload["correlation"]["names"]
+    raw = payload["correlation"]["spearman"]
+    matrix = np.array(
+        [[np.nan if v is None else float(v) for v in row] for row in raw], dtype=np.float64
+    )
+
+    fig, ax = plt.subplots(figsize=(9.0, 7.6))
+    # NaN cells are passed through as-is: `imshow` routes non-finite values to
+    # the colormap's "bad" colour, so setting that explicitly is enough and an
+    # undefined correlation renders grey rather than as the midpoint colour,
+    # which would read as rho = 0.
+    cmap = plt.get_cmap("RdBu_r").copy()
+    cmap.set_bad("#eeeeee")
+    image = ax.imshow(matrix, cmap=cmap, vmin=-1.0, vmax=1.0)
+    ax.set_xticks(np.arange(len(names)))
+    ax.set_yticks(np.arange(len(names)))
+    ax.set_xticklabels(names, rotation=90, fontsize=7)
+    ax.set_yticklabels(names, fontsize=7)
+    ax.set_title(
+        f"Spearman correlation between signals, {results['run_name']}  |  n={payload['n']}\n"
+        "grey = undefined (constant column or fewer than three shared rows)",
+        fontsize=10,
+    )
+    fig.colorbar(image, ax=ax, shrink=0.8, label="Spearman rho")
+    fig.tight_layout()
+    return _save(fig, out)
+
+
+def _save(fig: Any, out: Path) -> Path:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, dpi=DPI, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[figures] wrote {out}", flush=True)
+    return out
+
+
+def render_all(results_path: Path, figures_dir: Path, *, view: str = "primary") -> list[Path]:
+    """Every figure, from the results file alone."""
+    results = load_results(results_path)
+    written = [
+        plot_auroc(results, figures_dir / "auroc.png", view=view),
+        plot_risk_coverage(results, figures_dir / "risk_coverage.png", view=view),
+        plot_calibration(results, figures_dir / "calibration.png", view=view),
+        plot_correlation(results, figures_dir / "correlation.png", view=view),
+    ]
+    return written

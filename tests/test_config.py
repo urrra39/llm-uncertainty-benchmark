@@ -28,14 +28,32 @@ def test_shipped_configs_validate(name: str) -> None:
     assert cfg.dataset_mix.total > 0
 
 
-def test_default_mix_is_1200_split_600_400_200() -> None:
+def test_default_mix_is_triviaqa_only() -> None:
+    # The shipped run is TriviaQA-only: the SimpleQA builder does not exist and
+    # PopQA is held back. A nonzero count for either would ask the pipeline for
+    # questions it cannot draw.
     mix = Config.load(CONFIG_DIR / "default.yaml").dataset_mix
-    assert (mix.popqa, mix.triviaqa, mix.simpleqa) == (600, 400, 200)
-    assert mix.total == 1200
+    assert (mix.popqa, mix.triviaqa, mix.simpleqa) == (0, 150, 0)
+    assert mix.total == 150
 
 
-def test_pilot_mix_totals_100() -> None:
-    assert Config.load(CONFIG_DIR / "pilot.yaml").dataset_mix.total == 100
+def test_pilot_mix_is_40_triviaqa() -> None:
+    mix = Config.load(CONFIG_DIR / "pilot.yaml").dataset_mix
+    assert (mix.popqa, mix.triviaqa, mix.simpleqa) == (0, 40, 0)
+    assert mix.total == 40
+
+
+def test_pilot_gate_n_matches_the_pilot_mix() -> None:
+    # The gate reports rates over whatever the pilot generated, so a gate
+    # configured for a different n than the mix draws would describe a sample
+    # size that was never run.
+    cfg = Config.load(CONFIG_DIR / "pilot.yaml")
+    assert cfg.pilot_gate.n_questions == cfg.dataset_mix.total
+
+
+def test_ece_bins_are_ten_in_both_configs() -> None:
+    for name in ("default.yaml", "pilot.yaml"):
+        assert Config.load(CONFIG_DIR / name).analysis.ece_bins == 10
 
 
 def test_unknown_key_is_rejected() -> None:
