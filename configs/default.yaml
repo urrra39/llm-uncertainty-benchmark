@@ -61,7 +61,7 @@ judges:
     name: claude-haiku-4-5
     api_key_env: GSK_API_KEY
     max_new_tokens: 8
-  cross_validation_n: 60
+  cross_validation_n: 100
   kappa_trust_threshold: 0.7
   secondary_seed: 4242
 

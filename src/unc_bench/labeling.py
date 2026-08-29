@@ -82,17 +82,32 @@ class TextJudge(Protocol):
 # leave every AUROC hovering near 0.5 with no visible cause.
 _VERDICT_RE = re.compile(r"^(correct|incorrect|ambiguous)$")
 
+# The verdict as the FIRST word of the reply, with the rest of the reply
+# ignored. Anchored at the start and requiring a word boundary, so "incorrect"
+# can never be read as "correct": the alternation is ordered longest-first and
+# the boundary stops a prefix match mid-word.
+_VERDICT_LEAD_RE = re.compile(r"^(incorrect|correct|ambiguous)\b")
+
 
 def parse_verdict(reply: str) -> str | None:
     """Map a judge reply to a label, or None if it does not parse.
 
-    The reply is normalized and matched WHOLE. A judge that returns
-    "CORRECT." or " correct " is fine; one that returns "The answer is correct
-    because..." is a parse failure and is reported as such rather than being
-    mined for a keyword.
+    The reply is normalized and matched whole first. A judge that returns
+    "CORRECT." or " correct " is fine.
+
+    claude-haiku-4-5 ignores the "exactly one word" instruction on about three
+    quarters of items and answers "INCORRECT\\n\\nThe model answer ... does not
+    match", which the whole-string match rejected. That dropped the second
+    judge to 15 usable verdicts out of 60 and made Cohen's kappa a statement
+    about the 15 items where it happened to comply. So a leading verdict is
+    accepted as the verdict. Anything that does not START with one of the three
+    words is still a parse failure and is still reported as one, rather than
+    being mined for a keyword anywhere in the reply.
     """
     text = normalize_answer(reply or "")
-    match = _VERDICT_RE.match(text)
+    match: re.Match[str] | None = _VERDICT_RE.match(text)
+    if match is None:
+        match = _VERDICT_LEAD_RE.match(text)
     if match is None:
         return None
     verdict = match.group(1)

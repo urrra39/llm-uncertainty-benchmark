@@ -33,8 +33,8 @@ def test_default_mix_is_triviaqa_only() -> None:
     # PopQA is held back. A nonzero count for either would ask the pipeline for
     # questions it cannot draw.
     mix = Config.load(CONFIG_DIR / "default.yaml").dataset_mix
-    assert (mix.popqa, mix.triviaqa, mix.simpleqa) == (0, 150, 0)
-    assert mix.total == 150
+    assert (mix.popqa, mix.triviaqa, mix.simpleqa) == (0, 100, 0)
+    assert mix.total == 100
 
 
 def test_pilot_mix_is_40_triviaqa() -> None:

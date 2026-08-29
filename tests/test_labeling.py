@@ -101,17 +101,20 @@ def test_verdict_parses_the_whole_normalized_reply(reply: str, expected: str) ->
     [
         "",
         "The answer is correct because Bram Stoker wrote it",
-        "correct incorrect",
         "yes",
         "1",
         "I cannot grade this",
     ],
 )
 def test_verdict_returns_none_on_a_parse_failure(reply: str) -> None:
-    """Whole-reply match, not keyword mining.
+    """Leading-verdict match, not keyword mining.
 
-    A judge that explains itself has not followed the rubric, and that is worth
-    knowing. Extracting a keyword from the prose hides it.
+    A reply that mentions a verdict somewhere in the middle of prose is still a
+    parse failure. Only a reply that OPENS with one of the three words counts,
+    because that is the shape claude-haiku-4-5 actually produces when it ignores
+    the one-word instruction: the verdict first, then an unsolicited
+    justification. Mining a keyword from anywhere in the prose would let "the
+    answer is correct because" through, and it does not get through.
     """
     assert parse_verdict(reply) is None
 
