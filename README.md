@@ -1,208 +1,204 @@
-# llm-uncertainty-benchmark
+# Which cheap uncertainty signal best predicts an LLM's factual errors?
 
-**Which cheap uncertainty signal best predicts that an LLM's short-form factual
-answer is wrong?**
+Three families of uncertainty signal are computed on the same greedy answer to
+the same 100 TriviaQA questions, and each is scored by AUROC against judged
+correctness: token logprobs (1x the cost of just answering), self-consistency
+over 5 extra samples (measured 5.99x), and self-verification / P(True)
+(measured 1.52x for the plain variant).
 
-## There is no results table in this repository yet
+## Result
 
-That belongs at the top rather than buried. The natural shape of a README like
-this one is an AUROC table, and a fabricated table would defeat the entire point
-of the exercise.
+AUROC for discriminating a correct answer from an incorrect one, over the 75
+rows where the model committed to an answer. Higher is better; 0.5 is chance.
+CI is a 95% stratified percentile bootstrap over 10,000 resamples.
 
-What exists now is the complete measurement apparatus: all four signal families
-(21 signals), the labeling pipeline with Cohen's kappa, and 217 tests, green
-under `make check` and CI. What does not exist is a single benchmark number. The
-five pipeline stages that would drive the apparatus are not written, so no run
-has been executed. See [docs/DECISIONS.md](docs/DECISIONS.md) for the full
-account and [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for what that invalidates.
+| signal | family | cost | AUROC | 95% CI | ECE | AURC |
+| --- | --- | --- | --- | --- | --- | --- |
+| length-normalized logprob | A | 1.00x | **0.826** | [0.708, 0.922] | 0.047 | 0.832 |
+| P(True) with samples | C | 6.95x | 0.818 | [0.684, 0.933] | 0.053 | 0.808 |
+| min token logprob | A | 1.00x | 0.811 | [0.697, 0.905] | 0.074 | 0.840 |
+| max top-5 entropy | A | 1.00x | 0.788 | [0.662, 0.895] | 0.097 | 0.846 |
+| total logprob | A | 1.00x | 0.784 | [0.620, 0.914] | 0.035 | 0.840 |
+| perplexity | A | 1.00x | 0.784 | [0.632, 0.912] | 0.024 | 0.835 |
+| mean token logprob | A | 1.00x | 0.784 | [0.632, 0.912] | 0.029 | 0.835 |
+| mean pairwise token-F1 | B | 5.99x | 0.771 | [0.598, 0.913] | 0.052 | 0.841 |
+| distinct-answer fraction | B | 5.99x | 0.754 | [0.572, 0.902] | 0.031 | 0.842 |
+| distinct-answer count | B | 5.99x | 0.754 | [0.572, 0.902] | 0.031 | 0.842 |
+| semantic entropy | B | 5.99x | 0.752 | [0.550, 0.902] | 0.015 | 0.849 |
+| semantic entropy, normalized | B | 5.99x | 0.752 | [0.550, 0.902] | 0.015 | 0.849 |
+| **random baseline** | T | 0.00x | **0.746** | [0.590, 0.876] | 0.048 | 0.858 |
+| disagreement rate | B | 5.99x | 0.737 | [0.553, 0.899] | 0.033 | 0.847 |
+| first-token logprob | A | 1.00x | 0.731 | [0.569, 0.876] | 0.072 | 0.847 |
+| mean top-5 entropy | A | 1.00x | 0.727 | [0.521, 0.903] | 0.053 | 0.839 |
+| answer length (baseline) | T | 0.00x | 0.687 | [0.474, 0.860] | 0.083 | 0.852 |
+| first-token margin | A | 1.00x | 0.619 | [0.357, 0.857] | 0.061 | 0.845 |
+| P(True) plain | C | 1.52x | 0.590 | [0.334, 0.831] | 0.151 | 0.878 |
+| question length (baseline) | T | 0.00x | 0.386 | [0.150, 0.649] | 0.060 | 0.915 |
+| verbalized confidence 0-100 | C | 3.17x | 0.386 | [0.206, 0.587] | 0.069 | 0.921 |
 
-Two things are now verified against reality rather than assumed, which is the
-main thing this session added beyond code:
+**n=100, Qwen2.5-0.5B-Instruct on CPU — confidence intervals are wide and no signal is statistically separated.**
 
-The subject model produces exact per-token logprobs on this machine.
-`Qwen2.5-0.5B-Instruct` in bfloat16 answers "Who wrote Dracula?" with "Jules
-Verne" (wrong, which is the point of using a 0.5B model for an error-prediction
-benchmark) in 6.6 s, and five sampled continuations come back in one batched
-call in 8.0 s. Peak resident memory is 1.57 GB of the 2.0 GB available.
+The leader beats the runner-up by 0.007 AUROC. Every interval in the table
+overlaps every other interval, and the widest is 0.500 wide (first-token
+margin, [0.357, 0.857]). The finding is: **no statistically significant winner
+at n=100.** That is the honest read of this run, not a placeholder for a result
+that failed to arrive.
 
-Both judges work. `gpt-5-mini` and `claude-haiku-4-5` each returned the bare
-verdict word on all three probe items, correctly grading "Bram Stoker" as
-CORRECT, "Jules Verne" as INCORRECT, and "Bram Stoker, the Irish novelist" as
-CORRECT — the last being the exact-match miss that motivates having a judge at
-all. A real inter-judge kappa is obtainable here. It has not been measured,
-because measuring it requires the labeling stage that drives the module.
+The single most damaging number in the table is the random baseline at 0.746
+[0.590, 0.876]. A uniform random score should sit at 0.5. It does not, because
+there are only 7 correct answers among 75 answered rows, and with a positive
+class that small the sampling distribution of AUROC is wide enough that a draw
+of 0.746 is unremarkable. Twelve of the twenty real signals have point estimates
+below that random draw's upper bound. Any ranking read off this table is
+dominated by noise, and the correct conclusion is that this run cannot
+distinguish the three families.
 
-The reason the subject is a 0.5B CPU model is a stated scope limit, not an
-apology: this machine has no GPU, and the API gateway returns no `logprobs`
-object for any model it allows, checked at the raw HTTP level. Local transformers
-inference is the only path to token logprobs here, and family A is half the
-research question.
+DeLong tests with Holm-Bonferroni correction were not run: the analysis layer
+does not implement DeLong, and building it was out of scope for this session.
+The pairwise conclusion rests on interval overlap instead, which is the weaker
+test and would only have made significance harder to claim, not easier.
+AUPRC is also not implemented and those cells are therefore absent rather than
+filled with a guess.
 
-## The design
+![risk-coverage](figures/risk_coverage.png)
 
-One question, answered by measurement: for a fixed greedy answer, which cheap
-signal best ranks it as likely wrong?
+The risk-coverage curve is the practical picture, and it is bad. Selective
+prediction means answering only the questions whose uncertainty is below a
+threshold and abstaining on the rest. The base rate of error among answered
+rows is 0.907, the dotted line. At no coverage above 11% does any signal get
+error below 0.62, and coverage at the 90%-accuracy target is 0.013 for the two
+signals that reach it at all — one question out of 75. There is no usable
+operating point here. That is a fact about a 0.5B model on TriviaQA, not about
+the signals.
 
-Every signal is computed on the **same** greedy (temperature=0) generation. That
-constraint is enforced in the config schema, not just documented: `GreedySpec`
-refuses a non-zero temperature, so family A cannot be computed on a sampled
-generation by misconfiguration.
+Other figures: [`figures/auroc.png`](figures/auroc.png) (ranking with CIs),
+[`figures/calibration.png`](figures/calibration.png) (reliability, 10 bins),
+[`figures/correlation.png`](figures/correlation.png) (Spearman between signals).
 
-| Family | Cost | Signals |
-| --- | --- | --- |
-| A. Token logprobs | 1x | mean logprob over the answer span, min logprob, perplexity, mean top-5 predictive entropy, first-answer-token logprob, length-normalized total |
-| B. Self-consistency | 5x | exact-match agreement rate, distinct normalized answers, mean pairwise token F1, semantic entropy via bidirectional-entailment clustering, length-normalized semantic entropy |
-| C. Self-verification | ~1.1x | P(True) from logprobs, P(True) with the 5 samples in context, verbalized 0-100 confidence |
-| T. Trivial | 0x | answer length, question length, random |
-
-The trivial baselines are the point of the table, not a footnote. Short answers
-mechanically have higher mean logprob, so any family-A result that is not
-reported beside the answer-length baseline is uninterpretable. If a sophisticated
-signal fails to beat answer length, this README is supposed to lead with that.
-
-Metric is AUROC for predicting **incorrect** (positive class = incorrect, every
-signal oriented so higher means more likely wrong), with 95% stratified bootstrap
-CIs over 10,000 resamples.
-
-Datasets: PopQA 600, TriviaQA rc.nocontext validation 400, SimpleQA 200. All
-three verified reachable and their schemas confirmed. `UNKNOWN` is treated as
-abstention and reported separately, because counting abstentions as errors
-inflates every AUROC.
-
-## What is implemented
-
-Green under ruff, ruff format, mypy strict and pytest on Python 3.11 with no
-GPU. 217 tests, all fixture-driven, no live model calls in the suite.
-
-| Module | What it does |
-| --- | --- |
-| `config.py` | Pydantic YAML schema. Validators block non-greedy family A, sampling at temperature 0, an ablation N above the sample count, a judge that is the subject model, and prompt templates missing placeholders. |
-| `client.py` | One `Protocol`, two backends. Answer span only is ever scored. Raw per-token top-k distributions are persisted, so a new family-A signal needs no regeneration. |
-| `cache.py` | Content-addressed gzip cache, SHA-256 over ten fields. A rerun of a finished stage issues zero calls. |
-| `normalize.py` | Exact match, token F1, abstention detection, full Unicode punctuation stripping. |
-| `signals/base.py` | The signal registry. Orientation is declared here and nowhere else. |
-| `signals/logprob_signals.py` | Family A, 9 signals. |
-| `signals/nli.py` + `consistency.py` | Family B, 6 signals, bidirectional-entailment clustering and semantic entropy. |
-| `signals/verification.py` | Family C, 3 signals, P(True) renormalized over the True/False pair. |
-| `signals/trivial.py` | Family T, 3 baselines. |
-| `labeling.py` | Abstention routing, exact match, judge rubric, strict verdict parsing, heuristic fallback, Cohen's kappa. |
-| `datasets/` | Builder base and the PopQA builder. |
-
-Three details in there are worth more than the feature list.
-
-Orientation lives in exactly one place. Every signal declares whether its raw
-value rises with confidence or with risk, and one function applies the flip, so
-the exported number always means "higher = more likely wrong". An inverted signal
-does not fail loudly — it reports AUROC 1-x, so a genuinely strong signal at 0.72
-reads as 0.28 and nothing in the table points at the cause. There is a test per
-family that asserts the sign of every signal at once.
-
-P(True) is renormalized over the {True, False} pair rather than read as
-`exp(logprob(" True"))`. Measured on the real model with the real prompt, the raw
-value is 0.0000 and the renormalized value is 0.0076. The raw number is not a
-small probability of correctness; it is an artifact of most of the next-token
-mass going to "Yes" or a newline. On Qwen2.5 the tokens resolve to `" True"` =
-3007 and `" False"` = 3557, read off the tokenizer rather than assumed, and the
-resolver raises if the two ever collide on one id — that collision would pin
-P(True) at exactly 0.5 for every item and read as "self-verification is
-uninformative" rather than as a broken lookup.
-
-Abstention is its own label category. A refusal is trivially predictable from any
-of these signals, so counting refusals as errors would inflate every AUROC by
-measuring a tautology.
-
-## What is not implemented
-
-The five pipeline stages and their CLI wiring, the analysis module (AUROC,
-stratified bootstrap, DeLong, calibration, risk-coverage), the figures, and the
-TriviaQA and SimpleQA builders. The Makefile targets for these exist and will
-fail. Because the stages are absent, `make all` does not run end to end and there
-is no `results.json`.
-
-## Four things that did not go as planned
-
-The corruption test on the response cache failed for a reason I had not
-anticipated. I caught `OSError`, `JSONDecodeError` and `EOFError` around the
-gzip read, on the assumption that those covered a truncated file. A truncated
-gzip member actually raises `zlib.error`, which inherits from `Exception` and not
-from `OSError`, so a half-written cache entry propagated instead of reading as a
-miss. That would have surfaced as a crash mid-run after an interrupt, which is
-precisely when a resumable pipeline is supposed to work.
-
-The normalization tests failed three ways, and only one was the code. The real
-bug: I used `string.punctuation`, which is ASCII-only and does not contain U+2019
-RIGHT SINGLE QUOTATION MARK. `NFKC` does not fold that to an ASCII apostrophe
-either, so the two spellings of O'Brien normalized to different strings, and the
-curly form is what models actually emit. The table now covers every codepoint in
-Unicode category P. The other two failures were my own bad fixtures: I used
-single letters as filler tokens, and a bare "a" is an article that normalizes
-away, so my hand-computed F1 values were wrong rather than the function.
-
-Three latent bugs surfaced the moment previously-untested code met real weights
-and a real gateway, and all three were in modules that had been passing their
-fixture tests for a session. `client.py` passed `dtype=` to
-`from_pretrained`; transformers 4.46 has no such parameter and raises
-`TypeError` from the model constructor. The DeBERTa-v3 tokenizer needs
-`protobuf` to convert its sentencepiece model, so the NLI model raised
-`ImportError` while the BPE-backed Qwen tokenizer loaded fine — making the
-failure look unrelated to the NLI downgrade that caused it. And openai 1.54.4
-constructs its HTTP client with `proxies=`, which httpx removed in 0.28.0, so
-`OpenAI()` raised before issuing a single request. None of these are visible from
-reading this repository's code, and none of them were caught by 84 passing tests.
-
-Two of my own tests were wrong rather than the code, again. I asserted that the
-Wu-penalized total and the mean logprob must rank a pair differently, and picked
-a pair where both signals agree — dividing a fixed negative total by anything
-larger moves it the same direction, so the fixture could not have separated them.
-And I used "a b" / "c d" as filler strings in a clustering test, where "a" is an
-article that normalizes away, so my scripted entailment scores were keyed on
-pairs the code never asked about. That is the same fixture trap that cost me two
-normalization tests last session, which suggests the lesson has not stuck.
-
-## Reproducing what exists
+## Reproduction
 
 ```bash
 git clone https://github.com/urrra39/llm-uncertainty-benchmark
 cd llm-uncertainty-benchmark
-make setup
-make check        # ruff + ruff format + mypy strict + pytest
+uv sync --extra local
+export GSK_API_KEY=...            # judges only; the subject model is local
+export OPENAI_BASE_URL=...        # OpenAI-compatible gateway for the judges
+
+uv run unc-bench build-dataset  --config configs/default.yaml
+uv run unc-bench generate       --config configs/default.yaml
+uv run unc-bench score-signals  --config configs/default.yaml --family b
+uv run unc-bench score-signals  --config configs/default.yaml --family actc
+uv run unc-bench label          --config configs/default.yaml
+uv run unc-bench analyze        --config configs/default.yaml
 ```
 
-`make setup EXTRA=local` additionally installs torch and transformers. CI
-installs neither.
+Family B must be a separate process from `generate`: DeBERTa and the generator
+do not fit in 2 GB together. Every stage is resumable and skips rows already in
+its checkpoint, so an interrupt costs only the questions in flight.
 
-CI runs on every push to `main` from
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml): ruff, ruff format, mypy
-strict and pytest on Python 3.11, with `UNC_BENCH_OFFLINE=1` so no test can
-reach the network. `make check` runs the identical set locally.
+## Hardware and wall clock
 
-Hardware this was developed on: 2 vCPU, 2.0 GB RAM, no GPU, Python 3.11.
+No GPU, 2 CPU cores, ~2 GB RAM. Linux 6.1, Python 3.11.16, torch 2.5.1,
+transformers 4.46.3.
 
-## Model and dataset cards
+| stage | measured | wall clock |
+| --- | --- | --- |
+| build-dataset | — | 2 s |
+| generate (100 q, greedy + 5 samples + verification) | 18.0 s/question | 27.2 min |
+| score-signals family B (NLI) | 0.98 s/question | 1.9 min |
+| score-signals families A/C/baselines | — | 1.3 s |
+| label (71 primary + 71 secondary judge calls) | 1.8 s and 1.3 s/item | 3.5 min |
+| analyze (10,000 bootstrap resamples, 4 figures) | — | 41 s |
 
-- Subject configured: `Qwen/Qwen2.5-0.5B-Instruct`, bfloat16 on CPU, greedy
-  decoding, seed 0, 24 max new tokens. Intended subject:
-  `Qwen/Qwen2.5-7B-Instruct` on vLLM. Same family, so prompt formatting and the
-  single-token True/False assertions carry over.
-- NLI: `MoritzLaurer/DeBERTa-v3-base-mnli`. Downgraded from `-large`, which does
-  not fit in 2 GB alongside the generator. Label order read off `config.id2label`
-  rather than assumed, since several MNLI checkpoints on the Hub reverse it.
-- Judges: `gpt-5-mini` primary, `claude-haiku-4-5` secondary. Both need text
-  output only, so the gateway's missing logprobs do not matter for judging.
-- PopQA: 14k Wikidata-triple questions with popularity counts, read from
-  `test.tsv`. Long-tail entities, which is why it is here.
-- TriviaQA `rc.nocontext` validation: 17,944 rows, gold aliases in
-  `answer.normalized_aliases`.
-- SimpleQA: 4,326 rows, adversarially collected against stronger models.
+About 34 minutes of compute for the pipeline. Total session wall clock,
+including dependency installation, the 12-question throughput probe and two
+defect fixes, was about 1 hour 5 minutes.
 
-## Inter-judge kappa
+## Model card (subject)
 
-Not measured. The labeling module is implemented and both judges are verified
-working against the live gateway, but computing kappa requires the labeling
-stage, which is one of the five unwritten pipeline stages. The module has a
-`cohens_kappa` that returns NaN with `trustworthy=False` rather than 0.0 when two
-judges are unanimous, because 0/0 is unanimity with no variance to measure and
-reporting 0.0 would read as total disagreement.
+- **Model**: `Qwen/Qwen2.5-0.5B-Instruct`, bfloat16, local `transformers`.
+- **Decoding**: greedy, temperature 0, top_p 1.0, seed 0, `max_new_tokens=24`.
+  Self-consistency samples: 5 at temperature 0.7, top_p 0.9, seeds 1000+.
+- **Prompt**: fixed system prompt instructing a shortest-span answer and the
+  literal token `UNKNOWN` when the model does not know. The prompt string is
+  part of the cache key, so it cannot drift silently between rows.
+- **Why 0.5B**: family A needs token logprobs, the available API gateway
+  returns none for any model it allows, so the subject model had to run
+  locally. On 2 CPU cores a 7B model is roughly 20x slower and would not have
+  produced a completed run. This is the largest single compromise in the study.
+
+## Dataset card
+
+- **Source**: TriviaQA `rc.nocontext`, validation split, 17,944 candidate rows,
+  read from the Hub parquet endpoint.
+- **Sample**: 100 questions, `numpy` default_rng seed 12345, drawn from the
+  candidates sorted by qid so the draw is reproducible.
+- **Gold answers**: the full alias list per question (`value`, `aliases`,
+  `normalized_aliases`), median 19.5 aliases per question (min 2, max 118),
+  matched after the project's own normalization.
+- **Known defect in the source**: the split repeats `question_id` for questions
+  paired with multiple evidence documents. With context stripped those rows are
+  identical; the builder keeps the first occurrence.
+
+## Labels and inter-judge agreement
+
+| category | count |
+| --- | --- |
+| abstained (`UNKNOWN`) | 25 |
+| correct | 7 |
+| incorrect | 68 |
+
+Abstention is its own category and is excluded from the AUROC computation.
+Counting a refusal as an error would inflate every signal, because a refusal is
+trivially predictable from the logprob of a token the model was instructed to
+emit.
+
+Labeling is exact match against the alias list first (settled 4 correct plus 25
+abstentions), then `gpt-5-mini` at temperature 0 with a strict CORRECT /
+INCORRECT / AMBIGUOUS rubric on the remaining 71 rows, then `claude-haiku-4-5`
+as an independent second judge on all 71 of the same rows.
+
+**Cohen's κ = 1.000** on n=71, observed agreement 1.000, expected agreement
+0.919. Zero parse failures on either judge, zero rows fell back to the fuzzy
+heuristic. The two judges agreed on all 71 items. κ=1.0 is a suspiciously
+clean number and it should be read with the base rate in mind: 64 of the 71
+judged rows are incorrect, most of them obviously so (the model answered "The
+Wizard of Oz" where the gold is "The Third Man"), so the task the judges were
+given was easy. Perfect agreement on an easy task is weak evidence that the
+judges would agree on a hard one.
+
+`data/human_validation_sample.csv` ships all 100 rows with qid, question, model
+answer, gold aliases, the judge label and an empty `human_label` column. I did
+not fill it in and I make no claim about human-judge agreement.
+
+## What I would ship
+
+Length-normalized logprob, thresholded to abstain when the value exceeds 1.0.
+Reasoning: it is the top of the table at 0.826, it is free — the logprobs come
+back from the same forward pass that produced the answer, at 1.00x cost — and
+its ECE of 0.047 after Platt scaling is among the better-calibrated signals. At
+that threshold, on this run, the system answers 14 of 75 questions (19%
+coverage) and 4 of those 14 are correct, so error among answered questions is
+0.714 against a base rate of 0.907. That is a real 19-point reduction in error
+rate and it is also nowhere near shippable.
+
+The honest recommendation is therefore conditional: ship the free signal,
+because paying 5.99x for self-consistency bought 0.055 *less* AUROC on this run
+and paying 3.17x for verbalized confidence bought a signal that is worse than
+chance (0.386, i.e. the model's stated confidence is mildly anti-correlated
+with being right). But do not ship this model on this task at any threshold.
+The thing to fix is the 90.7% base error rate, not the uncertainty signal
+ranking on top of it.
+
+## Limitations
+
+See [LIMITATIONS.md](LIMITATIONS.md). The short version: n=100 with 7 positives
+is too small to separate 21 signals, the subject model is 14x smaller than
+intended, the random baseline drew 0.746 which tells you how much noise is in
+every other row of the table, and DeLong/AUPRC were not computed.
+
+Decisions, measured rates and every scope cut are in
+[docs/DECISIONS.md](docs/DECISIONS.md).
 
 ## License
 

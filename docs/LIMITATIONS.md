@@ -1,110 +1,101 @@
 # Limitations
 
-## The run has not been executed
+The run described in the README completed. These are the reasons not to trust
+its ranking.
 
-This is the limitation that subsumes the rest. The measurement apparatus is now
-complete — all four signal families, the labeling pipeline, 217 tests — and the
-harness that would drive it is not. The five pipeline stages, the analysis module
-and the figures are unwritten, so `make all` does not run end to end, there is no
-`results.json`, and there is no AUROC table anywhere in this repository.
+## 1. The sample is too small to separate 21 signals
 
-Nothing here should be cited as a result. Specifically absent: every AUROC, the
-bootstrap CIs, the DeLong comparisons, the risk-coverage curves and AURC, the ECE
-and reliability diagrams, the Platt-scaled calibration, the correlation heatmap,
-the per-dataset breakdown, the N=1/2/3/5 ablation, and the 2-feature logistic
-regression. Each of those was specified and none was run.
+n=100 questions, of which 75 were answered and 7 were correct. AUROC is
+computed against those 7 positives. The widest confidence interval in the
+table is 0.500 wide and the narrowest is 0.208; the gap between first and
+second place is 0.007. Nothing in the table is separated from anything else,
+and the README says so directly.
 
-I also did not follow the brief's instruction to stop building at 50% of budget
-and start running. The signal families and labeling ran long, partly because
-three latent bugs only surfaced on first contact with real weights and a live
-gateway (DECISIONS D29-D31). The result is that the wrong half of the project is
-finished: the part that produces numbers is tested and the part that would
-collect them does not exist.
+The controlling evidence is the random baseline. A uniform random score drew
+AUROC 0.746 [0.590, 0.876] on these rows. It should be 0.5. Twelve of the
+twenty real signals have point estimates inside that interval. Any statement
+of the form "family A beats family B here" is a statement about which way the
+noise fell.
 
-## Model specificity
+## 2. The subject model is 14x smaller than intended
 
-The design targets Qwen2.5-7B-Instruct on vLLM. This machine has no GPU, and
-the API gateway available to it returns no `logprobs` object for any model it
-allows, which rules out both the primary path and the brief's gpt-4o-mini
-fallback (see docs/DECISIONS.md D1). The configured subject is therefore
-`Qwen2.5-0.5B-Instruct` on CPU.
+The design targets Qwen2.5-7B-Instruct on vLLM. This machine has no GPU and
+the available API gateway returns no `logprobs` for any model it allows, which
+rules out a hosted subject model entirely — family A is the whole point of the
+comparison and it needs token logprobs. So the subject is
+Qwen2.5-0.5B-Instruct on 2 CPU cores.
 
-Two consequences. A 0.5B model is much weaker than a 7B, so its absolute error
-rate would be far higher than published 7B numbers and not comparable to them.
-More importantly for the research question, it is not established that the
-*ranking* of uncertainty signals is stable across model scale. If the ranking
-were measured at 0.5B, it would be a claim about 0.5B until someone reruns it at
-7B. The config makes that rerun a YAML edit.
+The consequence is not just noise, it is a different regime. A 0.5B model gets
+7 of 75 committed trivia answers right. The uncertainty-signal literature this
+study is testing was developed on models that are right most of the time, where
+the interesting question is which of the minority of errors a signal catches.
+Here the model is wrong 90.7% of the time it answers, so there is very little
+correct-answer mass for any signal to identify. Results should not be
+extrapolated to a 7B or 70B model.
 
-## Anthropic models are not the subject
+## 3. The base error rate makes selective prediction useless
 
-The Anthropic API does not expose token logprobs, so signal family A cannot be
-computed for a Claude model. That is a property of the API surface. Claude
-models are used as label judges here, where only text output is needed.
+Base rate of error among answered rows is 0.907. Coverage at the 90%-accuracy
+target is 0.013 — one question — for the two signals that reach it at all, and
+undefined for the other nineteen. The best threshold I could find on the
+best signal takes error from 0.907 to 0.714 at 19% coverage. That is a real
+improvement and it is not a shippable system. The risk-coverage figure shows
+curves that stay above 0.62 error at every coverage above 11%.
 
-## Short-form only
+## 4. DeLong and AUPRC were not computed
 
-Every signal and every label assumes the answer is a short factual span that can
-be compared by normalized exact match or adjudicated by a judge in one call.
-None of this transfers to long-form generation, where correctness is not binary
-and there is no single answer span over which to average logprobs.
+The plan called for pairwise DeLong tests with Holm-Bonferroni correction and
+AUPRC alongside AUROC. Neither is implemented in the analysis layer, and
+building them this session was out of scope: the session's mandate was to
+execute the run, not to extend the apparatus. Pairwise separation is therefore
+argued from confidence-interval overlap, which is the more conservative test —
+it cannot manufacture significance that DeLong would have denied, but it is
+less sensitive, so "no significant winner" is stated on weaker evidence than
+intended. The AUPRC column is absent rather than estimated.
 
-## Compute ceiling
+The logistic-regression combination of two signals was also skipped. It
+answers a different question than the title asks.
 
-Re-measured this session on the real model rather than inherited: 6.6 s for a
-greedy answer including torch warmup, 8.0 s for five sampled continuations in one
-batched call, ~2.3 s for a verification forward pass. Roughly 20-35 s of CPU per
-question end to end.
+## 5. Judge agreement is perfect, which is itself a caveat
 
-The harder constraint is memory, and it was only found by measuring. Peak
-resident set with the generator alone is 1.57 GB of 2.0 GB available. The NLI
-model cannot be co-resident with it, so family B cannot be scored inline during
-generation and the pipeline has to load the two models in separate stages. Any
-future implementation of the stages has to respect that; a design that holds both
-at once will be OOM-killed rather than merely slow.
+Cohen's κ = 1.000 between gpt-5-mini and claude-haiku-4-5 on all 71 judged
+rows. That is not evidence of a well-calibrated judging setup; it is evidence
+that the task was easy. 64 of 71 judged rows are incorrect and most are
+unambiguously so. Two judges agreeing that "The Wizard of Oz" is not "The
+Third Man" tells you very little about how they would handle a genuinely
+borderline alias match, which is the case the judge exists for.
 
-## Automated rather than human label validation
+Related: `claude-haiku-4-5` ignored the "reply with exactly one word"
+instruction on 45 of 71 items and answered with the verdict followed by an
+unsolicited justification. The original strict parser discarded all of those,
+which silently reduced the second judge to 15 usable verdicts. Had I not
+inspected the cache I would have published a κ computed on a
+compliance-selected subset and called it agreement on the run. The parser now
+accepts a leading verdict.
 
-The design validates labels with a second independent judge and reports Cohen's
-kappa, and writes 100 rows to `data/human_validation_sample.csv` with an empty
-`human_label` column. That is agreement between two automated judges, not
-accuracy against human labels. Two judges can agree and both be wrong,
-especially on alias-heavy PopQA items where the boundary between a correct
-alias and a near-miss is genuinely unclear.
+## 6. No human validation
 
-## NLI downgrade
+`data/human_validation_sample.csv` contains all 100 rows with an empty
+`human_label` column. Nobody labeled it. There is no measured human-judge
+agreement, so the entire label set rests on two LLM judges that agree with
+each other and were never checked against a person.
 
-`deberta-v3-large-mnli` does not fit alongside the generator in 2 GB, so the
-config specifies `deberta-v3-base-mnli`. The base model is weaker at the
-bidirectional entailment judgements that semantic-entropy clustering depends on,
-which would add noise to that one signal specifically.
+## 7. Single dataset, single prompt, single seed
 
-## Signals are unvalidated against outcomes
+TriviaQA only. PopQA and SimpleQA are not in this run, so nothing here speaks
+to whether the ranking is stable across question distributions — and given
+point 1, it would not be detectable if it were not. One fixed prompt, one
+greedy decode at seed 0, one sampling seed base. The nondeterminism probe
+exists in the CLI and was not run this session, so CPU-level run-to-run drift
+in the greedy answers is unquantified for this run.
 
-Every signal is unit-tested for correctness of its arithmetic and for its
-orientation. None has been checked against a single real correctness label,
-because no labels exist. A signal can be arithmetically perfect and carry no
-information about whether an answer is wrong, and that is exactly the question
-the project was built to answer.
+## 8. Abstention handling is a judgment call
 
-## Verbalized confidence expected to be degenerate
-
-The design predicts that a 0.5B model reports a near-constant confidence
-(typically 90) regardless of whether it is right. That prediction is untested
-here. It is recorded as an expectation rather than a finding, and the signal is
-retained rather than dropped so the degeneracy would show up in the results if it
-is real.
-
-## Batch non-determinism, unmeasured
-
-The README is supposed to report the disagreement rate over 50 greedy prompts run
-twice. The `nondeterminism` stage is specified in the Makefile and not yet
-implemented, so this number does not exist. Note that the relevant effect on a
-CPU transformers backend differs from vLLM's: vLLM's non-determinism comes from
-batch-dependent kernel scheduling, which this backend does not do.
-
-## Dataset choice
-
-PopQA, TriviaQA and SimpleQA are all English, all entity-centric, and all drawn
-from Wikipedia-adjacent sources. A signal that works here may not work on
-domain-specific factual questions with different popularity distributions.
+25 of 100 rows are `UNKNOWN` and are excluded from the discrimination task.
+This is defensible — a refusal is not a factual error, and it is trivially
+predictable from the logprob of a token the model was told to emit, so
+including it would inflate every signal. But it is a choice, and it removes a
+quarter of the data. The `with_abstentions` view in `results.json` reports the
+alternative treatment for anyone who disagrees: there the ranking changes at
+the top (total logprob leads at 0.886) and the conclusion does not — the
+intervals still all overlap.
