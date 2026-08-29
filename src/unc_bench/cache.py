@@ -21,6 +21,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+import zlib
 from pathlib import Path
 from typing import Any
 
@@ -99,8 +100,10 @@ class ResponseCache:
         try:
             with gzip.open(path, "rt", encoding="utf-8") as fh:
                 entry = json.load(fh)
-        except (OSError, json.JSONDecodeError, EOFError):
-            # A truncated entry from an interrupted write is a miss, not a crash.
+        except (OSError, json.JSONDecodeError, EOFError, zlib.error, UnicodeDecodeError):
+            # A truncated or corrupt entry is a miss, not a crash. zlib.error is
+            # listed explicitly: it does not inherit from OSError, so an earlier
+            # version of this handler let a half-written gzip member propagate.
             self.misses += 1
             return None
         if not isinstance(entry, dict) or entry.get("_v") != CACHE_FORMAT_VERSION:
