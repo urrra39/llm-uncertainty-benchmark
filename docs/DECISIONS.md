@@ -476,3 +476,26 @@ exited. This was already implemented and I kept it that way.
 - **Human validation is a blank template.** `data/human_validation_sample.csv`
   ships 100 rows with an empty `human_label` column. I did not label them and I
   do not report agreement with a human.
+
+### D25: generation finished, and the full-run label distribution
+
+100/100 questions generated, 0 failures, three foreground chunks totalling
+**27.2 minutes** of wall clock at 18.0 / 17.9 / 18.7 / 18.1 s/question. The
+projection from the 12-row chunk held to within 4%.
+
+String-match label distribution over all 100 rows, before any judge ran:
+
+| category | count |
+| --- | --- |
+| abstained (`UNKNOWN`) | 25 |
+| answered, exact-match correct | 4 |
+| answered, fuzzy-only correct | 3 |
+| answered, incorrect | 68 |
+
+Error rate over all rows is **68%**, inside the 15–80% sanity band. Error rate
+over answered rows is **90.7%**. The 12-row pilot's 0/6 was pessimistic but the
+direction was right: there are only 7 string-matched correct answers among 75
+answered rows, so the positive class for the discrimination task is very small.
+Whatever AUROC comes out of this run is computed against roughly that many
+positives, and its confidence interval will be enormous. This is recorded here
+before the judges ran so it is clear the analysis was not tuned to a target.
