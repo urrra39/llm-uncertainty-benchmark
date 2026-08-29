@@ -325,7 +325,13 @@ def fit_platt(scores: FloatArray, labels: BoolArray, *, max_iter: int = 200) -> 
     z = (s - mu) / sigma
     a, b = 0.0, 0.0
     for _ in range(max_iter):
-        logits = a * z + b
+        # Clipped before the exponential. On a well-separated signal Newton
+        # drives the slope up until some |logit| exceeds ~709, where exp()
+        # overflows to inf; the resulting p is still the correct 0 or 1 but the
+        # step is computed from inf-derived weights and numpy warns on every
+        # iteration. Clipping at 60 leaves p within 1e-26 of its limit, which is
+        # far tighter than the convergence tolerance below.
+        logits = np.clip(a * z + b, -60.0, 60.0)
         p = 1.0 / (1.0 + np.exp(-logits))
         w = np.clip(p * (1 - p), 1e-12, None)
         grad = np.array([float(np.sum((p - y) * z)), float(np.sum(p - y))])
