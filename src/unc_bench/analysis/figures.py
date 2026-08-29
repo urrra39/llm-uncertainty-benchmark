@@ -35,6 +35,32 @@ FAMILY_COLORS = {
 DPI = 150
 
 
+class NothingToPlotError(RuntimeError):
+    """A figure has no data behind it.
+
+    Raised rather than drawing an empty axes, and caught by `render_all` so one
+    undrawable figure does not abort the others. This happens for real: a view
+    whose rows are all one class has no AUROC anywhere, and that is a fact about
+    the run rather than a bug to crash on.
+    """
+
+
+def _num(value: Any, default: float = float("nan")) -> float:
+    """Read a number that `results.json` may legitimately store as null.
+
+    The report writes null wherever a value was not measurable, so every read
+    here has to tolerate it. Defaults to NaN, which the plotting code already
+    filters, rather than to 0.0, which would draw a point at a value nothing
+    measured.
+    """
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def load_results(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
@@ -52,11 +78,17 @@ def plot_auroc(results: dict[str, Any], out: Path, *, view: str = "primary") -> 
     signals = payload["signals"]
     ordered = list(payload["ranking"])
     if not ordered:
-        raise ValueError("no signal has a defined AUROC; nothing to plot")
+        raise NothingToPlotError(
+            f"view {view!r} has no signal with a defined AUROC "
+            f"(n={payload['n']}, base rate {payload['base_rate_incorrect']})"
+        )
 
-    points = [signals[n]["auroc"]["point"] for n in ordered]
-    lows = [signals[n]["auroc"]["ci_low"] for n in ordered]
-    highs = [signals[n]["auroc"]["ci_high"] for n in ordered]
+    points = [_num(signals[n]["auroc"]["point"]) for n in ordered]
+    # A CI that could not be estimated falls back to the point estimate, which
+    # draws a bare marker with no error bar. That is the honest picture: the
+    # AUROC is known and its uncertainty is not.
+    lows = [_num(signals[n]["auroc"]["ci_low"], p) for n, p in zip(ordered, points, strict=True)]
+    highs = [_num(signals[n]["auroc"]["ci_high"], p) for n, p in zip(ordered, points, strict=True)]
     colors = [FAMILY_COLORS.get(signals[n]["family"], "#333333") for n in ordered]
 
     fig, ax = plt.subplots(figsize=(8.5, 0.34 * len(ordered) + 2.0))
@@ -83,7 +115,7 @@ def plot_auroc(results: dict[str, Any], out: Path, *, view: str = "primary") -> 
     ax.invert_yaxis()
     ax.set_xlabel("AUROC for predicting an INCORRECT answer (higher is better)")
     n = payload["n"]
-    base = payload["base_rate_incorrect"]
+    base = _num(payload["base_rate_incorrect"])
     level = int(round(100 * results["analysis_config"]["ci_level"]))
     ax.set_title(
         f"{results['run_name']}  |  n={n}, base rate {base:.1%} incorrect\n"
@@ -122,7 +154,7 @@ def plot_risk_coverage(
         rc = signals[name]["risk_coverage"]
         if not rc["coverage"]:
             continue
-        aurc = signals[name]["aurc"]
+        aurc = _num(signals[name]["aurc"])
         style = "--" if name == "t_random" else "-"
         ax.plot(
             rc["coverage"],
@@ -132,7 +164,7 @@ def plot_risk_coverage(
             color=FAMILY_COLORS.get(signals[name]["family"], "#333333"),
             label=f"{name}  (AURC {aurc:.3f})",
         )
-    base = payload["base_rate_incorrect"]
+    base = _num(payload["base_rate_incorrect"])
     ax.axhline(base, color="#000000", linestyle=":", linewidth=1.0, label=f"base rate {base:.3f}")
     ax.set_xlabel("coverage: fraction of questions answered, lowest-risk first")
     ax.set_ylabel("risk: error rate among answered questions")
@@ -177,7 +209,7 @@ def plot_calibration(
             markersize=4,
             linewidth=1.4,
             color=FAMILY_COLORS.get(signals[name]["family"], "#333333"),
-            label=f"{name}  (ECE {signals[name]['ece']:.3f})",
+            label=f"{name}  (ECE {_num(signals[name]['ece']):.3f})",
         )
     ax.set_xlabel("predicted P(incorrect), Platt-scaled on the train split")
     ax.set_ylabel("observed fraction incorrect")
@@ -240,12 +272,23 @@ def _save(fig: Any, out: Path) -> Path:
 
 
 def render_all(results_path: Path, figures_dir: Path, *, view: str = "primary") -> list[Path]:
-    """Every figure, from the results file alone."""
+    """Every figure, from the results file alone.
+
+    One figure failing does not stop the others. A run whose primary view is
+    degenerate still produces a usable correlation heatmap, and losing it to an
+    exception raised by an unrelated plot would be pointless.
+    """
     results = load_results(results_path)
-    written = [
-        plot_auroc(results, figures_dir / "auroc.png", view=view),
-        plot_risk_coverage(results, figures_dir / "risk_coverage.png", view=view),
-        plot_calibration(results, figures_dir / "calibration.png", view=view),
-        plot_correlation(results, figures_dir / "correlation.png", view=view),
-    ]
+    jobs = (
+        ("auroc.png", plot_auroc),
+        ("risk_coverage.png", plot_risk_coverage),
+        ("calibration.png", plot_calibration),
+        ("correlation.png", plot_correlation),
+    )
+    written: list[Path] = []
+    for filename, plotter in jobs:
+        try:
+            written.append(plotter(results, figures_dir / filename, view=view))
+        except NothingToPlotError as exc:
+            print(f"[figures] skipped {filename}: {exc}", flush=True)
     return written

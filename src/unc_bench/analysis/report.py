@@ -14,6 +14,7 @@ Ambiguous items are dropped from both views and counted.
 from __future__ import annotations
 
 import json
+import math
 import platform
 from datetime import UTC, datetime
 from typing import Any
@@ -260,11 +261,36 @@ def _verdict(ranked: list[str], signals: dict[str, Any], cfg: Config) -> dict[st
     }
 
 
+def _json_safe(value: Any) -> Any:
+    """Replace non-finite floats with null, recursively.
+
+    `json.dumps` emits a bare `NaN` token by default. Python's own loader
+    accepts it, so this file round-trips locally and looks fine, but `NaN` is
+    not in the JSON grammar: every strict parser rejects it, which includes
+    `jq`, JavaScript's `JSON.parse` and most CI validators. A results file that
+    only the language that wrote it can read is not a portable artifact.
+
+    `null` rather than a sentinel number. NaN here means "not measured" — a
+    signal with no usable rows, a CI that could not be estimated — and any
+    numeric stand-in would be silently averaged into something by a reader.
+    """
+    if isinstance(value, float):
+        return None if not math.isfinite(value) else value
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
+
+
 def write_results(cfg: Config) -> dict[str, Any]:
     """Build the report and write it to `paths.results_json`."""
     results = build_results(cfg)
     path = cfg.paths.results_json
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(results, indent=2, sort_keys=True), encoding="utf-8")
+    path.write_text(
+        json.dumps(_json_safe(results), indent=2, sort_keys=True, allow_nan=False),
+        encoding="utf-8",
+    )
     print(f"[analyze] wrote {path}", flush=True)
     return results
