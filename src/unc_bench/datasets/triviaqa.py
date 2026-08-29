@@ -34,6 +34,19 @@ TRIVIAQA_URL = (
 )
 
 
+#: Alias-count threshold for "well-known". TriviaQA's alias list is built from
+#: Wikipedia redirects and surface forms, so a heavily-redirected entity has many
+#: aliases and an obscure one has few. This is a proxy for entity frequency and
+#: it is a proxy: TriviaQA ships no popularity field, unlike PopQA's `s_pop`.
+#: The substitution is documented in docs/DECISIONS.md.
+MIN_ALIASES_FOR_EASY = 12
+
+#: Upper bound on question length in words. Long trivia questions are long
+#: because they pile on qualifying clauses, and a 0.5B model loses the thread.
+#: Also part of the frequency proxy rather than an independent criterion.
+MAX_QUESTION_WORDS_FOR_EASY = 20
+
+
 class TriviaQABuilder(DatasetBuilder):
     name = "triviaqa"
 
@@ -41,9 +54,22 @@ class TriviaQABuilder(DatasetBuilder):
     #: See `_looks_high_frequency` for what that means and why it is a proxy.
     easy_only: bool = False
 
-    def __init__(self, raw_dir: Path, *, easy_only: bool = False) -> None:
+    #: Alias-count threshold used by the easy slice. Config-driven because the
+    #: pilot has to be able to move it: iteration 1 measured 0/9 correct in the
+    #: 12-20 alias bucket against 0.22 in the 20-35 bucket, so the threshold is
+    #: a real difficulty knob and not a constant.
+    min_aliases: int = MIN_ALIASES_FOR_EASY
+
+    def __init__(
+        self,
+        raw_dir: Path,
+        *,
+        easy_only: bool = False,
+        min_aliases: int = MIN_ALIASES_FOR_EASY,
+    ) -> None:
         super().__init__(raw_dir)
         self.easy_only = easy_only
+        self.min_aliases = min_aliases
 
     @property
     def local_path(self) -> Path:
@@ -79,7 +105,9 @@ class TriviaQABuilder(DatasetBuilder):
             key = f"triviaqa-{qid}"
             if key in seen:
                 continue
-            if self.easy_only and not _looks_high_frequency(text, aliases):
+            if self.easy_only and not _looks_high_frequency(
+                text, aliases, min_aliases=self.min_aliases
+            ):
                 continue
             seen.add(key)
             out.append(
@@ -93,20 +121,12 @@ class TriviaQABuilder(DatasetBuilder):
         return out
 
 
-#: Alias-count threshold for "well-known". TriviaQA's alias list is built from
-#: Wikipedia redirects and surface forms, so a heavily-redirected entity has many
-#: aliases and an obscure one has few. This is a proxy for entity frequency and
-#: it is a proxy: TriviaQA ships no popularity field, unlike PopQA's `s_pop`.
-#: The substitution is documented in docs/DECISIONS.md.
-MIN_ALIASES_FOR_EASY = 12
-
-#: Upper bound on question length in words. Long trivia questions are long
-#: because they pile on qualifying clauses, and a 0.5B model loses the thread.
-#: Also part of the frequency proxy rather than an independent criterion.
-MAX_QUESTION_WORDS_FOR_EASY = 20
-
-
-def _looks_high_frequency(question: str, aliases: tuple[str, ...]) -> bool:
+def _looks_high_frequency(
+    question: str,
+    aliases: tuple[str, ...],
+    *,
+    min_aliases: int = MIN_ALIASES_FOR_EASY,
+) -> bool:
     """Proxy test for "this asks about a well-known entity".
 
     Three conditions, all of which have to hold:
@@ -123,7 +143,7 @@ def _looks_high_frequency(question: str, aliases: tuple[str, ...]) -> bool:
     LIMITATIONS.md rather than hidden: the resulting benchmark measures error
     prediction on popular-entity trivia, not on trivia in general.
     """
-    if len(aliases) < MIN_ALIASES_FOR_EASY:
+    if len(aliases) < min_aliases:
         return False
     if len(question.split()) > MAX_QUESTION_WORDS_FOR_EASY:
         return False

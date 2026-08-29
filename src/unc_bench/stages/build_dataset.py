@@ -33,11 +33,16 @@ def _construct(builder_cls: type[DatasetBuilder], name: str, cfg: Config) -> Dat
     a code change.
     """
     if name == "triviaqa":
-        return TriviaQABuilder(cfg.paths.raw_dir, easy_only=cfg.difficulty.triviaqa_easy_only)
+        return TriviaQABuilder(
+            cfg.paths.raw_dir,
+            easy_only=cfg.difficulty.triviaqa_easy_only,
+            min_aliases=cfg.difficulty.triviaqa_min_aliases,
+        )
     if name == "popqa":
         return PopQABuilder(
             cfg.paths.raw_dir,
             popularity_quantile=cfg.difficulty.popqa_popularity_quantile,
+            relations=cfg.difficulty.popqa_relations,
         )
     return builder_cls(cfg.paths.raw_dir)
 

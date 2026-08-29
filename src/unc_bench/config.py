@@ -142,6 +142,13 @@ class DifficultySpec(Frozen):
     #: Keep only PopQA rows at or above this quantile of subject pageviews.
     #: None disables the filter. 0.9 is the top popularity decile.
     popqa_popularity_quantile: float | None = Field(default=None, ge=0.0, lt=1.0)
+    #: Alias-count threshold for the TriviaQA easy slice. Raising it demands a
+    #: more heavily redirected answer entity, i.e. a more famous one.
+    triviaqa_min_aliases: int = Field(default=12, ge=1)
+    #: Keep only these PopQA relation types. None keeps all 16. Pilot iteration
+    #: 1 showed relation type dominates subject popularity as a difficulty axis:
+    #: `capital` is a lookup, `screenwriter` is not.
+    popqa_relations: tuple[str, ...] | None = None
 
 
 class FewShotSpec(Frozen):

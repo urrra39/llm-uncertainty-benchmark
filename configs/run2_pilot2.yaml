@@ -1,4 +1,4 @@
-run_name: run2_easy_mix
+run_name: run2_pilot2_40
 
 # The model under test. Backend is swappable: point this at a vLLM
 # OpenAI-compatible server and nothing else changes.
@@ -37,8 +37,8 @@ nli:
 # the remaining budget. See docs/DECISIONS.md for the pilot measurement that
 # set this number.
 dataset_mix:
-  triviaqa: 30
-  popqa: 90
+  triviaqa: 28
+  popqa: 12
   simpleqa: 0
 # Run #2: raise the base rate by restricting both sources to their easier end.
 # Run #1 drew unrestricted TriviaQA and got 7/75 answered rows correct, which
@@ -88,7 +88,7 @@ split:
   seed: 20260101
 
 analysis:
-  bootstrap_resamples: 10000
+  bootstrap_resamples: 2000
   bootstrap_seed: 987654321
   ci_level: 0.95
   ece_bins: 10
@@ -102,9 +102,9 @@ analysis:
 paths:
   raw_dir: data/raw
   cache_dir: data/cache
-  artifacts_dir: data/run2
+  artifacts_dir: data/run2_pilot2
   figures_dir: figures
-  results_json: results.json
+  results_json: results_run2_pilot2.json
   human_validation_csv: data/human_validation_sample.csv
 
 # Frozen prompts. These strings are part of the cache key, so editing them
@@ -141,3 +141,4 @@ prompts:
 
     How confident are you that the proposed answer is factually correct? Reply
     with a single integer from 0 to 100 and nothing else.
+is_pilot: true
