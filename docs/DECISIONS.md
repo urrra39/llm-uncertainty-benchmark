@@ -278,3 +278,101 @@ apparatus is now complete and tested while the harness that would drive it is
 not, which is the wrong half to have finished. The next session should write the
 five stages first and run a 40-question pilot before touching anything else.
 
+
+## Session 3: the pipeline, and a throughput measurement that cost me the run
+
+### D34. Five stages, with family B split off from generation
+
+`build_dataset -> generate -> score_signals -> label -> analyze`, each writing
+parquet through an atomic temp-file rename and each skipping qids an existing
+checkpoint already covers. Family B is a separate entry point
+(`score-signals --family b`) rather than being scored inline during generation,
+because the generator peaks at 1.57 GB of 2.0 GB and DeBERTa cannot be
+co-resident with it. That was measured in the previous session and it is the
+single constraint that shaped the whole stage layout.
+
+### D35. Measured throughput, TriviaQA, this machine
+
+Measured on real rows, not extrapolated:
+
+| Operation | Measured |
+| --- | --- |
+| generate, one question (greedy + 5 samples + 2 verifications + confidence) | 14.4 s clean, 17.8 s including torch warmup |
+| score_signals family A/C/T, whole pass | under 1 s for 40 rows |
+| score_signals family B, one question | 1.6 s |
+| label, one judged item | 2.4 s primary, 0.9 s secondary |
+
+14.4 s/question is well under the 35 s threshold the brief set for raising the
+full run to 250 questions. The full config is set to 150; the throughput
+supports 250 and the only thing standing in the way is wall clock, not the
+machine.
+
+### D36. Two generate processes on two cores halved the rate
+
+The pilot rate degraded from 14.4 to 25.3 s/question mid-run. The cause was my
+own error: I launched `generate` directly and then launched the driver script,
+which ran a second `generate` against the same config. Two processes, each
+asking torch for both cores, on a 2-core box. The stages are resumable and the
+response cache is content-addressed, so nothing was corrupted and no work was
+lost — both processes were writing the same rows — but the run took roughly
+twice as long as it needed to for the overlapping period.
+
+The pipeline should hold a lock file per config so a second invocation refuses
+to start rather than competing. It does not, and that is a real gap.
+
+### D37. Two defects the two-question smoke test caught
+
+Both would have reached the final artifact.
+
+`json.dumps` writes a bare `NaN` token for a non-finite float. Python's own
+loader accepts it, so `results.json` round-tripped locally and looked correct,
+but `NaN` is not in the JSON grammar and `jq`, `JSON.parse` and most validators
+reject the file. Every non-finite value is now `null`, which is also the more
+honest encoding: NaN here means "not measured", and a numeric stand-in invites a
+reader to average it into something.
+
+A view whose rows are all one class has no AUROC for any signal — which is a
+fact about a small run, not a bug. `plot_auroc` raised on it and took the other
+three figures down with it, *after* `results.json` had already been written. Now
+each figure is attempted independently and an undrawable one is skipped with a
+reason.
+
+The lesson is the cheap one: a 2-question end-to-end pass found two artifact
+defects in about 90 seconds, and I should have run it before writing the 40.
+
+### Status at the end of this session
+
+An honest account.
+
+Landed, green under `make check` (ruff, ruff format, mypy strict, 264 tests),
+and pushed commit by commit:
+
+- `datasets/triviaqa.py`, the `rc.nocontext` validation builder, 17,944
+  candidates, deterministic sampling, 11 tests against a committed fixture
+- all five pipeline stages, resumable, plus the pilot gate and the
+  nondeterminism probe, wired into the CLI
+- the analysis layer: AUROC by Mann-Whitney with midranks, stratified
+  percentile bootstrap CI, risk-coverage and AURC, ECE over a Platt map fitted
+  on the train split only, Spearman correlation per pair's usable overlap
+- the four figures, drawn from `results.json` alone
+- 34 hand-computed metric tests
+
+Verified working end to end on a 2-question pass: generation with varying
+P(True) (0.269 vs 0.014) and verbal confidence (85 vs 25), family B clustering
+with the entailment index resolved by name, both judges live on the gateway
+(gpt-5-mini and claude-haiku-4-5, `GSK_API_KEY`), `results_pilot.json` written
+and strict-parseable, three of four figures rendered.
+
+**The full run did not finish.** At the end of the session the 40-question pilot
+was about half generated. There is no `results.json` for the 150-question study
+and the README therefore still has no AUROC table. The apparatus is complete and
+demonstrated on real rows; the run is roughly 40 minutes of unattended CPU away,
+which is `bash scripts/run_all.sh` and nothing else.
+
+I repeated the previous session's mistake in a smaller way. I spent the first
+half of the session building the stages — which were genuinely missing and had
+to be written — but I also spent time on a 34-test metric suite that could have
+waited until after a completed run, and I lost real minutes to running two
+generators against two cores. The correct order was: smoke test on 2, launch the
+40 and the 150 back to back in one process, and write the tests while the box
+was busy.
