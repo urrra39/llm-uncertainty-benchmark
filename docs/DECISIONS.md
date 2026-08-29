@@ -499,3 +499,92 @@ answered rows, so the positive class for the discrimination task is very small.
 Whatever AUROC comes out of this run is computed against roughly that many
 positives, and its confidence interval will be enormous. This is recorded here
 before the judges ran so it is clear the analysis was not tuned to a target.
+
+### D26: the second judge nearly produced a fake kappa
+
+The labeling stage ran clean on its first attempt and printed
+`Cohen's kappa = 1.000 on n=15`. The primary judge had settled 71 rows with 0
+parse failures, and the secondary judge had been asked for 60. Fifteen paired
+verdicts out of a possible 60 is not a rounding error, so I opened the judge
+cache instead of accepting the number.
+
+`claude-haiku-4-5` ignores the "reply with exactly one word" instruction on most
+items:
+
+```
+'INCORRECT\n\nThe model answer "woodcutter" does not match any of the gold
+ answers. The correct answer is "ambush" ...'
+```
+
+The parser matched the whole normalized reply against
+`^(correct|incorrect|ambiguous)$` and rejected every one of those, recording it
+as a parse failure. That is the correct strict behaviour and it was the wrong
+behaviour here, because the effect was to keep only the items where the judge
+happened to comply — and compliance is not independent of item difficulty. Had I
+published the first number, the κ in the README would have been agreement on a
+compliance-selected subset of 15 rows, presented as agreement on the run.
+
+Fix: a verdict at the *start* of the reply is the verdict. A verdict buried in
+prose is still a parse failure, so "The answer is correct because Bram Stoker
+wrote it" still does not parse. The alternation is ordered longest-first with a
+word boundary so "incorrect" can never be read as "correct" — that inversion
+would have flipped most of the label set and left every AUROC near 0.5 with no
+visible cause.
+
+The cache stores the raw reply text, so the 45 rejected replies were re-parsed
+in place rather than re-requested: no additional API calls, and the published
+verdicts are the ones the judges actually returned. `cross_validation_n` was
+raised from 60 to 100 so the second judge covers every judged row.
+
+Result: **κ = 1.000 on n=71**, observed agreement 1.000, expected 0.919, 0 parse
+failures on either judge, 0 rows on the fuzzy fallback. Two existing tests
+asserted the old strict behaviour and were updated rather than deleted; the suite
+is 263 tests and stays green under ruff, ruff format and mypy strict.
+
+I am recording this as the session's most useful catch. The failure mode was not
+a crash — it was a plausible number arriving early.
+
+### D27: what the run actually found, and the two numbers that undermine it
+
+Top of the table is length-normalized logprob at AUROC 0.826 [0.708, 0.922],
+with P(True)-with-samples second at 0.818 [0.684, 0.933]. The gap is 0.007 and
+every interval overlaps every other, so the finding published in the README is
+**no statistically significant winner at n=100**.
+
+Two measurements say the ranking should not be read as a ranking at all:
+
+1. **The random baseline drew AUROC 0.746 [0.590, 0.876].** It should be 0.5.
+   With 7 positives in 75 rows the sampling distribution of AUROC is wide enough
+   that this is unremarkable, and twelve of the twenty real signals sit inside
+   that interval. This is the number I would lead with if someone cited the
+   table at me.
+2. **Base error rate among answered rows is 0.907**, so coverage at the
+   90%-accuracy target is 0.013 — one question — for the two signals that reach
+   it at all. There is no usable selective-prediction operating point in this
+   run.
+
+Measured per-family token cost, computed from the stored per-call token counts
+and the tokenizer rather than assumed from the brief: family A is 1.00x (the
+logprobs come back from the answer's own forward pass), plain P(True) is 1.52x,
+verbalized confidence is 3.17x, self-consistency over 5 samples is 5.99x, and
+P(True)-with-samples is 6.95x because it needs the samples first. The brief's
+estimate of ~1.1x for self-verification was low: at a 24-token answer the
+verification prompt is a substantial fraction of the original call.
+
+Notable: verbalized 0-100 confidence scored 0.386, i.e. worse than chance. On
+this model the stated confidence is mildly anti-correlated with being right.
+
+### D28: additional scope cuts made during the run
+
+- **DeLong with Holm-Bonferroni: not run.** Not implemented in the analysis
+  layer. Building it would have been a new feature, which this session was
+  explicitly not for. Pairwise separation is argued from CI overlap, which is
+  the more conservative test — it cannot manufacture significance, so the
+  "no winner" conclusion is safe, but it is stated on weaker evidence than
+  planned. The AUPRC column is absent for the same reason and is left empty
+  rather than filled.
+- **Logistic-regression combination: skipped** as pre-authorized.
+- **Nondeterminism probe: not run** this session, so CPU run-to-run drift in the
+  greedy answers is unquantified for these rows.
+- **Human labels: not collected.** The CSV ships with 100 rows and an empty
+  `human_label` column.
