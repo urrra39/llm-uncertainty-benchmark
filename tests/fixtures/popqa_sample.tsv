@@ -1,0 +1,13 @@
+id	subj	prop	obj	s_pop	o_pop	question	possible_answers
+4222362	George Rankin	occupation	politician	142	25692	What is George Rankin's occupation?	"[""politician"", ""political leader"", ""political figure"", ""polit."", ""pol""]"
+4725190	John Mayne	occupation	journalist	236	24952	What is John Mayne's occupation?	"[""journalist"", ""journo"", ""journalists""]"
+4382392	Henry Feilden	occupation	politician	58	25692	What is Henry Feilden's occupation?	"[""politician"", ""political leader"", ""political figure"", ""polit."", ""pol""]"
+4822110	Kathy Saltzman	occupation	politician	127	25692	What is Kathy Saltzman's occupation?	"[""politician"", ""political leader"", ""political figure"", ""polit."", ""pol""]"
+4011112	Eleanor Davis	occupation	cartoonist	317	9649	What is Eleanor Davis's occupation?	"[""cartoonist"", ""graphic artist"", ""animator"", ""illustrator""]"
+1730929	Alexander Rinnooy Kan	occupation	mathematician	318	23111	What is Alexander Rinnooy Kan's occupation?	"[""mathematician"", ""economist"", ""economists""]"
+276787	Scooter Braun	occupation	talent manager	66280	4624	What is Scooter Braun's occupation?	"[""talent manager"", ""artist manager"", ""band manager"", ""music manager"", ""musician manager"", ""manager"", ""pop entrepreneur""]"
+1758574	Leona Detiège	occupation	politician	124	25692	What is Leona Detiège's occupation?	"[""politician"", ""political leader"", ""political figure"", ""polit."", ""pol""]"
+6339290	William Murray, 1st Earl of Mansfield	occupation	politician	5766	25692	What is William Murray, 1st Earl of Mansfield's occupation?	"[""politician"", ""political leader"", ""political figure"", ""polit."", ""pol""]"
+6250781	Þorsteinn Bachmann	occupation	actor	1252	81374	What is Þorsteinn Bachmann's occupation?	"[""actor"", ""actress"", ""actors"", ""actresses""]"
+1223902	Herlyn Espinal	occupation	journalist	88	24952	What is Herlyn Espinal's occupation?	"[""journalist"", ""journo"", ""journalists""]"
+4607081	Jacob Kraemer	occupation	actor	230	81374	What is Jacob Kraemer's occupation?	"[""broken"
