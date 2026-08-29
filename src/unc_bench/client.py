@@ -320,6 +320,23 @@ class LocalTransformersClient:
             logits = self._model(**enc).logits[0, -1].float()
         return float(torch.log_softmax(logits, dim=-1)[token_id])
 
+    def logprobs_of_token_ids(self, prompt: str, token_ids: list[int]) -> list[float]:
+        """Several token logprobs from ONE forward pass.
+
+        P(True) needs two logprobs at the same position, and calling
+        `logprob_of_token_id` twice runs the prompt through the model twice. That
+        measured at 4.55 s for the pair on this machine against 2.3 s for one
+        pass, and there are two verification variants per question, so the
+        redundant pass costs about 4.6 s of the ~35 s question budget: 19 minutes
+        over 250 questions for no information.
+        """
+        torch = self._torch
+        enc = self._encode(prompt)
+        with torch.no_grad():
+            logits = self._model(**enc).logits[0, -1].float()
+        logprobs = torch.log_softmax(logits, dim=-1)
+        return [float(logprobs[i]) for i in token_ids]
+
     def apply_chat_template(self, system: str, user: str) -> str:
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
         rendered = self._tokenizer.apply_chat_template(
