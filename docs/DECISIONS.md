@@ -376,3 +376,103 @@ waited until after a completed run, and I lost real minutes to running two
 generators against two cores. The correct order was: smoke test on 2, launch the
 40 and the 150 back to back in one process, and write the tests while the box
 was busy.
+
+## Session 4: the run
+
+This session had one objective — produce `results.json`, figures and a README
+with real numbers — and a standing instruction to run rather than build. What
+follows is measured, not estimated.
+
+### D20: n = 100, set by measured throughput
+
+The first generation chunk of 12 questions took 3.6 minutes wall clock:
+**18.0 s/question** on 2 CPU cores at bfloat16. That is 25% slower than the
+14.4 s/question the previous session recorded, which I attribute to nothing more
+interesting than a different sandbox host. 100 questions therefore projects to
+about 30 minutes, inside the 40-minute ceiling I set myself for the generation
+stage, so n stayed at 100 and was not cut to 60. The config's `triviaqa: 150`
+was reduced to 100 before the first call; 150 would have been 45 minutes and I
+would have had to abandon it mid-stage.
+
+The cache was empty at the start of this session. The previous session's pilot
+rows lived in `data/`, which is gitignored, so nothing survived the clone and all
+100 questions were generated from scratch. "About 20 rows already in the cache"
+was not true of the machine I actually got.
+
+### D21: measured error rate, and the sanity gate result
+
+On the first 12 questions, labelled by exact match against the full TriviaQA
+alias list plus the project's fuzzy matcher:
+
+- abstentions (`UNKNOWN`): 6 / 12 = **50%**
+- answered and incorrect: 6 / 12 = **50%**
+- answered and correct: **0 / 12**
+
+The gate I was given was: error rate below 15% or above 80% means the
+discrimination task is degenerate. 50% of all rows is comfortably inside that
+band, so the gate passes on the stated statistic. But the more informative
+number is conditional: **of the rows where the model actually committed to an
+answer, 100% were wrong.** At n=12 that is 6 rows and the binomial CI is wide,
+but the direction is unambiguous and it is a problem for the study, because
+AUROC is computed over answered rows only — abstentions are their own category
+and are excluded from the discrimination task, correctly. If the answered rows
+stay near-100% wrong at n=100, there is no positive class to separate and every
+AUROC is undefined or meaningless regardless of which signal computes it.
+
+Per instruction I recorded this and continued rather than re-mixing datasets or
+touching the prompt. The prompt is part of the cache key, so editing it would
+have invalidated the 12 completed rows and restarted the clock. The final
+per-signal numbers are reported on whatever the 100-row label distribution turns
+out to be, and if the answered-correct count is too small to support AUROC that
+is stated in the README as the finding rather than papered over.
+
+Qwen2.5-0.5B-Instruct is a 0.5B model answering human-written trivia with a
+24-token budget and an explicit instruction to say `UNKNOWN` when it does not
+know. A high abstention rate and a low accuracy on the rest is the expected
+behaviour of that configuration, not a bug in the harness.
+
+### D22: one defect fixed, nothing else touched
+
+`build-dataset` failed on the first call of this session:
+
+```
+ValueError: duplicate qids across datasets:
+['triviaqa-bt_105', 'triviaqa-qw_9482', 'triviaqa-qz_3971']
+```
+
+The `rc.nocontext` validation split repeats `question_id` for questions that
+were paired with several evidence documents upstream. With the context stripped
+those rows are byte-identical, and `questions_to_frame`'s duplicate check
+rejected the entire 100-question draw. The previous session's 40-question draw
+happened to miss every collision, which is why this was not caught earlier. Fix
+is four lines in `datasets/triviaqa.py`: keep the first occurrence of each id,
+skip the rest. This was the only code change made before the run started.
+
+### D23: compute path
+
+No GPU, 2 CPU cores, ~2 GB RAM. Subject model Qwen2.5-0.5B-Instruct in
+bfloat16 under transformers 4.46.3, run locally so that token logprobs are
+available — the API gateway returns none, and family A is the whole point of the
+comparison, so a hosted subject model was never an option. The intended subject
+was Qwen2.5-7B-Instruct on vLLM; 7B on these cores is roughly 20x slower and
+would not have produced a single completed run.
+
+DeBERTa-v3-base-mnli (family B) and the 0.5B generator do not fit in 2 GB
+together, so family B runs as its own pass after the generator process has
+exited. This was already implemented and I kept it that way.
+
+### D24: scope cuts, all of them
+
+- **n = 150 -> 100.** Throughput. D20.
+- **TriviaQA only.** PopQA and SimpleQA builders are not wired into this run. A
+  dataset mix is only worth reading against a completed single-source baseline,
+  and this session's job was to produce that baseline.
+- **No 7B subject model.** D23.
+- **No new tests.** The 264 existing tests are the suite. Session instruction
+  and, given the previous session's mistake, the right call.
+- **Logistic-regression signal combination** is skipped if the run is tight on
+  time. It is a nice-to-have that answers a different question than the one in
+  the title.
+- **Human validation is a blank template.** `data/human_validation_sample.csv`
+  ships 100 rows with an empty `human_label` column. I did not label them and I
+  do not report agreement with a human.
