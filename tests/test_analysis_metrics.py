@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 from unc_bench.analysis.metrics import (
@@ -25,11 +26,11 @@ from unc_bench.analysis.metrics import (
 )
 
 
-def _f(values: list[float]) -> np.ndarray:
+def _f(values: list[float]) -> npt.NDArray[np.float64]:
     return np.array(values, dtype=np.float64)
 
 
-def _b(values: list[bool]) -> np.ndarray:
+def _b(values: list[bool]) -> npt.NDArray[np.bool_]:
     return np.array(values, dtype=bool)
 
 
