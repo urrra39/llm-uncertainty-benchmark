@@ -26,6 +26,12 @@ local = [
     "torch==2.5.1",
     "transformers==4.46.3",
     "sentencepiece==0.2.0",
+    # DeBERTa-v3's tokenizer ships only the sentencepiece model, and converting
+    # it to a fast tokenizer goes through protobuf. Without this, AutoTokenizer
+    # raises ImportError on the NLI model only — the Qwen tokenizer is
+    # BPE-backed and loads fine, so the failure looks unrelated to the NLI
+    # downgrade that caused it.
+    "protobuf==5.28.3",
     "accelerate==1.1.1",
 ]
 

@@ -191,8 +191,12 @@ class LocalTransformersClient:
             "bfloat16": torch.bfloat16,
             "float16": torch.float16,
         }[spec.dtype]
+        # `torch_dtype`, not `dtype`. transformers 4.46 is pinned here, and its
+        # `from_pretrained` has no `dtype` parameter: passing one raises a
+        # TypeError from the model constructor rather than being ignored. The
+        # rename to `dtype` landed in a later release.
         self._model = AutoModelForCausalLM.from_pretrained(
-            spec.name, dtype=dtype, low_cpu_mem_usage=True
+            spec.name, torch_dtype=dtype, low_cpu_mem_usage=True
         )
         self._model.eval()
 
