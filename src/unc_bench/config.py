@@ -95,6 +95,20 @@ class NLISpec(Frozen):
     entailment_label: str = "entailment"
 
 
+class SignalsSpec(Frozen):
+    """Numbers the signal functions need. Kept out of the signal code itself so
+    no threshold is hard-coded in `src/unc_bench/signals/`."""
+
+    # Wu et al. 2016 length penalty exponent for the length-normalized total.
+    length_penalty_alpha: float = Field(default=0.6, ge=0.0, le=2.0)
+    # Ceiling on the exponent inside perplexity's exp(). exp(20) is ~4.9e8:
+    # large enough to rank a pathological row last, small enough that it cannot
+    # overflow to inf and poison every bootstrap resample that draws the row.
+    perplexity_clamp: float = Field(default=20.0, gt=0.0, le=100.0)
+    # Ceiling on a verbalized confidence integer before it is rejected.
+    verbal_confidence_max: int = Field(default=100, ge=1)
+
+
 class DatasetMix(Frozen):
     """How many questions to draw from each source."""
 
@@ -207,6 +221,7 @@ class Config(Frozen):
     greedy: GreedySpec
     sampling: SamplingSpec
     nli: NLISpec
+    signals: SignalsSpec = SignalsSpec()
     dataset_mix: DatasetMix
     dataset_seed: int = 12345
     pilot_gate: PilotGateSpec
