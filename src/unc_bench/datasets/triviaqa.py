@@ -37,6 +37,14 @@ TRIVIAQA_URL = (
 class TriviaQABuilder(DatasetBuilder):
     name = "triviaqa"
 
+    #: When True, keep only questions whose answer entity looks well-known.
+    #: See `_looks_high_frequency` for what that means and why it is a proxy.
+    easy_only: bool = False
+
+    def __init__(self, raw_dir: Path, *, easy_only: bool = False) -> None:
+        super().__init__(raw_dir)
+        self.easy_only = easy_only
+
     @property
     def local_path(self) -> Path:
         return self.raw_dir / "triviaqa_rc_nocontext_validation.parquet"
@@ -71,6 +79,8 @@ class TriviaQABuilder(DatasetBuilder):
             key = f"triviaqa-{qid}"
             if key in seen:
                 continue
+            if self.easy_only and not _looks_high_frequency(text, aliases):
+                continue
             seen.add(key)
             out.append(
                 Question(
@@ -81,6 +91,43 @@ class TriviaQABuilder(DatasetBuilder):
                 )
             )
         return out
+
+
+#: Alias-count threshold for "well-known". TriviaQA's alias list is built from
+#: Wikipedia redirects and surface forms, so a heavily-redirected entity has many
+#: aliases and an obscure one has few. This is a proxy for entity frequency and
+#: it is a proxy: TriviaQA ships no popularity field, unlike PopQA's `s_pop`.
+#: The substitution is documented in docs/DECISIONS.md.
+MIN_ALIASES_FOR_EASY = 12
+
+#: Upper bound on question length in words. Long trivia questions are long
+#: because they pile on qualifying clauses, and a 0.5B model loses the thread.
+#: Also part of the frequency proxy rather than an independent criterion.
+MAX_QUESTION_WORDS_FOR_EASY = 20
+
+
+def _looks_high_frequency(question: str, aliases: tuple[str, ...]) -> bool:
+    """Proxy test for "this asks about a well-known entity".
+
+    Three conditions, all of which have to hold:
+
+    - the answer has at least `MIN_ALIASES_FOR_EASY` aliases, i.e. Wikipedia
+      redirects a lot of surface forms onto it
+    - the question is at most `MAX_QUESTION_WORDS_FOR_EASY` words
+    - the primary alias is at most four words, which excludes the long
+      descriptive answers ("the Treaty of Brest-Litovsk of March 1918") that a
+      24-token greedy decode cannot produce even when the model knows the fact
+
+    This raises the base rate, which is the whole point (docs/DECISIONS.md, run
+    #2 D1). It also biases the question set, and that bias is stated in
+    LIMITATIONS.md rather than hidden: the resulting benchmark measures error
+    prediction on popular-entity trivia, not on trivia in general.
+    """
+    if len(aliases) < MIN_ALIASES_FOR_EASY:
+        return False
+    if len(question.split()) > MAX_QUESTION_WORDS_FOR_EASY:
+        return False
+    return len(aliases[0].split()) <= 4
 
 
 def _extract_aliases(answer: Any) -> tuple[str, ...]:

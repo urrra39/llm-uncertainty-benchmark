@@ -31,6 +31,15 @@ class PopQABuilder(DatasetBuilder):
     def local_path(self) -> Path:
         return self.raw_dir / "popqa_test.tsv"
 
+    #: When set, keep only rows whose subject popularity is at or above this
+    #: quantile of the whole file. 0.9 is the top popularity decile. Run #2 uses
+    #: this to raise the base rate: the long tail is what made run #1 degenerate.
+    popularity_quantile: float | None = None
+
+    def __init__(self, raw_dir: Path, *, popularity_quantile: float | None = None) -> None:
+        super().__init__(raw_dir)
+        self.popularity_quantile = popularity_quantile
+
     def load_candidates(self) -> list[Question]:
         path = cached_download(POPQA_URL, self.local_path)
         frame = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)
@@ -39,6 +48,8 @@ class PopQABuilder(DatasetBuilder):
         missing = required - set(frame.columns)
         if missing:
             raise ValueError(f"popqa: source is missing columns {sorted(missing)}")
+
+        frame = self._restrict_to_popular(frame)
 
         out: list[Question] = []
         for row in frame.itertuples(index=False):
@@ -63,6 +74,34 @@ class PopQABuilder(DatasetBuilder):
                 )
             )
         return out
+
+    def _restrict_to_popular(self, frame: pd.DataFrame) -> pd.DataFrame:
+        """Keep only the most-viewed subjects, if a quantile was requested.
+
+        `s_pop` is monthly Wikipedia pageviews for the question's subject entity.
+        It is the field the PopQA authors provide for exactly this purpose, so no
+        proxy is needed and none is used. Rows whose `s_pop` does not parse as a
+        number are dropped rather than imputed: a missing popularity cannot be
+        placed relative to a quantile, and guessing would silently mix tail
+        entities back into a slice whose whole purpose is to exclude them.
+        """
+        if self.popularity_quantile is None:
+            return frame
+        if "s_pop" not in frame.columns:
+            raise ValueError(
+                "popqa: popularity_quantile was requested but the source has no s_pop column"
+            )
+        pop = pd.to_numeric(frame["s_pop"], errors="coerce")
+        usable = frame.loc[pop.notna()].copy()
+        usable["_pop"] = pop.loc[pop.notna()]
+        cutoff = float(usable["_pop"].quantile(self.popularity_quantile))
+        kept = usable.loc[usable["_pop"] >= cutoff].drop(columns=["_pop"])
+        print(
+            f"[popqa] popularity_quantile={self.popularity_quantile}: "
+            f"s_pop cutoff {cutoff:.0f} keeps {len(kept)} of {len(frame)} rows",
+            flush=True,
+        )
+        return kept
 
 
 def _parse_possible_answers(raw: str) -> tuple[str, ...]:

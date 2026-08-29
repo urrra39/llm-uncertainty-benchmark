@@ -8,6 +8,7 @@ instead of halfway through a run.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -127,6 +128,64 @@ class DatasetMix(Frozen):
         return self
 
 
+class DifficultySpec(Frozen):
+    """Knobs that set how hard the question set is.
+
+    Run #1 drew unrestricted TriviaQA and got 7 correct answers out of 75
+    answered, which made every AUROC in the table noise. These knobs exist to
+    move the base rate into a range where discrimination is measurable, and they
+    default to off so run #1's distribution is still reproducible.
+    """
+
+    #: Keep only TriviaQA questions whose answer entity looks well-known.
+    triviaqa_easy_only: bool = False
+    #: Keep only PopQA rows at or above this quantile of subject pageviews.
+    #: None disables the filter. 0.9 is the top popularity decile.
+    popqa_popularity_quantile: float | None = Field(default=None, ge=0.0, lt=1.0)
+
+
+class FewShotSpec(Frozen):
+    """Fixed exemplar Q/A pairs prefixed to every generation prompt.
+
+    Purpose is format stabilization, not teaching: a 0.5B model asked a bare
+    question will sometimes answer in a sentence, which costs it an exact match
+    it deserved and pollutes the answer-length signal. Two exemplars are enough
+    to fix the shape and cheap enough not to matter at 24 output tokens.
+
+    The exemplars are hard-coded in the config and asserted absent from the
+    evaluation set (`assert_disjoint_from`), because an exemplar that leaked into
+    the eval rows would be a memorization result presented as a knowledge result.
+    """
+
+    enabled: bool = False
+    pairs: tuple[tuple[str, str], ...] = ()
+
+    @model_validator(mode="after")
+    def _pairs_present_when_enabled(self) -> FewShotSpec:
+        if self.enabled and len(self.pairs) < 1:
+            raise ValueError("few_shot.enabled is true but no exemplar pairs were given")
+        for question, answer in self.pairs:
+            if not question.strip() or not answer.strip():
+                raise ValueError("few_shot exemplars must have non-empty question and answer")
+        return self
+
+    def assert_disjoint_from(self, questions: Sequence[str]) -> None:
+        """Fail loudly if any exemplar question is also an evaluation question.
+
+        Normalized comparison, so a difference in punctuation or case does not
+        let a duplicate through. Raises rather than warning: a contaminated run
+        should not produce a results file at all.
+        """
+        if not self.enabled:
+            return
+        from unc_bench.normalize import normalize_answer
+
+        evaluation = {normalize_answer(q) for q in questions}
+        for question, _ in self.pairs:
+            if normalize_answer(question) in evaluation:
+                raise ValueError(f"few-shot exemplar leaked into the evaluation set: {question!r}")
+
+
 class PilotGateSpec(Frozen):
     """The autonomous decision rule that replaces human approval."""
 
@@ -223,6 +282,8 @@ class Config(Frozen):
     nli: NLISpec
     signals: SignalsSpec = SignalsSpec()
     dataset_mix: DatasetMix
+    difficulty: DifficultySpec = DifficultySpec()
+    few_shot: FewShotSpec = FewShotSpec()
     dataset_seed: int = 12345
     pilot_gate: PilotGateSpec
     judges: JudgeSpec

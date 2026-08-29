@@ -24,6 +24,24 @@ BUILDERS: dict[str, type[DatasetBuilder]] = {
 }
 
 
+def _construct(builder_cls: type[DatasetBuilder], name: str, cfg: Config) -> DatasetBuilder:
+    """Build one dataset builder, passing the run's difficulty knobs.
+
+    Run #2 raises the base rate by restricting both sources to their easier end
+    (docs/DECISIONS.md, run #2 D1). The knobs live in the config so a rerun with
+    `easy_slice: false` reproduces run #1's harder question distribution without
+    a code change.
+    """
+    if name == "triviaqa":
+        return TriviaQABuilder(cfg.paths.raw_dir, easy_only=cfg.difficulty.triviaqa_easy_only)
+    if name == "popqa":
+        return PopQABuilder(
+            cfg.paths.raw_dir,
+            popularity_quantile=cfg.difficulty.popqa_popularity_quantile,
+        )
+    return builder_cls(cfg.paths.raw_dir)
+
+
 def run(cfg: Config, *, force: bool = False) -> int:
     """Build the dataset parquet. Returns the number of questions."""
     paths = StagePaths.of(cfg)
@@ -51,7 +69,7 @@ def run(cfg: Config, *, force: bool = False) -> int:
             raise NotImplementedError(
                 f"dataset_mix asks for {count} {name} questions but no builder is implemented"
             )
-        builder = builder_cls(cfg.paths.raw_dir)
+        builder = _construct(builder_cls, name, cfg)
         drawn = builder.build(count, cfg.dataset_seed)
         print(f"[build_dataset] {name}: {len(drawn)} questions", flush=True)
         questions.extend(drawn)

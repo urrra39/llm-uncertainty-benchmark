@@ -61,8 +61,23 @@ FLUSH_EVERY = 10
 
 def render_answer_prompt(client: CachedClient, cfg: Config, question: Question) -> str:
     """The one prompt every signal is ultimately about."""
-    user = cfg.prompts.user_template.format(question=question.question)
+    user = _few_shot_prefix(cfg) + cfg.prompts.user_template.format(question=question.question)
     return _apply_template(client, cfg.prompts.system, user)
+
+
+def _few_shot_prefix(cfg: Config) -> str:
+    """Exemplar Q/A pairs rendered in the same shape as the real question.
+
+    Inlined into the user turn rather than added as extra chat turns. Both work,
+    and this way the exemplars sit inside the string that already forms part of
+    the cache key, so enabling few-shot invalidates cached responses instead of
+    silently mixing zero-shot and 2-shot rows in one artifact. That mixing is a
+    real risk here: run #1's rows are already in the cache.
+    """
+    if not cfg.few_shot.enabled or not cfg.few_shot.pairs:
+        return ""
+    blocks = [cfg.prompts.user_template.format(question=q) + f" {a}" for q, a in cfg.few_shot.pairs]
+    return "\n\n".join(blocks) + "\n\n"
 
 
 def _apply_template(client: CachedClient, system: str, user: str) -> str:
@@ -232,6 +247,12 @@ def run(cfg: Config, *, limit: int | None = None) -> int:
     if dataset is None:
         raise FileNotFoundError(f"{paths.dataset} is absent; run build-dataset first")
     questions = frame_to_questions(dataset)
+
+    # D1(c): a leaked exemplar would turn a knowledge measurement into a
+    # memorization measurement. Checked against the whole drawn set, not just
+    # the rows still to do, so a resumed run is checked as strictly as a fresh
+    # one.
+    cfg.few_shot.assert_disjoint_from([q.question for q in questions])
 
     previous = read_checkpoint(paths.generations)
     already = done_qids(previous)
