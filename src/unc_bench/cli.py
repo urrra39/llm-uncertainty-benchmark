@@ -76,6 +76,23 @@ def build_parser() -> argparse.ArgumentParser:
     ablate = subparsers.add_parser("ablation", help="family B AUROC at N = 1, 2, 3, 5")
     _add_config(ablate)
 
+    audit = subparsers.add_parser(
+        "audit", help="rank-equivalent signals, deduplicated Holm, per-dataset intervals"
+    )
+    _add_config(audit)
+    audit.add_argument("--view", default="primary", choices=("primary", "with_abstentions"))
+
+    human = subparsers.add_parser(
+        "human-agreement", help="judge-versus-human agreement and Cohen's kappa from a filled CSV"
+    )
+    _add_config(human)
+    human.add_argument(
+        "--csv",
+        type=Path,
+        default=None,
+        help="validation CSV (default: the config's human_validation_csv)",
+    )
+
     return parser
 
 
@@ -155,6 +172,25 @@ def main(argv: list[str] | None = None) -> int:
 
         nondet_run(cfg)
         return 0
+
+    if command == "audit":
+        from unc_bench.analysis.audit import load_results, render_report
+
+        print(render_report(load_results(cfg.paths.results_json), view=args.view))
+        return 0
+
+    if command == "human-agreement":
+        from unc_bench.analysis.human_agreement import run as human_run
+
+        target = args.csv if args.csv is not None else cfg.paths.human_validation_csv
+        if not Path(target).exists():
+            print(f"no validation CSV at {target}", file=sys.stderr)
+            return 2
+        report = human_run(target)
+        # Exit 0 even with no labels. An unlabelled file is the shipped state,
+        # not an error, and `make check` must not fail because nobody has done
+        # the labelling yet.
+        return 0 if not report.invalid_labels else 1
 
     if command == "ablation":
         from unc_bench.stages.ablation import run as ablation_run
