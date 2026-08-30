@@ -22,6 +22,8 @@ import pandas as pd
 from unc_bench.analysis.metrics import (
     auroc,
     average_precision,
+    bootstrap_auroc_ci,
+    bootstrap_average_precision_ci,
     holm_bonferroni,
     paired_bootstrap_auroc_diff,
     usable_mask,
@@ -121,10 +123,19 @@ def significance_table(
 # --------------------------------------------------------------------------
 
 
+#: Method string stored beside every per-dataset interval, so a reader can tell
+#: at a glance which procedure produced it without cross-referencing prose.
+PER_DATASET_CI_METHOD = (
+    "stratified percentile bootstrap, resampled within the dataset subset only; "
+    "the same procedure as the pooled table"
+)
+
+
 def per_dataset_auroc(
     frame: pd.DataFrame,
     names: list[str],
     y: BoolArray,
+    cfg: Config | None = None,
 ) -> dict[str, Any]:
     """AUROC per signal within each source dataset, alongside the pooled table.
 
@@ -133,11 +144,37 @@ def per_dataset_auroc(
     different base rates in this run, and a signal that merely tracked "which
     dataset is this" would score above chance on the pooled set while scoring at
     chance inside each source. The per-dataset table is what exposes that.
+
+    When `cfg` is supplied, each point estimate is accompanied by a stratified
+    percentile bootstrap interval computed *within the dataset subset*: the
+    positives and negatives of that subset are resampled among themselves, so
+    the interval reflects that subset's own size and class balance and never
+    borrows rows from the other dataset. This is the same estimator
+    `bootstrap_auroc_ci` applies to the pooled table, called on a row mask, so
+    the two intervals in the results file are produced by one procedure rather
+    than by two that happen to be described with the same word.
+
+    `cfg` is optional so that a caller with no config — the ablation stage, a
+    test — still gets the point estimates. Without it the entry carries
+    `ci_available: false` and a reason, rather than an interval from a different
+    method silently standing in for the bootstrap.
     """
     if "dataset" not in frame.columns:
         return {"available": False, "reason": "the analysis frame carries no dataset column"}
 
-    out: dict[str, Any] = {"available": True, "datasets": {}}
+    resamples = cfg.analysis.bootstrap_resamples if cfg is not None else 0
+    out: dict[str, Any] = {
+        "available": True,
+        "ci_available": cfg is not None,
+        "ci_method": PER_DATASET_CI_METHOD if cfg is not None else None,
+        "ci_resamples": resamples,
+        "ci_level": cfg.analysis.ci_level if cfg is not None else None,
+        "ci_seed": cfg.analysis.bootstrap_seed if cfg is not None else None,
+        "datasets": {},
+    }
+    if cfg is None:
+        out["ci_reason"] = "no analysis config supplied, so no bootstrap was run"
+
     for source in sorted(str(d) for d in frame["dataset"].unique()):
         mask = (frame["dataset"] == source).to_numpy(dtype=bool)
         y_sub = y[mask]
@@ -157,17 +194,57 @@ def per_dataset_auroc(
             )
         else:
             entry["signals"] = {
-                name: {
-                    "auroc": auroc(frame[name].to_numpy(dtype=np.float64)[mask], y_sub),
-                    "auprc": average_precision(frame[name].to_numpy(dtype=np.float64)[mask], y_sub),
-                    "usable_n": int(
-                        np.count_nonzero(usable_mask(frame[name].to_numpy(dtype=np.float64)[mask]))
-                    ),
-                }
+                name: _per_dataset_signal(frame[name].to_numpy(dtype=np.float64)[mask], y_sub, cfg)
                 for name in names
             }
         out["datasets"][source] = entry
     return out
+
+
+def _per_dataset_signal(
+    scores: FloatArray,
+    y_sub: BoolArray,
+    cfg: Config | None,
+) -> dict[str, Any]:
+    """One signal on one dataset subset: point estimates, then the interval.
+
+    The point estimates are computed unconditionally and are byte-identical to
+    what this function returned before intervals existed, which is what lets the
+    bootstrap be added without moving any published number.
+    """
+    entry: dict[str, Any] = {
+        "auroc": auroc(scores, y_sub),
+        "auprc": average_precision(scores, y_sub),
+        "usable_n": int(np.count_nonzero(usable_mask(scores))),
+    }
+    if cfg is None:
+        return entry
+
+    ci = bootstrap_auroc_ci(
+        scores,
+        y_sub,
+        resamples=cfg.analysis.bootstrap_resamples,
+        seed=cfg.analysis.bootstrap_seed,
+        level=cfg.analysis.ci_level,
+    )
+    ap = bootstrap_average_precision_ci(
+        scores,
+        y_sub,
+        resamples=cfg.analysis.bootstrap_resamples,
+        seed=cfg.analysis.bootstrap_seed,
+        level=cfg.analysis.ci_level,
+    )
+    entry["auroc_ci"] = ci.as_dict()
+    entry["auprc_ci"] = ap.as_dict()
+    # Recorded rather than left to the reader to derive, because "does this
+    # interval clear chance" is the one question the per-dataset table exists to
+    # answer and a reader recomputing it from two floats can get the boundary
+    # case wrong. None when the interval could not be estimated at all.
+    if np.isfinite(ci.low) and np.isfinite(ci.high):
+        entry["excludes_chance"] = bool(ci.low > 0.5 or ci.high < 0.5)
+    else:
+        entry["excludes_chance"] = None
+    return entry
 
 
 # --------------------------------------------------------------------------

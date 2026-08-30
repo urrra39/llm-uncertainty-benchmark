@@ -100,7 +100,7 @@ class JudgeCache:
         tmp.replace(self.path)
 
 
-def _cached_judge(
+def cached_judge(
     judge: TextJudge,
     cache: JudgeCache,
     question: Question,
@@ -124,6 +124,60 @@ def _cached_judge(
         {"value": outcome.value, "raw": outcome.raw, "parse_failed": outcome.parse_failed},
     )
     return outcome
+
+
+#: Filename of the standalone per-row judge verdict artifact, inside
+#: `paths.artifacts_dir`.
+JUDGE_VERDICTS_FILENAME = "judge_verdicts.json"
+
+
+def _write_judge_verdicts(
+    cfg: Config,
+    primary_verdicts: dict[str, str],
+    secondary_verdicts: dict[str, str],
+) -> Path:
+    """Persist per-row judge verdicts as their own JSON artifact.
+
+    Written for every run, including runs where the second judge was never
+    reached, so the file's presence is not itself a signal. `rows` is keyed by
+    qid and each entry names both judges explicitly rather than relying on
+    column order.
+
+    This is the fix for the gap run #2 exposed: the aggregate kappa was stored
+    but the per-row replies were not, so the number could not be recomputed and
+    the disagreement could not be located. A kappa that cannot be recomputed
+    from stored rows is a claim without an audit trail.
+    """
+    both = sorted(set(primary_verdicts) & set(secondary_verdicts))
+    all_qids = sorted(set(primary_verdicts) | set(secondary_verdicts))
+    payload: dict[str, Any] = {
+        "primary_model": cfg.judges.primary.name,
+        "secondary_model": cfg.judges.secondary.name,
+        "secondary_seed": cfg.judges.secondary_seed,
+        "n_primary": len(primary_verdicts),
+        "n_secondary": len(secondary_verdicts),
+        "n_sent_to_both": len(both),
+        "note": (
+            "per-row judge verdicts for this run; the kappa in results.json is "
+            "recomputable from the rows where both judges replied"
+        ),
+        "rows": {
+            qid: {
+                "primary": primary_verdicts.get(qid, ""),
+                "secondary": secondary_verdicts.get(qid, ""),
+            }
+            for qid in all_qids
+        },
+    }
+    path = cfg.paths.artifacts_dir / JUDGE_VERDICTS_FILENAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    print(
+        f"[label] wrote per-row judge verdicts for {len(all_qids)} rows "
+        f"({len(both)} seen by both judges) to {path}",
+        flush=True,
+    )
+    return path
 
 
 def run(cfg: Config) -> int:
@@ -174,7 +228,7 @@ def run(cfg: Config) -> int:
     if primary is not None and contested:
         progress = Progress("judge", len(contested), every=10)
         for question, answer in contested:
-            outcome = _cached_judge(primary, judge_cache, question, answer, seed=cfg.greedy.seed)
+            outcome = cached_judge(primary, judge_cache, question, answer, seed=cfg.greedy.seed)
             if outcome.value is None:
                 parse_failures += 1
                 consecutive += 1
@@ -225,7 +279,7 @@ def run(cfg: Config) -> int:
         if secondary is not None:
             progress = Progress("judge2", len(subset), every=10)
             for question, answer in subset:
-                outcome = _cached_judge(
+                outcome = cached_judge(
                     secondary, judge_cache, question, answer, seed=cfg.judges.secondary_seed
                 )
                 if outcome.value is not None:
@@ -282,11 +336,26 @@ def run(cfg: Config) -> int:
             "label": label.value,
             "source": label.source,
             "judge_raw": label.judge_raw,
+            # Per-row judge verdicts, persisted alongside the label. Run #2 did
+            # not carry these columns and stored only the aggregate kappa, which
+            # left `judge_secondary_verdict` in the validation CSV unfillable
+            # from committed artifacts: the agreement rate was known, the rows it
+            # fell on were not. Empty string means "this judge was never asked
+            # about this row", which is the normal case for a row exact match
+            # settled, and is distinct from a parse failure.
+            "judge_primary_verdict": primary_verdicts.get(label.qid, ""),
+            "judge_secondary_verdict": secondary_verdicts.get(label.qid, ""),
         }
         for label in (labels[q.qid] for q, _ in items)
     ]
     frame = pd.DataFrame(rows)
     write_checkpoint(frame, paths.labels)
+
+    # The same per-row verdicts as a standalone, human-readable artifact. The
+    # parquet above is the pipeline's own checkpoint; this file exists so the
+    # verdicts survive independently of the checkpoint schema and can be read
+    # without pyarrow.
+    _write_judge_verdicts(cfg, primary_verdicts, secondary_verdicts)
 
     meta = {
         "kappa": kappa_payload,

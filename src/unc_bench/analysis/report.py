@@ -337,7 +337,7 @@ def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[st
         "verdict": verdict,
         # D3, D8, D9, D10: computed on the same frozen rows as the table above.
         "significance": significance_table(columns, y, ranked, cfg),
-        "per_dataset": per_dataset_auroc(frame, names, y),
+        "per_dataset": per_dataset_auroc(frame, names, y, cfg),
         "length_confound": length_confound(columns, y, ranked),
         "combination": logreg_combination(columns, y, ranked, cfg),
         "verbal_confidence_health": verbal_confidence_health(frame),
