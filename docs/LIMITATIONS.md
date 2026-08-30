@@ -50,9 +50,14 @@ Written against run #2 (n=120, `configs/run2.yaml`). Run #1 is discarded; see
    labeled it.
 
 8. **Cost is measured on this hardware only.** 2 CPU cores, no GPU. The 6×
-   multiplier for family B is a token/call count; the wall-clock ratio on a GPU
-   with batching would be much lower, which would change the cost-vs-AUROC
-   conclusion.
+   multiplier for family B is a token/call count, and that count does not depend
+   on hardware. The wall-clock ratio does. A GPU would lower it, and batching
+   would lower it further, which would change the cost-vs-AUROC conclusion — but
+   batching is not currently available: open defect D27 (`docs/DECISIONS.md`)
+   records that padding a ragged batch perturbs per-token logprobs by up to
+   2.52e-02 against the unbatched values, so `configs/run3_gpu.yaml` sets
+   `generation_batch_size: 1`. Until D27 is resolved, any GPU wall-clock
+   figure for this pipeline is an unbatched figure.
 
 9. **The N-ablation reuses one set of five samples.** N=1 means "the first of
    the five", not "an independent single-sample run". Variance across which

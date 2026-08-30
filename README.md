@@ -317,6 +317,34 @@ uv run unc-bench figures        --config configs/run2.yaml
 Family B must run as its own pass: the NLI model and the generator do not fit in
 2 GB together.
 
+### Run #3: the same study at n=600 on a GPU
+
+Every number in this README is run #2: Qwen2.5-0.5B-Instruct, 2 CPU cores, ~2 GB
+RAM, n=120, PopQA 90 / TriviaQA 30. That configuration is what the hardware
+allowed, and two of its limitations are consequences of the hardware rather than
+of the design — the small n, and the 90/30 split that is the mechanism behind
+finding 4 and behind the pooled table's distortion (limitation 13).
+
+`configs/run3_gpu.yaml` with `notebooks/run_on_colab.ipynb` runs the same
+pipeline at n=600 with a balanced 300 PopQA / 300 TriviaQA split, on
+Qwen2.5-3B-Instruct in fp16 on a free Colab T4. The config sets no quantization:
+quantization distorts the token logprobs that signal family A reads. It also sets
+`generation_batch_size: 1`, and that value must not be raised — open defect D27
+(`docs/DECISIONS.md`) records that padding a ragged batch perturbs per-token
+logprobs by up to 2.52e-02 while a uniform-length batch is bit-identical, and
+D27 is unfixed. Run #3 also turns on the per-dataset bootstrap intervals, which
+are written and tested but have never had data: run #2's per-row values were lost
+before they could be committed, which is why run #2's per-dataset table falls
+back to a Hanley–McNeil normal approximation.
+
+The notebook's first cell estimates the run at **roughly 1.5 to 2.5 hours** and
+shows the arithmetic behind that band. It is an estimate, not a measurement.
+
+**Run #3 has not been run.** No run #3 number appears anywhere in this
+repository, and none of run #2's findings above is weakened or withdrawn in
+anticipation of it. Run #2 stands as published, at n=120, with the limitations
+it has.
+
 ### Determinism
 
 Stated precisely, because the two halves of the pipeline have different
@@ -474,7 +502,15 @@ Two that bear directly on how the numbers above should be read:
   a human, and no human has verified any label in this run;
   `data/human_validation_sample.csv` ships with its `human_label` column empty
   and `unc-bench human-agreement` is wired up and tested but has never been run
-  on real labels.
+  on real labels. Once the column is filled, the comparison is:
+
+  ```bash
+  uv run unc-bench human-agreement --csv data/human_validation_sample.csv
+  ```
+
+  It reports Cohen's κ between the human column and the machine label, and the
+  per-source breakdown. It runs today against the empty column and reports zero
+  usable rows, which is the correct answer for a template.
 - **The 90/30 dataset split is a design flaw**, not just an inconvenience. It is
   the mechanism behind finding 4 and behind the pooled table's distortion. See
   limitation 13.

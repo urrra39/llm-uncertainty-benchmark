@@ -154,9 +154,20 @@ measured base rates.
 
 ## What is not here
 
-Generations, signal columns and the judge cache are not committed —
-`.gitignore` excludes `data/*.parquet`, `data/artifacts/`, `data/cache/` and
-`data/raw/`. One consequence matters for reading the results: the per-row signal
+Run #2's generations, signal columns and judge cache are not committed, and
+cannot be: they were written under the old ignore policy and the sandbox holding
+them is gone. See `docs/DECISIONS.md`, "Run artifacts are tracked from run #3
+on".
+
+The policy has since been inverted. A run's OUTPUT is now tracked and a run's
+SCRATCH is not: `data/*.parquet` is still excluded so loose scratch at the top
+level stays out, but a negation `!data/*/*.parquet` admits the per-run
+directories, so `data/<run_name>/dataset.parquet`,
+`generations.parquet`, `signals_actc.parquet`, `signals_b.parquet` and
+`labels.parquet` are committed from run #3 on. Still excluded everywhere:
+`data/cache/`, `data/raw/` and `**/judge_cache.json`.
+
+One consequence matters for reading run #2's results: its per-row signal
 values no longer exist in the repository, so anything needing them cannot be
 recomputed from a clone. `results.json` stores the derived quantities — the
 21×21 Spearman matrix, per-signal bootstrap intervals, per-dataset point

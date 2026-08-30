@@ -145,9 +145,7 @@ def recover(cfg: Config, csv_path: Path, *, dry_run: bool = False) -> dict[str, 
     for index, row in enumerate(judged, start=1):
         question = question_from_row(row)
         answer = row["model_answer"]
-        outcome = cached_judge(
-            judge, cache, question, answer, seed=cfg.judges.secondary_seed
-        )
+        outcome = cached_judge(judge, cache, question, answer, seed=cfg.judges.secondary_seed)
         if outcome.value is None:
             parse_failures.append(question.qid)
         else:
@@ -164,12 +162,8 @@ def recover(cfg: Config, csv_path: Path, *, dry_run: bool = False) -> dict[str, 
     paired = [r for r in judged if r["qid"] in verdicts]
     primary_side = [r["judge_primary_verdict"] for r in paired]
     secondary_side = [verdicts[r["qid"]] for r in paired]
-    result = cohens_kappa(
-        primary_side, secondary_side, threshold=cfg.judges.kappa_trust_threshold
-    )
-    disagreements = [
-        r["qid"] for r in paired if r["judge_primary_verdict"] != verdicts[r["qid"]]
-    ]
+    result = cohens_kappa(primary_side, secondary_side, threshold=cfg.judges.kappa_trust_threshold)
+    disagreements = [r["qid"] for r in paired if r["judge_primary_verdict"] != verdicts[r["qid"]]]
 
     report.update(
         {

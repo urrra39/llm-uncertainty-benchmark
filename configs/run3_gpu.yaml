@@ -1,0 +1,220 @@
+run_name: run3_gpu_balanced
+
+# Run #3. Same study as run #2, on a GPU, at n=600 with a balanced split.
+#
+# Everything not commented below is inherited verbatim from configs/run2.yaml so
+# that the two runs differ in model size, n and dataset balance and in nothing
+# else. Run #3 has not been executed; no number in this repository comes from it.
+
+# The model under test.
+#
+# Qwen2.5-3B-Instruct at fp16 is about 6.2 GB of weights, which fits a free
+# Colab T4 (16 GB) alongside activations, the KV cache and, in its own pass, the
+# DeBERTa NLI model. Same family and tokenizer lineage as run #2's 0.5B, so the
+# prompt block and the True/False token assertions carry over unchanged.
+#
+# fp16 rather than bfloat16 because the T4 is Turing (SM 7.5): fp16 tensor cores,
+# no hardware bf16. See docs/DECISIONS.md D23 (session 7).
+#
+# No quantization. Signal family A reads exact per-token logprobs off the
+# generation scores, and post-training quantization perturbs the logits those
+# logprobs are computed from. Family A is nine of the eighteen distinct
+# orderings, so distorting it would compromise half the study to buy model size
+# this hardware does not need. There is deliberately no quantization key here;
+# ModelSpec has no such field and adding one would fail the `extra="forbid"`
+# check on load.
+model_under_test:
+  backend: local_transformers
+  name: Qwen/Qwen2.5-3B-Instruct
+  dtype: float16
+  device: auto
+  max_new_tokens: 24
+  # Open defect D27 (docs/DECISIONS.md, session 7). Padding a ragged batch
+  # perturbs per-token logprobs by up to 2.52e-02 against the unbatched values,
+  # while a batch of equal-length prompts is bit-identical (0.00e+00). The cause
+  # is partially traced to position assignment on left-padded rows and is NOT
+  # fixed. Raising this value invalidates signal family A until D27 is resolved.
+  # Leave it at 1.
+  generation_batch_size: 1
+
+# The one generation every signal is computed on.
+greedy:
+  temperature: 0.0
+  top_p: 1.0
+  seed: 0
+  top_logprobs: 5
+
+# Extra samples for the self-consistency family.
+sampling:
+  n_samples: 5
+  temperature: 0.7
+  top_p: 0.9
+  seed_base: 1000
+  ablation_n: [1, 2, 3, 5]
+
+nli:
+  model_name: MoritzLaurer/DeBERTa-v3-base-mnli
+  entailment_threshold: 0.5
+  max_length: 128
+  batch_size: 16
+
+# Balanced, 300 per dataset, n=600.
+#
+# Run #2's 90 PopQA / 30 TriviaQA split is the documented mechanism behind its
+# pooled-table distortion (README finding 4, docs/LIMITATIONS.md limitation 13):
+# the two subsets had base rates of 40% and 90% incorrect, so a signal that
+# merely separated the datasets earned pooled AUROC for free, and the 30-row
+# column could not support an estimate at all. Equal subset sizes let each
+# column carry its own interval.
+dataset_mix:
+  triviaqa: 300
+  popqa: 300
+  simpleqa: 0
+
+# Difficulty filters. Run #2's settings, with the PopQA relation allowlist
+# widened because run #2's five relations do not yield 300 rows.
+#
+# Measured through the project's own builders against the real corpora
+# (docs/DECISIONS.md D22, session 7):
+#
+#   PopQA, 5 relations (run #2), popularity quantile 0.9   ->  243 candidates
+#   PopQA, 8 relations (below),   popularity quantile 0.9   ->  389 candidates
+#   TriviaQA, easy_only + min_aliases 20 (run #2, unchanged) -> 4060 candidates
+#
+# 243 is below 300, so run #2's filter would make DatasetBuilder.build raise
+# "asked for 300 questions but only 243 are usable". The three added relations
+# are `religion`, `place of birth` and `occupation`, chosen on the axis run #2's
+# D1(a) established: relation type, not subject popularity, moves the base rate
+# for a small model, and these three are lookup-shaped rather than
+# credit-recall-shaped like `screenwriter` or `composer`.
+#
+# 389 for 300 draws is a 1.30x margin, which is thin and is stated rather than
+# hidden: the PopQA slice is close to a census of its filter rather than a sample
+# from a large pool. The popularity quantile stays at 0.9 instead of being
+# loosened, because loosening it would reintroduce the long tail that made run #1
+# degenerate. TriviaQA is untouched at a 13.5x margin.
+#
+# Unverified: whether the widened PopQA slice lands inside the pilot gate's
+# 35-65% band. The three added relations have never been generated against.
+difficulty:
+  triviaqa_easy_only: true
+  triviaqa_min_aliases: 20
+  popqa_popularity_quantile: 0.9
+  popqa_relations:
+    - "capital"
+    - "country"
+    - "capital of"
+    - "sport"
+    - "color"
+    - "religion"
+    - "place of birth"
+    - "occupation"
+
+# Two exemplars, for answer FORMAT only. Asserted absent from the eval set at
+# generation time. Neither is a TriviaQA or PopQA item.
+few_shot:
+  enabled: true
+  pairs:
+    - ["What is the capital city of Japan?", "Tokyo"]
+    - ["In which year did the Berlin Wall fall?", "1989"]
+
+dataset_seed: 12345
+
+pilot_gate:
+  n_questions: 40
+  error_rate_low: 0.25
+  error_rate_high: 0.65
+  max_iterations: 2
+
+# Judges are stronger models than the subject and are only asked for text, so
+# the API gateway's lack of logprobs does not matter here.
+judges:
+  primary:
+    backend: openai_compatible
+    name: gpt-5-mini
+    api_key_env: GSK_API_KEY
+    max_new_tokens: 8
+  secondary:
+    backend: openai_compatible
+    name: claude-haiku-4-5
+    api_key_env: GSK_API_KEY
+    max_new_tokens: 8
+  cross_validation_n: 120
+  kappa_trust_threshold: 0.7
+  secondary_seed: 4242
+
+# Recalibrators are fitted on train only and evaluated on the held-out rest.
+split:
+  train_fraction: 0.3
+  seed: 20260101
+
+# Per-dataset bootstrap confidence intervals come from this block. There is no
+# separate on/off switch: `analysis.per_dataset_auroc` runs the same stratified
+# percentile bootstrap as the pooled table, at `bootstrap_resamples` and
+# `ci_level`, whenever the analysis stage passes it a config — which it always
+# does. Run #2's results.json predates that code, which is why the README's
+# primary table falls back to a Hanley-McNeil approximation. Run #3 is the first
+# run that will produce real per-dataset intervals.
+#
+# Measured cost of that work at n=600: 4.67 s per AUROC interval and 1.17 s per
+# AUPRC interval at 10,000 resamples, against 1.14 s and 0.63 s at n=120
+# (docs/DECISIONS.md D25, session 7).
+analysis:
+  bootstrap_resamples: 10000
+  bootstrap_seed: 987654321
+  ci_level: 0.95
+  ece_bins: 10
+  target_accuracy: 0.90
+  logreg_cv_folds: 5
+  logreg_seed: 31337
+  min_meaningful_auroc_gap: 0.02
+  holm_alpha: 0.05
+  nondeterminism_probe_n: 50
+
+# Run #3 writes into its own directory and its own results file, so nothing here
+# can overwrite run #2's published numbers. The artifacts under data/run3/ are
+# tracked by git from run #3 on; see docs/DECISIONS.md, session 7.
+paths:
+  raw_dir: data/raw
+  cache_dir: data/cache
+  artifacts_dir: data/run3
+  figures_dir: figures/run3
+  results_json: results_run3.json
+  human_validation_csv: data/human_validation_sample_run3.csv
+
+# Frozen prompts, identical to run #2's. These strings are part of the cache key,
+# so editing them invalidates cached responses rather than silently mixing prompt
+# versions — and editing them here would also stop run #3 being comparable to
+# run #2.
+prompts:
+  system: >-
+    You answer short factual questions. Reply with the shortest possible factual
+    span that answers the question: a name, a date, a number, or a place. Do not
+    write a sentence. Do not explain. Always give your single best guess, even
+    when you are unsure. Never refuse and never say you do not know.
+  user_template: "Q: {question}\nA:"
+  abstain_token: UNKNOWN
+  verify_template: >-
+    Question: {question}
+
+    Proposed answer: {answer}
+
+    Is the proposed answer factually correct? Reply with exactly one word, True
+    or False.
+  verify_with_samples_template: >-
+    Question: {question}
+
+    Here are some answers that were sampled from a model for this question:
+    {samples}
+
+    Proposed answer: {answer}
+
+    Is the proposed answer factually correct? Reply with exactly one word, True
+    or False.
+  verbal_confidence_template: >-
+    Question: {question}
+
+    Proposed answer: {answer}
+
+    How confident are you that the proposed answer is factually correct? Reply
+    with a single integer from 0 to 100 and nothing else.

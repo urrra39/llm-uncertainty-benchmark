@@ -21,7 +21,7 @@ def _raw(name: str) -> dict[str, Any]:
     return loaded
 
 
-@pytest.mark.parametrize("name", ["default.yaml", "pilot.yaml"])
+@pytest.mark.parametrize("name", ["default.yaml", "pilot.yaml", "run2.yaml", "run3_gpu.yaml"])
 def test_shipped_configs_validate(name: str) -> None:
     cfg = Config.load(CONFIG_DIR / name)
     assert cfg.greedy.temperature == 0.0
@@ -51,9 +51,15 @@ def test_pilot_gate_n_matches_the_pilot_mix() -> None:
     assert cfg.pilot_gate.n_questions == cfg.dataset_mix.total
 
 
-def test_ece_bins_are_ten_in_both_configs() -> None:
-    for name in ("default.yaml", "pilot.yaml"):
-        assert Config.load(CONFIG_DIR / name).analysis.ece_bins == 10
+def test_ece_bins_are_ten_in_every_shipped_config() -> None:
+    # The README's calibration section states 10 bins. It reads one number and
+    # applies it to the whole repository, so every config that ships has to say
+    # 10 or that sentence is wrong for one of them. Enumerated from the
+    # directory rather than listed, so a new config is covered on arrival.
+    names = sorted(p.name for p in CONFIG_DIR.glob("*.yaml"))
+    assert len(names) >= 2
+    for name in names:
+        assert Config.load(CONFIG_DIR / name).analysis.ece_bins == 10, name
 
 
 def test_unknown_key_is_rejected() -> None:
