@@ -9,12 +9,55 @@ venv/
 .coverage
 htmlcov/
 
-# Intermediate run artifacts: large, and regenerable by `make all`.
+# ---------------------------------------------------------------------------
+# Run artifacts. Policy changed after run #2: TRACK them.
+#
+# Run #2's parquets lived under data/run2/ and the rules below used to exclude
+# the whole directory, so nothing was committed and the sandbox that held them
+# is gone. Per-row scores for run #2 are unrecoverable: no per-dataset bootstrap
+# interval can be computed for it, and the README has to fall back on a
+# Hanley-McNeil approximation for its primary table. That is the cost of the old
+# policy and it is not recoverable, so the policy is inverted rather than
+# patched. See docs/DECISIONS.md, "Run artifacts are tracked from run #3 on".
+#
+# The rule is: a run's OUTPUT is tracked, a run's SCRATCH is not.
+#
+# Tracked, per run directory `data/<run_name>/`:
+#   dataset.parquet         the question set that was drawn
+#   generations.parquet     greedy answer, samples, verifications, logprobs
+#   signals_actc.parquet    families A, C and T
+#   signals_b.parquet       family B
+#   labels.parquet          the correctness labels the analysis is computed on
+#   judge_verdicts.json     per-row judge replies, so kappa is recomputable
+#   timings.json            measured throughput
+#   pilot_gate.json         the gate's own record, when a pilot ran
+#
+# Ignored: caches (regenerable, and large), downloaded corpora, temp files.
+# ---------------------------------------------------------------------------
+
+# Caches and downloads. Regenerable, and no result depends on their contents.
 data/cache/
 data/raw/
+hf_home/
+
+# Scratch: atomic-write temp files and the judge response cache. The judge
+# cache is scratch because judge_verdicts.json is the artifact that carries the
+# verdicts in a form the analysis can read; the cache is a request-level detail
+# keyed on model, qid and answer text.
+**/judge_cache.json
+*.tmp
+*.part
+data/**/*.parquet.tmp
+
+# Legacy scratch directories from earlier sessions. Kept ignored so a stale
+# working copy does not offer them up.
 data/artifacts/
-data/*.parquet
 data/pilot/
+
+# Loose parquets directly under data/ are scratch by convention: a real run
+# writes into data/<run_name>/, which the rules above track.
+data/*.parquet
+!data/*/*.parquet
 
 # results.json and figures/*.png are deliberately NOT ignored. They are the
 # output of the project, they are what the README quotes, and a reader who
@@ -23,8 +66,11 @@ data/pilot/
 results_pilot.json
 figures/*.pdf
 
-# HuggingFace model/dataset downloads
-hf_home/
+# `make export-artifacts` output. The archive is for attaching to a Release, so
+# committing it would defeat its own purpose.
+dist/
+
+# Model weights. Never tracked; `make export-artifacts` never touches them.
 *.safetensors
 *.bin
 

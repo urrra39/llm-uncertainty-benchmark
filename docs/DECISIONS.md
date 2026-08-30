@@ -932,3 +932,213 @@ present rather than returning a number.
 The README's limitations now state in one sentence that the inter-judge κ of
 0.849 measures judge consistency and not label correctness, and that no human
 has verified any label in this run. Limitation 14 carries the longer version.
+
+## Session 7: preparing run #3
+
+No benchmark stage was run in this session. No judge was called, `results.json`
+was read but not written, and no run #2 number moved. Everything below is either
+a policy change, a configuration, a code change to a path run #2 did not take, or
+a measurement made in this session and labelled as such.
+
+### Run artifacts are tracked from run #3 on
+
+**What was lost.** Run #2 wrote its intermediate parquets to `data/run2/`, and
+the old `.gitignore` excluded `data/artifacts/` and `data/*.parquet` while
+`configs/run2.yaml` pointed `paths.artifacts_dir` at `data/run2`. Nothing was
+committed. The sandbox that held those files is gone. `dataset.parquet`,
+`generations.parquet`, `signals_actc.parquet`, `signals_b.parquet`,
+`labels.parquet` and the judge cache for run #2 no longer exist anywhere.
+
+**What that cost, concretely.** Run #2's per-row signal values are
+unrecoverable, so:
+
+- No per-dataset bootstrap interval can be computed for run #2. The README's
+  primary table falls back to a Hanley–McNeil normal approximation, which is a
+  different estimator from the percentile bootstrap used for the pooled table.
+  That substitution is not a stylistic choice; it is forced by this data loss.
+  Its caveats stay in the README because they remain accurate.
+- `data/human_validation_sample.csv`'s `model_answer` column is the only
+  committed record of any run #2 answer, which is why the secondary-verdict
+  recovery in `data/README.md` could reach only 53 of 66 judged rows.
+- The reader of a clone cannot recompute anything the analysis derived.
+
+Run #2's published numbers are unaffected and are frozen exactly as they stand.
+Reconstruction was not attempted: there is nothing to reconstruct them from, and
+regenerating them would produce different rows presented as the same run.
+
+**The policy change.** A run's OUTPUT is tracked; a run's SCRATCH is not.
+Tracked, per `data/<run_name>/`: `dataset.parquet`, `generations.parquet`,
+`signals_actc.parquet`, `signals_b.parquet`, `labels.parquet`,
+`judge_verdicts.json`, `timings.json`, `pilot_gate.json`. Ignored: `data/cache/`,
+`data/raw/`, `**/judge_cache.json`, `*.tmp`, `*.part`, `hf_home/`, `dist/`, and
+loose parquets directly under `data/`.
+
+The exclusion is now written as `data/*.parquet` plus a negation
+`!data/*/*.parquet`, so scratch at the top level stays out while a run directory
+one level down is admitted. `tests/test_artifact_tracking.py` asserts this
+against `git check-ignore` itself, parameterized over several run names, so a
+rule written for one directory name cannot leave the next run exposed.
+
+**Direct git tracking, not Git LFS.** Measured before deciding rather than
+assumed. The dominant artifact is `generations.parquet`, which carries the
+per-token logprob payload as JSON strings. I built a synthetic 600-row frame in
+the exact schema `stages/generate.py` writes — 24 answer tokens per generation,
+top-5 alternatives on the greedy call, six generations per row — with
+high-entropy token strings and float values so parquet's dictionary and
+run-length encodings could not compress it below what real data would:
+
+| construction | size |
+| --- | --- |
+| 600 rows, realistic repeated tokens | 0.05 MB |
+| 600 rows, high-entropy upper bound | **6.68 MB** |
+
+6.68 MB is the pessimistic figure and it is 7.6× under the 50 MB threshold at
+which LFS would be worth its cost, and 15× under GitHub's 100 MB hard per-file
+limit. LFS would add a required client-side install, a smudge filter on every
+clone, and a bandwidth quota, in exchange for solving a problem this repository
+does not have. So the artifacts go into git directly.
+
+Both fallbacks are wired up anyway, because the measurement is of *this* run's
+shape and a later run could change it:
+
+- `make check-artifact-size RUN_DIR=data/run3` prints every artifact's size and
+  exits non-zero if one exceeds `SIZE_LIMIT` (50 MB by default). Verified in both
+  directions: it passes on a small run directory and fails with a non-zero exit
+  when the limit is lowered under the file sizes.
+- `make export-artifacts RUN_DIR=data/run3` writes
+  `dist/<run>-artifacts.tar.gz` for attachment to a GitHub Release, skipping any
+  absent member rather than aborting. Verified by running it. It excludes the
+  response cache, the judge cache, the source corpora and model weights.
+
+**The stray file.** The task named `data/run2/judge_cache.json` as possibly
+present and untracked. It is **not** present in this checkout — `data/run2/` does
+not exist at all here — so there was nothing to remove. The rule
+`**/judge_cache.json` now ignores it wherever it appears, in this or any run
+directory, so its reappearance cannot be committed by accident.
+
+### D22. Run #3's dataset filters, measured not guessed
+
+Run #2's 90 PopQA / 30 TriviaQA split is documented as the mechanism behind its
+pooled-table distortion (limitation 13, README finding 4). Run #3 targets **300
+PopQA / 300 TriviaQA, n=600**, so each subset carries its own interval and
+neither can be written off as noise.
+
+The 300 PopQA rows do not fit run #2's filter. Measured against the real
+`test.tsv` through the project's own builder, in this session:
+
+| PopQA filter | candidates |
+| --- | --- |
+| run #2: 5 relations, popularity quantile 0.9 | **243** |
+| run #3: 8 relations, popularity quantile 0.9 | **389** |
+
+243 is below 300, so `DatasetBuilder.build` would raise
+`asked for 300 questions but only 243 are usable` — correctly, rather than
+silently drawing fewer. The three relations added are `religion`,
+`place of birth` and `occupation`. They were chosen on the same axis run #2's
+D1(a) established: relation type, not subject popularity, is what moves the base
+rate for a small model, and these three are lookup-shaped (one entity, small
+answer vocabulary) rather than credit-recall-shaped like `screenwriter` or
+`composer`. The popularity quantile stays at 0.9 rather than being loosened,
+because loosening it would reintroduce the long tail that made run #1
+degenerate.
+
+389 candidates for 300 draws is a 1.30× margin. That is thinner than I would
+like and it is stated rather than hidden: the draw is a 300-of-389 sample, so the
+PopQA slice is close to a census of its filter rather than a sample from a large
+pool. The consequence is that run #3's PopQA distribution is largely determined
+by the filter and not by the seed, which makes it more reproducible and less
+representative at the same time.
+
+TriviaQA needs no widening. At `easy_only: true` and `min_aliases: 20` — run
+#2's exact settings — the builder yields **4060** candidates, a 13.5× margin over
+300. The threshold is left alone, because moving it would change the difficulty
+of the TriviaQA slice relative to run #2 for no reason.
+
+Both numbers were measured in this session by loading the real corpora through
+`PopQABuilder` and `TriviaQABuilder`. Neither is inherited from a previous note.
+
+**What is not established:** whether the widened PopQA slice lands inside the
+35–65% base-rate gate. Run #2's own experience is the caution here — its 40-row
+pilot projected 36.6% and the full run measured 50.0%, a 13-point miss — and the
+three added relations have never been generated against. `configs/run3_gpu.yaml`
+therefore ships with the pilot gate configured, and the notebook runs the full
+pipeline; the base rate for the new relations is **unverified** until run #3 is
+executed.
+
+### D23. Qwen2.5-3B-Instruct in fp16, not a quantized larger model
+
+The subject model moves from `Qwen2.5-0.5B-Instruct` to
+`Qwen2.5-3B-Instruct`, same family and tokenizer lineage, at `dtype: float16`.
+3.09B parameters at 2 bytes each is about 6.2 GB of weights, which leaves room on
+a 16 GB T4 for activations, a KV cache at batch size 8, and the DeBERTa NLI model
+in its own pass.
+
+Quantization was considered and rejected, on the same grounds run #2 rejected
+4-bit: signal family A reads exact per-token logprobs off the generation scores,
+and post-training quantization perturbs the logits those logprobs are computed
+from. Family A is nine of the eighteen distinct orderings in the table, so
+distorting it would compromise half the study to buy model size the hardware
+does not require. fp16 rather than bfloat16 because the T4 is Turing (SM 7.5),
+which has fp16 tensor cores and no hardware bf16 — bf16 on a T4 runs emulated
+and slower.
+
+`float32` stays available in the config and is what a CPU run should use if
+memory allows; run #2's `bfloat16` on CPU is untouched and still loads.
+
+### D24. Batched generation, and where it is safe
+
+`generate` previously issued one `client.generate` call per sample seed,
+deliberately: a single `n=5` call shares one seed across the batch, so the five
+"independent samples" would not be independently seeded and the N-ablation would
+not be reproducible per sample. That reasoning still holds and the per-seed call
+structure is unchanged.
+
+What is now batched is one level down, inside `LocalTransformersClient`: several
+prompts are padded and run through one forward pass when the caller offers them
+together, and `generation_batch_size` in the model spec caps how many. The
+per-seed loop over sampling calls is preserved, so the seeding property survives.
+Batch size comes from config rather than a constant, and the CPU default of 1
+reproduces run #2's call pattern exactly.
+
+Left-padding is used for decoder-only generation, because right-padding puts pad
+tokens between the prompt and the first generated token and the model attends to
+them. The attention mask is passed explicitly. Per-token logprobs are read per
+row with the row's own prompt length, so a padded row's boilerplate cannot enter
+`answer_token_logprobs`.
+
+### D25. Per-dataset bootstrap CIs were already implemented
+
+`per_dataset_auroc` takes an optional `cfg` and, when given one, computes a
+stratified percentile bootstrap within each dataset subset — the same estimator
+as the pooled table, resampling within the subset so no interval borrows rows
+from the other dataset. `report.py` passes `cfg`. This was written and tested in
+session 6 and has never run against data: run #2's `results.json` predates it,
+and its `per_dataset` block therefore stores point estimates only, which is why
+the README's primary table uses the analytic approximation.
+
+Nothing about this needed to be built for run #3. It needed data. Run #3 will
+produce data and the block will carry real intervals, at which point the
+Hanley–McNeil section of the README becomes historical rather than load-bearing.
+Measured cost of the added bootstrap work at n=600: 4.67 s per AUROC interval and
+1.17 s per AUPRC interval at 10,000 resamples, against 1.14 s and 0.63 s at
+n=120, so the analysis stage gets slower but stays in minutes.
+
+### D26. Device detection, and the CPU path verified rather than assumed
+
+`LocalTransformersClient` hard-coded `torch.set_num_threads(os.cpu_count())` and
+never placed the model or its inputs on a device, which is correct on CPU and
+wrong on a GPU. It now selects `cuda` when `torch.cuda.is_available()` and `cpu`
+otherwise, moves inputs to the model's device, and takes dtype and batch size
+from `ModelSpec`. `device` can be pinned in config to override detection, which
+is what makes the CPU path testable on a machine that has a GPU.
+
+CPU thread pinning is applied only on the CPU path. On CUDA it is pointless and
+`torch.set_num_threads` would still be capping the host-side loader threads.
+
+The CPU path was verified against real weights in this session, not argued for.
+`Qwen/Qwen2.5-0.5B-Instruct` in bfloat16 — run #2's exact model and dtype — was
+loaded twice, once through the code as it stood at `2a85755` and once through the
+rewritten client, and asked for a greedy answer plus five sampled continuations
+on the same prompts. The measured comparison is recorded in the session summary
+below. The tests that cover the device logic use a stub torch module and pass
+with no GPU and no weights, because CI installs neither.
