@@ -234,6 +234,22 @@ def run(cfg: Config) -> int:
             judge_cache.flush()
 
         paired = sorted(set(primary_verdicts) & set(secondary_verdicts))
+
+        # D11: the kappa denominator must equal the number of rows actually sent
+        # to BOTH judges. `wanted` is what was selected for the second judge and
+        # `subset` is what it was asked about; a row can drop out of `paired`
+        # only by failing to parse, and that count is reported separately rather
+        # than silently shrinking the denominator. Asserting it here means a
+        # kappa can never be quoted over a row set smaller than it claims.
+        sent_to_both = {q.qid for q, _ in subset}
+        parse_dropped = sorted(sent_to_both - set(paired))
+        if len(paired) + len(parse_dropped) != len(sent_to_both):
+            raise AssertionError(
+                f"kappa denominator integrity: {len(paired)} paired + "
+                f"{len(parse_dropped)} unparsed != {len(sent_to_both)} rows sent "
+                f"to both judges"
+            )
+
         if paired:
             result = cohens_kappa(
                 [primary_verdicts[q] for q in paired],
@@ -248,6 +264,9 @@ def run(cfg: Config) -> int:
                 "expected_agreement": result.expected_agreement,
                 "categories": list(result.categories),
                 "trustworthy": result.trustworthy,
+                "n_sent_to_both_judges": len(sent_to_both),
+                "n_dropped_for_parse_failure": len(parse_dropped),
+                "denominator_matches_rows_sent": len(paired) == len(sent_to_both),
                 "primary_model": cfg.judges.primary.name,
                 "secondary_model": cfg.judges.secondary.name,
             }
