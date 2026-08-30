@@ -78,3 +78,57 @@ Written against run #2 (n=120, `configs/run2.yaml`). Run #1 is discarded; see
     below chance. Platt is monotone and cannot change AUROC. The reliability
     diagrams (`figures/reliability.png`) should not be read as a ranking of
     usefulness.
+
+13. **The 90/30 dataset split is a design flaw, and it is the mechanism behind
+    finding 4.** The run pools a 90-row PopQA subset at 40% incorrect with a
+    30-row TriviaQA subset at 90% incorrect. Two things follow, and both show up
+    in the tables above.
+
+    Any signal correlating with *which dataset a row came from* earns pooled
+    AUROC for free, because the datasets differ in base rate. That is exactly
+    what `t_question_length` does: 0.505 within PopQA, 0.580 within TriviaQA,
+    0.684 pooled. It is not detecting error, it is detecting provenance.
+
+    And the 30-row subset cannot support an estimate. With 3 correct rows,
+    `t_random` scores 0.691 there — a random number, which cannot predict
+    anything. One row flipping moves that column by roughly 0.1 AUROC. The
+    TriviaQA column is noise, which is why the README declines to read it as a
+    ranking; but the pooled column that *is* read as a ranking is 25% built from
+    it.
+
+    A balanced design would have been roughly 60/60 with base rates within about
+    10 points of each other — close enough that pooling adds no dataset signal,
+    and large enough per subset that each column carries its own interval. A
+    future run should target equal subset sizes and matched base rates, and should
+    treat the per-dataset columns as the primary result from the start rather than
+    promoting them after the fact.
+
+    The 90/30 weighting was deliberate but was chosen for a different objective:
+    the pilot measured PopQA at 41.7% correct against TriviaQA's 21.4%, so the
+    mix was weighted toward PopQA to lift the pooled base rate into the gate's
+    35–65% band. It was chosen to fix the base rate, not to balance the subsets,
+    and the interaction with per-dataset estimation was not considered. See
+    `docs/DECISIONS.md`.
+
+14. **No human has verified any label, and the reported κ does not measure
+    correctness.** Every one of the 120 labels is machine-assigned: 54 by
+    normalized exact match, 66 by an LLM judge. The κ of 0.849 in `results.json`
+    is judge-versus-judge over the 66 judged rows — it measures whether
+    `gpt-5-mini` and `claude-haiku-4-5` agree with each other, which is judge
+    *consistency*. Two judges sharing the same blind spot agree perfectly and are
+    both wrong, and κ cannot detect that.
+
+    `data/human_validation_sample.csv` holds a 100-row sample laid out for a
+    human, with an empty `human_label` column, and `unc-bench human-agreement`
+    computes agreement and Cohen's κ against a filled-in column. It is wired into
+    the CLI and tested; it has never been run on real labels, because there are
+    none. The column is empty on purpose — filling it without a human would be
+    fabrication. Until it is filled, the label set's *correctness* is unmeasured
+    in both directions.
+
+    There is at least one row where this matters. For "What is Stockholm the
+    capital of?" the gold list contains both "Stockholm County" and "Sweden"; the
+    model answered "Stockholm"; the containment heuristic scored that correct and
+    the judge scored it incorrect. Which is right is a human judgement that has
+    not been made. 9 of the 100 sampled rows have the heuristic and the judge
+    disagreeing.

@@ -47,8 +47,9 @@ it is `c_verbal_confidence` (0.765) — the same signal that scores 0.484 pooled
 below chance. The per-dataset table is the more honest read of this benchmark.
 
 The practical conclusion, argued in full under
-["What I would ship"](#what-i-would-ship): ship `a_mean_logprob`, which is free,
-and do not ship self-consistency.
+["What I would ship"](#what-i-would-ship): this benchmark does not establish any
+of the 21 signals above chance on its larger, more balanced subset, so it does
+not support shipping any of them at this scale.
 
 ## Per-dataset AUROC
 
@@ -59,16 +60,20 @@ separately so no signal can earn credit for telling them apart.
 | signal | family | cost | PopQA AUROC (n=90, 40% incorrect) | TriviaQA AUROC (n=30, 90% incorrect) | pooled AUROC |
 |---|---|---|---|---|---|
 | `b_distinct_count` | B | 6.0× | 0.603 | 0.741 | 0.704 |
-| `b_distinct_fraction` | B | 6.0× | 0.603 | 0.741 | 0.704 |
+| `b_distinct_fraction` † | B | 6.0× | 0.603 | 0.741 | 0.704 |
 | `b_disagreement_rate` | B | 6.0× | 0.601 | 0.685 | 0.701 |
 | `b_semantic_entropy` | B | 6.0× | 0.579 | 0.704 | 0.693 |
-| `b_semantic_entropy_normalized` | B | 6.0× | 0.579 | 0.704 | 0.693 |
+| `b_semantic_entropy_normalized` † | B | 6.0× | 0.579 | 0.704 | 0.693 |
 | `b_mean_pairwise_f1` | B | 6.0× | 0.595 | 0.691 | 0.691 |
 | `t_question_length` | T | 1.0× | 0.505 | 0.580 | 0.684 |
 | `a_mean_logprob` | A | 1.0× | 0.514 | 0.753 | 0.664 |
 | `c_p_true_plain` | C | 2.0× | **0.626** | 0.660 | 0.659 |
 | `t_random` | T | 1.0× | 0.511 | 0.691 | 0.508 |
 | `c_verbal_confidence` | C | 2.0× | 0.395 | **0.765** | 0.484 |
+
+Rows marked † are rank-equivalent duplicates of the row above (see
+[the pooled table](#auroc-and-auprc-all-21-signals)); the 11 rows are 9 distinct
+signals.
 
 Three things in that table are worth stating plainly:
 
@@ -97,17 +102,56 @@ class) is **0.525** — an AUPRC at or below that number is no better than
 guessing. Read this table alongside the per-dataset table above, not instead of
 it.
 
+**The 21 rows are 18 distinct signals.** AUROC is invariant under any strictly
+monotone transform of the score, so a signal that is a monotone
+reparameterization of another produces an identical ranking and an identical
+AUROC — it is the same signal wearing a different unit. Three pairs are
+rank-equivalent, each verified by measuring the Spearman rank correlation over
+the 120 frozen rows and finding it exactly **+1.000** (`views.primary.correlation`
+in `results.json`; reproduce with `unc-bench audit`):
+
+| pair | relationship | measured Spearman |
+|---|---|---|
+| `a_mean_logprob` / `a_perplexity` | `exp(-x)`, strictly monotone | +1.000 |
+| `b_distinct_count` / `b_distinct_fraction` | divide by the answer-set size, constant at 6 | +1.000 |
+| `b_semantic_entropy` / `b_semantic_entropy_normalized` | divide by `ln(6)`, constant *in this run only* | +1.000 |
+
+The third pair is not a monotone transform in general — dividing by
+`ln(answer-set size)` is only monotone when that size is fixed. Here it is:
+`n_samples = 5` and the answer set is `[greedy, *samples]`, so every row divides
+by `ln(6)`. This is a property of the configuration, not of the signal, and it
+is the reason the tie is expected rather than a bug. See
+[docs/DECISIONS.md](docs/DECISIONS.md) for the code-level diagnosis.
+
+Consequence for the significance table below: Holm–Bonferroni was applied across
+**20 comparisons, of which 3 are rank-equivalent duplicates of others in the
+same family**. A duplicate carries no information the family did not already
+have, so the effective family is 17 and the correction is **conservative** — it
+adjusts p-values upward more than the evidence requires, which makes
+non-significance easier to obtain than it should be. The bias runs against the
+signals, not in their favour.
+
+The deduplicated correction is derivable from the stored bootstrap p-values,
+since only the family size changes, so both are reported. Recomputing Holm over
+the 17 non-duplicate comparisons **changes no verdict**: the same 4 comparisons
+are significant either way, and the largest movement is `a_min_logprob` from
+1.000 to 0.974, still far from 0.05. **The original 20-comparison correction
+therefore remains primary** and no published p-value changes. Full side-by-side
+table: `unc-bench audit`.
+
+Rows marked † are rank-equivalent duplicates of the row immediately above them.
+
 | signal | family | AUROC [95% CI] | AUPRC [95% CI] | extra calls/q | cost |
 |---|---|---|---|---|---|
 | `b_distinct_count` | B | 0.704 [0.616, 0.786] | 0.724 [0.651, 0.796] | 5 | 6.0× |
-| `b_distinct_fraction` | B | 0.704 [0.616, 0.786] | 0.724 [0.651, 0.796] | 5 | 6.0× |
+| `b_distinct_fraction` † | B | 0.704 [0.616, 0.786] | 0.724 [0.651, 0.796] | 5 | 6.0× |
 | `b_disagreement_rate` | B | 0.701 [0.612, 0.783] | 0.716 [0.636, 0.795] | 5 | 6.0× |
 | `b_semantic_entropy` | B | 0.693 [0.604, 0.774] | 0.712 [0.635, 0.789] | 5 | 6.0× |
-| `b_semantic_entropy_normalized` | B | 0.693 [0.604, 0.774] | 0.712 [0.635, 0.789] | 5 | 6.0× |
+| `b_semantic_entropy_normalized` † | B | 0.693 [0.604, 0.774] | 0.712 [0.635, 0.789] | 5 | 6.0× |
 | `b_mean_pairwise_f1` | B | 0.691 [0.600, 0.775] | 0.714 [0.635, 0.794] | 5 | 6.0× |
 | `t_question_length` | T | 0.684 [0.599, 0.763] | 0.697 [0.618, 0.788] | 0 | 1.0× |
 | `a_mean_logprob` | A | 0.664 [0.562, 0.761] | 0.753 [0.674, 0.830] | 0 | 1.0× |
-| `a_perplexity` | A | 0.664 [0.562, 0.761] | 0.753 [0.674, 0.830] | 0 | 1.0× |
+| `a_perplexity` † | A | 0.664 [0.562, 0.761] | 0.753 [0.674, 0.830] | 0 | 1.0× |
 | `a_length_normalized_logprob` | A | 0.662 [0.556, 0.761] | 0.752 [0.664, 0.836] | 0 | 1.0× |
 | `a_total_logprob` | A | 0.660 [0.554, 0.758] | 0.742 [0.653, 0.832] | 0 | 1.0× |
 | `c_p_true_plain` | C | 0.659 [0.555, 0.755] | **0.756** [0.675, 0.831] | 1 | 2.0× |
@@ -130,8 +174,10 @@ not choose for you.
 ### Verdict on significance
 
 **No winner.** `b_distinct_count` leads `b_distinct_fraction` by 0.000 AUROC and
-their CIs overlap at n=120. The two are rank-identical by construction (they
-differ by a constant divisor of 5).
+their CIs are identical at n=120, because the two are the same signal: they
+differ by a constant divisor — the answer-set size, which is `n_samples + 1 = 6`
+on every row — and their measured Spearman correlation is exactly +1.000. The
+leader's nearest *distinct* competitor is `b_disagreement_rate` at 0.701.
 
 The test used is a **paired stratified bootstrap on the AUROC difference**
 (10,000 resamples, identical resample indices for both signals in every
@@ -142,7 +188,9 @@ signals here are integer-valued with heavy ties. The substitution is recorded in
 `results.json` and `docs/DECISIONS.md`.
 
 Of 20 comparisons, **4 are significant after Holm correction** — all of them
-signals that are significantly *worse* than the leader:
+signals that are significantly *worse* than the leader. Three of those 20
+comparisons are rank-equivalent duplicates, so the correction is conservative;
+recomputing over the 17 distinct comparisons changes no verdict, as noted above.
 
 | signal | Δ AUROC vs leader | p_holm | significant |
 |---|---|---|---|
@@ -326,31 +374,112 @@ column; no human has labeled it.
 
 ## What I would ship
 
-I would ship **`a_mean_logprob`** with a threshold at the 40th percentile of its
-oriented score, and I would not ship self-consistency.
+**Nothing, on this evidence.** This benchmark does not support shipping any of
+these 21 signals at this scale.
 
-The reasoning is cost, not accuracy. Self-consistency leads on AUROC (0.704 vs
-0.664) but costs 6× and its CI [0.616, 0.786] overlaps mean-logprob's
-[0.562, 0.761] completely, so the gap is not established at n=120. Mean logprob
-is free — the logprobs arrive with the answer that was already generated — and it
-has the *second-best AUPRC in the whole table* (0.753 vs the leader's 0.724),
-which is the metric that matters when you are trying to catch errors in a stream
-where errors are the minority. Paying 6× for an unestablished 0.04 AUROC gain is
-not a trade I would make. If the ablation is to be believed, anyone who does want
-self-consistency should use **N=3, not N=5**: AUROC saturates at 0.705 by N=3 and
-does not improve at N=5, so two fifths of family B's cost buys nothing.
+An earlier version of this section recommended `a_mean_logprob` at the 40th
+percentile. That recommendation was inconsistent with this README's own primary
+table and has been replaced; the reasoning is recorded in
+[docs/DECISIONS.md](docs/DECISIONS.md) rather than quietly deleted.
 
-The two honest caveats on that recommendation are findings 2 and 4.
-`t_question_length` scores 0.684 at the same 1× cost, which means a chunk of what
-mean-logprob "detects" is just question difficulty; and within PopQA alone
-mean-logprob falls to 0.514 — essentially chance — while the leader falls to
-0.603, so the pooled numbers are flattered by the two datasets' different base
-rates. On a single-distribution deployment I would expect worse than 0.664 from
-any signal here, and I would re-measure rather than trust the pooled number.
+### Why the pooled ranking is not the basis
+
+The superseded recommendation rested on pooled AUROC 0.664 and the pooled AUPRC
+0.753. Both are pooled numbers, and this README designates the
+[per-dataset table](#per-dataset-auroc) as primary for a reason it also states:
+`t_random` — a random number, which cannot predict anything — scores 0.691 within
+TriviaQA. That column is estimator noise from 3 correct rows in 30, and the
+README says it should not be read as a ranking.
+
+`a_mean_logprob` scores **0.753 on TriviaQA and 0.514 on PopQA**. Its pooled
+0.664 is substantially earned in the column the README disowns. Recommending it
+on a pooled number while disowning the subset that produces that number is the
+inconsistency this section fixes. The same objection voids the AUPRC argument:
+pooled AUPRC is computed over the same mixed set and inherits the same defect,
+and `a_mean_logprob` is not even the AUPRC leader — `c_p_true_plain` is, at
+0.756.
+
+### What the primary table supports
+
+PopQA is the subset worth reading: n=90, 40% incorrect, 36 positives against 54
+negatives. The per-dataset block in `results.json` stores point estimates with no
+interval, and the per-row signal values needed to bootstrap one are not in the
+repository (`.gitignore` excludes the signal artifacts). So the interval below is
+a **Hanley–McNeil normal approximation**, computable from the stored AUROC and
+class counts alone. It is *not* the percentile bootstrap used everywhere else in
+this README, and it is labelled as an approximation wherever it appears.
+Calibration: across the 21 pooled signals, where both methods can be compared on
+the same rows, the two disagree by at most **0.0267** on an interval endpoint and
+never disagree about whether 0.50 is excluded.
+
+| signal | PopQA AUROC | analytic 95% interval | excludes 0.50 |
+|---|---|---|---|
+| `c_p_true_plain` | 0.626 | [0.507, 0.746] | yes, by 0.007 |
+| `b_distinct_count` | 0.603 | [0.482, 0.724] | no |
+| `b_disagreement_rate` | 0.601 | [0.480, 0.722] | no |
+| `b_mean_pairwise_f1` | 0.595 | [0.474, 0.716] | no |
+| `b_semantic_entropy` | 0.579 | [0.458, 0.701] | no |
+| `a_mean_logprob` | 0.514 | [0.392, 0.637] | no |
+| `t_random` | 0.511 | [0.388, 0.633] | no |
+| `t_question_length` | 0.505 | [0.383, 0.628] | no |
+| `c_verbal_confidence` | 0.395 | [0.274, 0.516] | no |
+
+All 21 rows: `unc-bench audit`.
+
+**Exactly one signal's PopQA interval excludes 0.50, and that exclusion does not
+survive scrutiny.** `c_p_true_plain` clears chance by 0.007 on the lower
+endpoint. That margin is smaller than the 0.0267 disagreement between this
+approximation and the bootstrap the project actually reports, so the exclusion is
+an artifact of the interval method as easily as a property of the data. It is
+also a selected maximum: it is the largest of 18 distinct signals scanned on the
+same subset. Its unadjusted p against 0.50 is 0.0385; Bonferroni over 18
+orderings gives 0.693. It does not clear chance once the selection is accounted
+for.
+
+**So the honest answer is that no signal clears chance on PopQA.** I record this
+as inconclusive rather than as a negative result: an exact bootstrap interval on
+the PopQA subset is not computable from the committed artifacts, so "no signal is
+established above chance" is what the evidence supports, not "no signal works".
+
+### What would change the answer
+
+- **Larger n.** At 36 positives the analytic interval half-width is about 0.12,
+  so a true AUROC of 0.63 cannot be separated from 0.50. Separating 0.60 from
+  0.50 at this balance needs roughly 250–300 rows per subset.
+- **A larger subject model.** Qwen2.5-0.5B-Instruct is a substitute forced by
+  hardware (docs/DECISIONS.md D1–D3). Its errors are dominated by not knowing the
+  fact at all, which is the regime where confidence signals have least to say.
+- **A harder, more balanced dataset.** The 90/30 split with base rates of 40% and
+  90% is the mechanism behind finding 4; see limitation 13. Equal subset sizes at
+  similar base rates would let the per-dataset columns be compared directly
+  instead of one being written off as noise.
+- **Committing the signal columns.** Then per-dataset bootstrap intervals could
+  be computed with the same estimator as the pooled table, and this section would
+  not depend on an approximation.
+
+### The one thing the table does support
+
+If self-consistency is used anyway, use **N=3, not N=5**: AUROC saturates at
+0.705 by N=3 and does not improve at N=5, so two fifths of family B's 6× cost
+buys nothing measurable. That claim is about a cost–benefit ratio *within* a
+signal, not about whether the signal beats chance, so the objection above does
+not apply to it.
 
 ## Limitations
 
-See [docs/LIMITATIONS.md](docs/LIMITATIONS.md). Decision log:
+Two that bear directly on how the numbers above should be read:
+
+- **No label is human-verified.** The inter-judge κ of 0.849 measures how
+  consistently two judges agree with *each other*, not whether either agrees with
+  a human, and no human has verified any label in this run;
+  `data/human_validation_sample.csv` ships with its `human_label` column empty
+  and `unc-bench human-agreement` is wired up and tested but has never been run
+  on real labels.
+- **The 90/30 dataset split is a design flaw**, not just an inconvenience. It is
+  the mechanism behind finding 4 and behind the pooled table's distortion. See
+  limitation 13.
+
+Full list: [docs/LIMITATIONS.md](docs/LIMITATIONS.md). Decision log:
 [docs/DECISIONS.md](docs/DECISIONS.md).
 
 ## Run #1 and why it was discarded

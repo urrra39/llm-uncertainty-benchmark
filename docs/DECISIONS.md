@@ -735,9 +735,11 @@ the target stayed at 120.
   `greedy_answer` in `build_results`. A silent `available: false` is worse than
   a crash and this one would have shipped as an empty README section.
 - D8 paired `b_distinct_count` with `b_distinct_fraction`. Those differ only by
-  a constant divisor (the sample count is 5 for every row), so they are
-  rank-identical and the regression was asking whether a signal improves on
-  itself. `_first_distinct_partner` now rejects a partner whose absolute
+  a constant divisor (the scored answer set is `[greedy, *5 samples]`, so the
+  divisor is 6 for every row), so they are rank-identical and the regression was
+  asking whether a signal improves on itself. An earlier version of this note
+  and of the README said the divisor was 5; that was wrong and is corrected in
+  D16 below. The divisor's value does not affect any published number. `_first_distinct_partner` now rejects a partner whose absolute
   Spearman against the leader exceeds 0.999, and records the rejection.
 
 ### Scope cuts
@@ -754,3 +756,179 @@ the target stayed at 120.
   run-to-run CPU drift in the greedy answers is unquantified. Reported as
   unmeasured in the README and in LIMITATIONS rather than estimated.
 
+## Post-run corrections (session 6)
+
+No benchmark stage was re-run in this session. Generation, family B and labeling
+were not touched, no judge was called, and `results.json` was read but not
+written. Everything recorded below is derived from the committed
+`results.json`, from the stored signal values, or from the source code.
+
+### D16. Three rank-equivalent signal pairs, verified and marked
+
+AUROC is invariant under any strictly monotone transform of the score, so two
+signals related by such a transform are the same signal for every purpose this
+benchmark measures. Three pairs in the 21-row table shared an AUROC to three
+decimals, which is the signature of that situation. I measured the Spearman rank
+correlation of each pair over the 120 frozen rows, taking the values from the
+stored `views.primary.correlation` matrix rather than recomputing them:
+
+| pair | Spearman | verdict |
+|---|---|---|
+| `a_mean_logprob` / `a_perplexity` | +1.000 | rank-equivalent |
+| `b_distinct_count` / `b_distinct_fraction` | +1.000 | rank-equivalent |
+| `b_semantic_entropy` / `b_semantic_entropy_normalized` | +1.000 | rank-equivalent |
+
+As a control, `a_mean_logprob` against `b_distinct_count` is below 1.000, so the
+matrix is not returning 1.000 indiscriminately.
+
+The 21 rows therefore represent **18 distinct orderings**, not 21. The README
+now says this immediately above the pooled table and marks the three redundant
+rows with a footnote marker.
+
+### D17. The semantic-entropy tie is an expected tie, not a code defect
+
+The first two pairs are monotone by construction. The third is not: normalizing
+an entropy by `ln(k)` is only a monotone transform of it when `k` is constant,
+and in general the answer-set size varies per row, so an exact tie needed a
+cause before it could be accepted.
+
+`src/unc_bench/signals/consistency.py` scores
+`answer_set = [greedy_answer, *sample_answers]` and sets
+`max_entropy = math.log(len(answer_set))`. `src/unc_bench/stages/generate.py`
+draws exactly `cfg.sampling.n_samples` samples per row, and `configs/run2.yaml`
+sets `n_samples: 5` (the config default is also 5). So `len(answer_set)` is 6 on
+every row of this run and the divisor is the constant `ln(6) = 1.791759`.
+Dividing by a positive constant is strictly monotone, so the two signals must
+tie.
+
+Independent corroboration from a number I did not have to recompute: in
+`ablation.by_n`, the pair ties at N=1, 2, 3 and 5, where the answer-set sizes are
+2, 3, 4 and 6. A per-level-constant divisor predicts exactly that pattern; a
+shared code path computing one quantity twice would also produce it, but the
+constant-divisor reading is the one the source supports directly, since the two
+values are visibly computed from different expressions in the same return
+statement.
+
+**Verdict: expected tie. Not a code defect. Nothing was changed in the signal
+computation, and no published number moved.** The normalized variant is
+redundant on this run only because `n_samples` is fixed; a run that varied the
+sample count per row would separate the two, and the finding does not generalize
+past this configuration.
+
+The one thing this inspection did change is prose, not data: the divisor for
+`b_distinct_fraction` is 6, not the 5 that the README and the earlier D8 note
+both stated. Both are corrected. No AUROC, AUPRC, CI or p-value is affected.
+
+### D18. Deduplicated Holm–Bonferroni, reported but not made primary
+
+`views.primary.significance` applied Holm–Bonferroni across 20 comparisons
+against the reference signal `b_distinct_count`. Three of those 20 comparisons
+are against a signal that is rank-equivalent to another member of the family, so
+the family is larger than the number of distinct hypotheses. That makes the
+correction conservative: the adjusted p-values are too large, and
+non-significance is easier to obtain than it should be.
+
+The deduplicated correction is cleanly derivable from what is already stored,
+because dropping a family member changes only the family size in the Holm step
+multiplier and not the underlying p-values. I first confirmed that my
+implementation reproduces every stored `p_value_holm` exactly at family size 20,
+then reran it at family size 17.
+
+Result: **4 comparisons significant after Holm either way, and not one
+significance verdict changes.** The largest movement is `a_min_logprob`, whose
+adjusted p-value goes from 1.000 to 0.974 — still far from 0.05. The stored
+20-comparison correction remains **primary**, because it is the one the run
+actually performed and it is the conservative of the two. The deduplicated
+figures are reported as a sensitivity check.
+
+### D19. The `a_mean_logprob` shipping recommendation was inconsistent and is replaced
+
+The README previously recommended shipping `a_mean_logprob` on the strength of
+its pooled AUROC 0.664 and its best-in-table pooled AUPRC 0.753. That
+recommendation contradicted the same README's own designation of the per-dataset
+table as primary and its statement that the 30-row TriviaQA column is estimator
+noise. On PopQA — 90 rows, 40% incorrect, the larger and more balanced of the
+two subsets — `a_mean_logprob` scores AUROC 0.514, which is chance. Its pooled
+advantage draws substantially on the column the README disowns.
+
+The recommendation section is rewritten as a corrected conclusion rather than
+deleted, so the superseded recommendation and the reason it was withdrawn both
+stay on the record.
+
+To decide what the primary table actually supports I needed per-dataset
+intervals, which `results.json` does not store — the per-dataset block holds
+point estimates only, and the per-row signal values are not committed. I used
+the Hanley–McNeil normal approximation, which is a pure function of AUROC,
+`n_pos` and `n_neg` and therefore computable from stored values without touching
+the data. It is a different method from the percentile bootstrap used for the
+pooled table and is labeled as such everywhere it appears.
+
+I calibrated the approximation against the stored bootstrap on the pooled view,
+where both are available for all 21 signals: maximum endpoint gap 0.0267, mean
+gap about 0.0065, and 0 disagreements out of 21 on whether the interval excludes
+0.50.
+
+Answer to the question the section now asks: **exactly one** PopQA interval
+excludes 0.50 — `c_p_true_plain`, 0.626 [0.507, 0.746] — and it does so by
+0.0067, which is smaller than the 0.0267 method error just measured. It is also
+a selected maximum from a scan of 18 distinct orderings; unadjusted its
+chance-test p-value is 0.0385, and Bonferroni over 18 gives 0.693. It fails on
+both counts independently.
+
+**Recorded verdict: inconclusive. This benchmark does not establish any of the
+21 signals above chance on its primary subset.** That is written as an
+inconclusive result, not as a near-miss positive one. The README states what
+would change it: more rows, a larger subject model, and a harder, more balanced
+dataset.
+
+### D20. Why the split ended up 90/30
+
+Recorded, not reconstructed. The pilot-iteration notes above show iteration 2
+measuring PopQA at 41.7% incorrect against TriviaQA at 21.4%, both below the
+35% gate floor. The note states the reason for the weighting directly: "The
+final mix weights toward the stronger dataset: 90 PopQA rows and 30 TriviaQA
+rows," where "stronger" means the higher measured error rate, and the projected
+pooled rate for that mix was 36.6%, just over the floor.
+
+So the split was chosen deliberately, but it was chosen to pull the *pooled base
+rate* into the validity gate, not to produce comparable subsets. Subset
+comparability was never a design objective and no note weighs it. The
+consequence — a 90-row 40%-incorrect subset next to a 30-row 90%-incorrect one,
+which is the mechanism behind finding 4 and behind the D19 inconsistency — is
+recorded as limitation 13.
+
+### D21. Human validation: made usable, deliberately not filled
+
+`data/human_validation_sample.csv` shipped with 8 columns and a `gold_answers`
+column that had been corrupted into a character-split repr truncated to 17
+characters on all 100 rows, introduced in `f377e96`. Run #1's copy at `2fec381`
+is intact but shares zero qids with run #2, as does the pilot parquet, so the
+column was not recoverable from any committed artifact. I rebuilt it by reading
+the two static published source corpora through the project's own dataset
+builders and joining on qid. That is a ground-truth lookup, not regeneration:
+no model was called and no label was recomputed. Two guards, both passing, back
+it — 0 of 100 question texts mismatch the committed text, and 47 of 47
+exact-match rows still reproduce as `correct` under the committed labeler.
+
+The file now carries 11 columns: qid, dataset, question, gold_answers,
+model_answer, heuristic_verdict, judge_primary_verdict, judge_secondary_verdict,
+machine_label, machine_label_source and an empty `human_label`.
+
+`human_label` is empty on purpose and stays empty. No human has labeled these
+rows and filling the column would be fabrication.
+
+`judge_secondary_verdict` is also empty, for a different reason.
+`labels.kappa` records 66 rows sent to both judges with 65 agreements, but it
+does not record *which* row disagreed, and the per-row judge replies were never
+committed. Reproducing the column would mean inventing 65 verdicts in order to
+place 1 disagreement somewhere. Left empty and documented in `data/README.md`.
+
+`unc-bench human-agreement` computes judge-versus-human agreement and Cohen's κ
+from a filled `human_label` column. It is wired into the CLI and tested against
+synthetic labels. It has not been run against real human labels, because there
+are none; run against the shipped file it reports that no human labels are
+present rather than returning a number.
+
+The README's limitations now state in one sentence that the inter-judge κ of
+0.849 measures judge consistency and not label correctness, and that no human
+has verified any label in this run. Limitation 14 carries the longer version.
