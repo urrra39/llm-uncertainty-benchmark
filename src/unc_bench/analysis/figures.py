@@ -4,9 +4,9 @@ Deliberately decoupled from the pipeline: `make figures` reads the JSON and
 nothing else, so a plotting change never requires rerunning a model and the
 figures cannot disagree with the numbers in the results file.
 
-Six figures: the AUROC table with CIs, the risk-coverage curves, a reliability
-diagram, the signal correlation heatmap, family-B AUROC against sample count,
-and AUROC against measured cost.
+Six figures: the AUROC table with CIs, the risk-coverage curves, the per-signal
+reliability diagrams, the signal correlation heatmap, family-B AUROC against
+sample count, and AUROC against measured cost.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 from matplotlib.lines import Line2D
 
 from unc_bench.signals.base import FAMILY_LABELS
@@ -180,50 +181,125 @@ def plot_risk_coverage(
     return _save(fig, out)
 
 
-def plot_calibration(
-    results: dict[str, Any], out: Path, *, view: str = "primary", top_k: int = 3
-) -> Path:
-    """Reliability diagram for the top few signals after Platt scaling.
+BEFORE_PLATT_COLOR = "#d62728"
+AFTER_PLATT_COLOR = "#1f77b4"
 
-    Empty bins are simply absent from the line rather than interpolated across.
-    At n=150 over 10 bins several bins hold nothing, and a smooth curve through
-    them would be drawn entirely from data that does not exist.
+
+def _reliability_points(
+    calibration: dict[str, Any] | None,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.int64]]:
+    """The non-empty bins of one reliability curve, as (confidence, accuracy, count).
+
+    Empty bins are dropped rather than interpolated across. At n=120 over 10
+    bins several bins hold nothing, and a line drawn through them would be drawn
+    from data that does not exist. `expected_calibration_error` already writes
+    count 0 and a null accuracy there, so filtering on the count is sufficient
+    and no bin is ever invented.
+    """
+    empty = (
+        np.zeros(0, dtype=np.float64),
+        np.zeros(0, dtype=np.float64),
+        np.zeros(0, dtype=np.int64),
+    )
+    if not calibration:
+        return empty
+    conf = np.array([_num(v) for v in calibration["bin_confidence"]], dtype=np.float64)
+    acc = np.array([_num(v) for v in calibration["bin_accuracy"]], dtype=np.float64)
+    counts = np.array(calibration["bin_counts"], dtype=np.int64)
+    keep = (counts > 0) & np.isfinite(conf) & np.isfinite(acc)
+    if not np.any(keep):
+        return empty
+    return conf[keep], acc[keep], counts[keep]
+
+
+def reliability_panels(results: dict[str, Any], *, view: str = "primary") -> list[str]:
+    """Which signals the reliability diagram draws a panel for.
+
+    Only the signals the report marks `is_probability_valued` and that have at
+    least one populated bin on one of the two curves. The other eighteen signals
+    are logprobs, entropies, counts and lengths; squeezing one of those into
+    [0,1] to plot it against the diagonal would draw the calibration of the
+    squeezing choice rather than of the signal, which is exactly why the report
+    stores a null pre-Platt ECE for them.
+
+    Split out from the plotting so the selection rule is assertable without
+    rendering a PNG and reading its pixels back.
+    """
+    signals = results["views"][view]["signals"]
+    return [
+        name
+        for name in sorted(signals)
+        if signals[name].get("is_probability_valued")
+        and (
+            _reliability_points(signals[name].get("calibration_before_platt"))[0].size
+            or _reliability_points(signals[name].get("calibration"))[0].size
+        )
+    ]
+
+
+def plot_reliability(results: dict[str, Any], out: Path, *, view: str = "primary") -> Path:
+    """Reliability diagrams for the probability-valued signals, before and after Platt (D5).
+
+    One panel per signal, because a single axes holding six curves is unreadable
+    and the interesting comparison is within a signal — did recalibration move
+    that signal's curve towards the diagonal — not across signals.
+
+    Every number is read from `results.json`. Nothing here is recomputed.
     """
     payload = results["views"][view]
     signals = payload["signals"]
-    chosen = list(payload["ranking"][:top_k])
-
-    fig, ax = plt.subplots(figsize=(6.0, 5.6))
-    ax.plot([0, 1], [0, 1], "k--", linewidth=1.0, label="perfect calibration")
-    for name in chosen:
-        cal = signals[name]["calibration"]
-        conf = np.array(cal["bin_confidence"], dtype=np.float64)
-        acc = np.array(cal["bin_accuracy"], dtype=np.float64)
-        counts = np.array(cal["bin_counts"], dtype=np.int64)
-        keep = (counts > 0) & np.isfinite(conf) & np.isfinite(acc)
-        if not np.any(keep):
-            continue
-        ax.plot(
-            conf[keep],
-            acc[keep],
-            "o-",
-            markersize=4,
-            linewidth=1.4,
-            color=FAMILY_COLORS.get(signals[name]["family"], "#333333"),
-            label=f"{name}  (ECE {_num(signals[name]['ece']):.3f})",
+    chosen = reliability_panels(results, view=view)
+    if not chosen:
+        raise NothingToPlotError(
+            f"view {view!r} has no probability-valued signal with a populated "
+            "reliability bin; nothing to draw"
         )
-    ax.set_xlabel("predicted P(incorrect), Platt-scaled on the train split")
-    ax.set_ylabel("observed fraction incorrect")
-    ax.set_title(
-        f"Reliability, {results['run_name']}  |  "
-        f"{results['analysis_config']['ece_bins']} bins, held-out rows only",
+
+    bins = results["analysis_config"]["ece_bins"]
+    fig, axes = plt.subplots(
+        1, len(chosen), figsize=(4.6 * len(chosen), 5.0), squeeze=False, sharey=True
+    )
+    for ax, name in zip(axes[0], chosen, strict=True):
+        entry = signals[name]
+        ax.plot([0, 1], [0, 1], "k--", linewidth=1.0, label="perfect calibration")
+        for key, color, label, ece_key in (
+            ("calibration_before_platt", BEFORE_PLATT_COLOR, "before Platt", "ece_before_platt"),
+            ("calibration", AFTER_PLATT_COLOR, "after Platt", "ece_after_platt"),
+        ):
+            conf, acc, counts = _reliability_points(entry.get(key))
+            if not conf.size:
+                continue
+            ax.plot(conf, acc, "-", linewidth=1.5, color=color, zorder=3)
+            # Marker area tracks bin population, so a point carrying two rows
+            # cannot be mistaken for one carrying sixty.
+            ax.scatter(
+                conf,
+                acc,
+                s=18.0 + 2.2 * counts,
+                color=color,
+                edgecolor="white",
+                linewidth=0.6,
+                zorder=4,
+                label=f"{label}  (ECE {_num(entry[ece_key]):.3f})",
+            )
+        # A hair outside [0,1] so a bin at exactly 0.0 or 1.0 — which is a real
+        # population once Platt gets a steep slope — draws as a whole marker
+        # instead of a half one clipped by the spine.
+        ax.set_xlim(-0.03, 1.03)
+        ax.set_ylim(-0.03, 1.03)
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_xlabel("asserted P(incorrect)")
+        ax.set_title(f"{name}\nAUROC {_num(entry['auroc']['point']):.3f}", fontsize=9)
+        ax.legend(fontsize=7.5, loc="upper left", framealpha=0.9)
+        ax.grid(alpha=0.3)
+    axes[0][0].set_ylabel("observed fraction incorrect")
+    fig.suptitle(
+        f"Reliability before and after Platt scaling, {results['run_name']}  |  "
+        f"{bins} bins, held-out rows only\n"
+        "marker area is proportional to bin count; empty bins are omitted, not interpolated",
         fontsize=10,
     )
-    ax.set_xlim(0.0, 1.0)
-    ax.set_ylim(0.0, 1.0)
-    ax.legend(fontsize=8, loc="upper left")
-    ax.grid(alpha=0.3)
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
     return _save(fig, out)
 
 
@@ -400,7 +476,7 @@ def render_all(results_path: Path, figures_dir: Path, *, view: str = "primary") 
     jobs = (
         ("auroc.png", plot_auroc),
         ("risk_coverage.png", plot_risk_coverage),
-        ("calibration.png", plot_calibration),
+        ("reliability.png", plot_reliability),
         ("correlation.png", plot_correlation),
         ("n_ablation.png", plot_n_ablation),
         ("cost_vs_auroc.png", plot_cost_vs_auroc),
