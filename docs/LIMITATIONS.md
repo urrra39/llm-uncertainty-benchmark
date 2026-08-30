@@ -25,17 +25,23 @@ Written against run #2 (n=120, `configs/run2.yaml`). Run #1 is discarded; see
    question distribution is not PopQA's or TriviaQA's.
 
 5. **A cheap non-signal is nearly competitive.** `t_question_length` scores 0.684
-   at 1× cost against the leader's 0.704 at 6× cost, and its CI overlaps the
-   leader's. Question length is a property of the *input*, not of the model's
-   uncertainty. Its strength means a meaningful fraction of what the uncertainty
-   signals detect is "this question is hard", which any keyword heuristic could
-   also detect.
+   at 1× cost against the leader's 0.704 at 6× cost, their CIs overlap, and the
+   paired bootstrap puts the difference at p_holm = 1.0. Question length is a
+   property of the *input*, not of the model's uncertainty. Its strength means a
+   meaningful fraction of what the uncertainty signals detect is "this question
+   is hard", which any keyword heuristic could also detect. This is finding 2 in
+   the README.
 
 6. **The pooled ranking is inflated by the dataset mix.** `b_distinct_count`
    scores 0.704 pooled but 0.603 within PopQA (n=90) and 0.741 within TriviaQA
    (n=30). The two datasets have very different base rates (0.40 vs 0.90
    incorrect), so a signal that merely separates datasets gains pooled AUROC.
-   The per-dataset table in the README is the more honest read.
+   The README leads with the per-dataset table for this reason (finding 4).
+
+   The TriviaQA column is itself weak evidence and should not be read as a
+   second ranking: with only 3 correct rows in 30, `t_random` scores 0.691 there
+   — the same estimator-noise failure that invalidated run #1, at a smaller
+   scale.
 
 7. **Labels are model-judged, not human-verified.** 54 of 120 rows settled by
    exact match; 66 by two LLM judges at κ=0.849. `data/human_validation_sample.csv`
@@ -55,3 +61,19 @@ Written against run #2 (n=120, `configs/run2.yaml`). Run #1 is discarded; see
     best AUPRC (0.756) while ranking 12th on AUROC (0.659). Both are reported.
     Which matters depends on the operating point, and this benchmark does not
     choose one for you.
+
+11. **Generation reproducibility is unmeasured.** The analysis stage was checked
+    and is byte-identical on re-run apart from the timestamp. Whether generation
+    on a clean clone is bit-exact was never tested. Decoding is greedy at
+    temperature 0 with seed 0, which removes sampling as a source of variation,
+    but CPU floating-point kernels are not guaranteed identical across
+    `transformers` or `torch` builds. The `nondeterminism` stage that would
+    quantify this exists in the repository and has not been run against these
+    rows. No claim is made in either direction; the README says the same.
+
+12. **A well-calibrated signal here is not a discriminative one.** Platt scaling
+    cuts `c_verbal_confidence`'s ECE from 0.445 to 0.104 — the best post-Platt
+    ECE of the three probability-valued signals — while its AUROC stays at 0.484,
+    below chance. Platt is monotone and cannot change AUROC. The reliability
+    diagrams (`figures/reliability.png`) should not be read as a ranking of
+    usefulness.
