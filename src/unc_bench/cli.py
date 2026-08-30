@@ -73,6 +73,9 @@ def build_parser() -> argparse.ArgumentParser:
     nondet = subparsers.add_parser("nondeterminism", help="rerun greedy prompts, report drift")
     _add_config(nondet)
 
+    ablate = subparsers.add_parser("ablation", help="family B AUROC at N = 1, 2, 3, 5")
+    _add_config(ablate)
+
     return parser
 
 
@@ -151,6 +154,12 @@ def main(argv: list[str] | None = None) -> int:
         from unc_bench.stages.nondeterminism import run as nondet_run
 
         nondet_run(cfg)
+        return 0
+
+    if command == "ablation":
+        from unc_bench.stages.ablation import run as ablation_run
+
+        ablation_run(cfg)
         return 0
 
     print(f"unknown command {command!r}", file=sys.stderr)  # pragma: no cover

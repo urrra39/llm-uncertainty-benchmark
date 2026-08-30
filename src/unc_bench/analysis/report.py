@@ -133,6 +133,17 @@ def build_results(cfg: Config) -> dict[str, Any]:
     # D7: cost per signal, using this run's own measured timings.
     costs = cost_table(per_view["primary"]["signals"], timings, cfg)
 
+    # D6: the N-ablation is produced by its own stage because it needs the NLI
+    # model. Folded in here when present so results.json stays the single file
+    # the README and the figures both read.
+    ablation_path = cfg.paths.artifacts_dir / "ablation.json"
+    ablation: dict[str, Any] | None = None
+    if ablation_path.exists():
+        try:
+            ablation = json.loads(ablation_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            ablation = None
+
     return {
         "run_name": cfg.run_name,
         "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -179,6 +190,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
         "validity_gates": gates,
         "frozen_analysis_set": frozen,
         "cost": costs,
+        "ablation": ablation,
         "views": per_view,
         "timings": timings,
         "seeds": {

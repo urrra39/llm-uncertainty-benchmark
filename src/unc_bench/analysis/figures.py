@@ -4,8 +4,9 @@ Deliberately decoupled from the pipeline: `make figures` reads the JSON and
 nothing else, so a plotting change never requires rerunning a model and the
 figures cannot disagree with the numbers in the results file.
 
-Four figures, matching the minimal analysis set: the AUROC table with CIs, the
-risk-coverage curves, a reliability diagram, and the signal correlation heatmap.
+Six figures: the AUROC table with CIs, the risk-coverage curves, a reliability
+diagram, the signal correlation heatmap, family-B AUROC against sample count,
+and AUROC against measured cost.
 """
 
 from __future__ import annotations
@@ -263,6 +264,123 @@ def plot_correlation(results: dict[str, Any], out: Path, *, view: str = "primary
     return _save(fig, out)
 
 
+def plot_n_ablation(results: dict[str, Any], out: Path, *, view: str = "primary") -> Path:
+    """AUROC against sample count N for every family-B signal (D6).
+
+    The figure that decides whether family B's cost is justified. Each extra
+    sample is another full generation, so a curve that flattens at N=2 or N=3
+    means the 5-sample configuration is paying for nothing. Read from
+    `ablation` in the results file, which the ablation stage recomputes from the
+    first N of the same five samples at every level.
+    """
+    del view  # the ablation is computed on the primary view only
+    ablation = results.get("ablation")
+    if not ablation or not ablation.get("by_n"):
+        raise NothingToPlotError("results.json carries no N-ablation; run the ablation stage")
+
+    levels = [int(n) for n in ablation["levels"]]
+    signals = list(ablation["signals"])
+    fig, ax = plt.subplots(figsize=(7.0, 4.6))
+    for name in signals:
+        ys = [_num(ablation["by_n"][str(n)]["signals"].get(name, {}).get("point")) for n in levels]
+        ax.plot(levels, ys, marker="o", linewidth=1.6, markersize=5, label=name)
+
+    ax.axhline(0.5, color="#555555", linestyle=":", linewidth=1.0)
+    ax.annotate(
+        "chance",
+        xy=(levels[0], 0.5),
+        xytext=(2, 4),
+        textcoords="offset points",
+        fontsize=8,
+        color="#555555",
+    )
+    ax.set_xlabel("samples used (N)")
+    ax.set_ylabel("AUROC (positive class = incorrect)")
+    ax.set_xticks(levels)
+    ax.set_title(
+        f"Self-consistency AUROC against sample count\n"
+        f"n={ablation.get('n_rows')} rows, same five samples sliced at each N"
+    )
+    ax.grid(axis="y", alpha=0.3)
+    ax.legend(fontsize=7, loc="lower right", framealpha=0.9)
+    return _save(fig, out)
+
+
+def plot_cost_vs_auroc(results: dict[str, Any], out: Path, *, view: str = "primary") -> Path:
+    """AUROC against measured cost, which is the study's actual question (D7).
+
+    Cost on the x axis is the multiple of the single greedy answer every signal
+    needs, so 1x means free and 6x means five extra generations plus the NLI
+    pass. A signal is only interesting if nothing cheaper sits above and to the
+    left of it, so the Pareto frontier is drawn explicitly rather than left for
+    the reader to trace.
+    """
+    cost = results.get("cost")
+    signals = ((results.get("views") or {}).get(view) or {}).get("signals") or {}
+    if not cost or not cost.get("signals") or not signals:
+        raise NothingToPlotError("results.json carries no cost table")
+
+    points: list[tuple[float, float, str, str]] = []
+    for name, entry in cost["signals"].items():
+        auroc_value = _num(signals.get(name, {}).get("auroc", {}).get("point"))
+        multiplier = _num(entry.get("cost_multiplier"))
+        if np.isfinite(auroc_value) and np.isfinite(multiplier):
+            points.append((multiplier, auroc_value, name, str(entry.get("family", "T"))))
+    if not points:
+        raise NothingToPlotError("no signal has both a cost and a defined AUROC")
+
+    fig, ax = plt.subplots(figsize=(7.6, 5.0))
+    for multiplier, auroc_value, name, family in points:
+        ax.scatter(
+            multiplier,
+            auroc_value,
+            s=42,
+            color=FAMILY_COLORS.get(family, "#7f7f7f"),
+            edgecolor="white",
+            linewidth=0.6,
+            zorder=3,
+        )
+        ax.annotate(
+            name,
+            xy=(multiplier, auroc_value),
+            xytext=(5, 2),
+            textcoords="offset points",
+            fontsize=6.5,
+            color="#333333",
+        )
+
+    # Pareto frontier: cheapest-first, keep a point only if nothing cheaper
+    # already scored at least as well.
+    frontier: list[tuple[float, float]] = []
+    best = -float("inf")
+    for multiplier, auroc_value, _, _ in sorted(points, key=lambda p: (p[0], -p[1])):
+        if auroc_value > best:
+            best = auroc_value
+            frontier.append((multiplier, auroc_value))
+    if len(frontier) > 1:
+        ax.step(
+            [p[0] for p in frontier],
+            [p[1] for p in frontier],
+            where="post",
+            color="#333333",
+            linewidth=1.1,
+            linestyle="--",
+            zorder=2,
+            label="Pareto frontier",
+        )
+        ax.legend(fontsize=8, loc="lower right")
+
+    ax.axhline(0.5, color="#555555", linestyle=":", linewidth=1.0)
+    ax.set_xlabel("cost (multiple of one greedy answer)")
+    ax.set_ylabel("AUROC (positive class = incorrect)")
+    ax.set_title(
+        "Discrimination against measured cost\n"
+        + ", ".join(f"{key}={FAMILY_LABELS.get(key, key)}" for key in ("A", "B", "C", "T"))
+    )
+    ax.grid(alpha=0.3)
+    return _save(fig, out)
+
+
 def _save(fig: Any, out: Path) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=DPI, bbox_inches="tight")
@@ -284,6 +402,8 @@ def render_all(results_path: Path, figures_dir: Path, *, view: str = "primary") 
         ("risk_coverage.png", plot_risk_coverage),
         ("calibration.png", plot_calibration),
         ("correlation.png", plot_correlation),
+        ("n_ablation.png", plot_n_ablation),
+        ("cost_vs_auroc.png", plot_cost_vs_auroc),
     )
     written: list[Path] = []
     for filename, plotter in jobs:
