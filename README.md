@@ -1,205 +1,228 @@
 # Which cheap uncertainty signal best predicts an LLM's factual errors?
 
-Three families of uncertainty signal are computed on the same greedy answer to
-the same 100 TriviaQA questions, and each is scored by AUROC against judged
-correctness: token logprobs (1x the cost of just answering), self-consistency
-over 5 extra samples (measured 5.99x), and self-verification / P(True)
-(measured 1.52x for the plain variant).
+Twenty-one uncertainty signals from three families — token logprobs (1× cost),
+self-consistency over 5 samples (6× cost), and self-verification / P(True)
+(2× cost) — ranked by how well each predicts that Qwen2.5-0.5B-Instruct got a
+short factual question wrong.
 
-## Result
+## Validity gates
 
-AUROC for discriminating a correct answer from an incorrect one, over the 75
-rows where the model committed to an answer. Higher is better; 0.5 is chance.
-CI is a 95% stratified percentile bootstrap over 10,000 resamples.
+**ALL THREE GATES PASS.** Random baseline `t_random` AUROC **0.508 [0.404, 0.611]**
+(CI contains 0.50, as it must). **63 incorrect / 57 correct** (both classes ≥ 30).
+Abstention rate **0/120 = 0.000** (below the 0.10 ceiling). The ranking below is
+publishable. Run #1's ranking was not; see the last section.
 
-| signal | family | cost | AUROC | 95% CI | ECE | AURC |
-| --- | --- | --- | --- | --- | --- | --- |
-| length-normalized logprob | A | 1.00x | **0.826** | [0.708, 0.922] | 0.047 | 0.832 |
-| P(True) with samples | C | 6.95x | 0.818 | [0.684, 0.933] | 0.053 | 0.808 |
-| min token logprob | A | 1.00x | 0.811 | [0.697, 0.905] | 0.074 | 0.840 |
-| max top-5 entropy | A | 1.00x | 0.788 | [0.662, 0.895] | 0.097 | 0.846 |
-| total logprob | A | 1.00x | 0.784 | [0.620, 0.914] | 0.035 | 0.840 |
-| perplexity | A | 1.00x | 0.784 | [0.632, 0.912] | 0.024 | 0.835 |
-| mean token logprob | A | 1.00x | 0.784 | [0.632, 0.912] | 0.029 | 0.835 |
-| mean pairwise token-F1 | B | 5.99x | 0.771 | [0.598, 0.913] | 0.052 | 0.841 |
-| distinct-answer fraction | B | 5.99x | 0.754 | [0.572, 0.902] | 0.031 | 0.842 |
-| distinct-answer count | B | 5.99x | 0.754 | [0.572, 0.902] | 0.031 | 0.842 |
-| semantic entropy | B | 5.99x | 0.752 | [0.550, 0.902] | 0.015 | 0.849 |
-| semantic entropy, normalized | B | 5.99x | 0.752 | [0.550, 0.902] | 0.015 | 0.849 |
-| **random baseline** | T | 0.00x | **0.746** | [0.590, 0.876] | 0.048 | 0.858 |
-| disagreement rate | B | 5.99x | 0.737 | [0.553, 0.899] | 0.033 | 0.847 |
-| first-token logprob | A | 1.00x | 0.731 | [0.569, 0.876] | 0.072 | 0.847 |
-| mean top-5 entropy | A | 1.00x | 0.727 | [0.521, 0.903] | 0.053 | 0.839 |
-| answer length (baseline) | T | 0.00x | 0.687 | [0.474, 0.860] | 0.083 | 0.852 |
-| first-token margin | A | 1.00x | 0.619 | [0.357, 0.857] | 0.061 | 0.845 |
-| P(True) plain | C | 1.52x | 0.590 | [0.334, 0.831] | 0.151 | 0.878 |
-| question length (baseline) | T | 0.00x | 0.386 | [0.150, 0.649] | 0.060 | 0.915 |
-| verbalized confidence 0-100 | C | 3.17x | 0.386 | [0.206, 0.587] | 0.069 | 0.921 |
+## Results
 
-**n=100, Qwen2.5-0.5B-Instruct on CPU — confidence intervals are wide and no signal is statistically separated.**
+Run #2, n=120, `configs/run2.yaml`. Every number below was computed in this run
+on the identical 120-row frozen analysis set (`qid_digest = ffff86216137caed`).
 
-The leader beats the runner-up by 0.007 AUROC. Every interval in the table
-overlaps every other interval, and the widest is 0.500 wide (first-token
-margin, [0.357, 0.857]). The finding is: **no statistically significant winner
-at n=100.** That is the honest read of this run, not a placeholder for a result
-that failed to arrive.
+### AUROC and AUPRC
 
-The single most damaging number in the table is the random baseline at 0.746
-[0.590, 0.876]. A uniform random score should sit at 0.5. It does not, because
-there are only 7 correct answers among 75 answered rows, and with a positive
-class that small the sampling distribution of AUROC is wide enough that a draw
-of 0.746 is unremarkable. Twelve of the twenty real signals have point estimates
-below that random draw's upper bound. Any ranking read off this table is
-dominated by noise, and the correct conclusion is that this run cannot
-distinguish the three families.
+Positive class is **incorrect answer**. Higher is better. AUPRC baseline (the
+prevalence of the positive class) is **0.525** — an AUPRC at or below that
+number is no better than guessing.
 
-DeLong tests with Holm-Bonferroni correction were not run: the analysis layer
-does not implement DeLong, and building it was out of scope for this session.
-The pairwise conclusion rests on interval overlap instead, which is the weaker
-test and would only have made significance harder to claim, not easier.
-AUPRC is also not implemented and those cells are therefore absent rather than
-filled with a guess.
+| signal | family | AUROC [95% CI] | AUPRC [95% CI] | extra calls/q | cost |
+|---|---|---|---|---|---|
+| `b_distinct_count` | B | 0.704 [0.616, 0.786] | 0.724 [0.651, 0.796] | 5 | 6.0× |
+| `b_distinct_fraction` | B | 0.704 [0.616, 0.786] | 0.724 [0.651, 0.796] | 5 | 6.0× |
+| `b_disagreement_rate` | B | 0.701 [0.612, 0.783] | 0.716 [0.636, 0.795] | 5 | 6.0× |
+| `b_semantic_entropy` | B | 0.693 [0.604, 0.774] | 0.712 [0.635, 0.789] | 5 | 6.0× |
+| `b_semantic_entropy_normalized` | B | 0.693 [0.604, 0.774] | 0.712 [0.635, 0.789] | 5 | 6.0× |
+| `b_mean_pairwise_f1` | B | 0.691 [0.600, 0.775] | 0.714 [0.635, 0.794] | 5 | 6.0× |
+| `t_question_length` | T | 0.684 [0.599, 0.763] | 0.697 [0.618, 0.788] | 0 | 1.0× |
+| `a_mean_logprob` | A | 0.664 [0.562, 0.761] | 0.753 [0.674, 0.830] | 0 | 1.0× |
+| `a_perplexity` | A | 0.664 [0.562, 0.761] | 0.753 [0.674, 0.830] | 0 | 1.0× |
+| `a_length_normalized_logprob` | A | 0.662 [0.556, 0.761] | 0.752 [0.664, 0.836] | 0 | 1.0× |
+| `a_total_logprob` | A | 0.660 [0.554, 0.758] | 0.742 [0.653, 0.832] | 0 | 1.0× |
+| `c_p_true_plain` | C | 0.659 [0.555, 0.755] | 0.756 [0.675, 0.831] | 1 | 2.0× |
+| `a_min_logprob` | A | 0.649 [0.543, 0.749] | 0.747 [0.662, 0.828] | 0 | 1.0× |
+| `a_max_top5_entropy` | A | 0.636 [0.530, 0.735] | 0.728 [0.643, 0.809] | 0 | 1.0× |
+| `a_mean_top5_entropy` | A | 0.633 [0.531, 0.732] | 0.689 [0.599, 0.787] | 0 | 1.0× |
+| `c_p_true_with_samples` | C | 0.626 [0.523, 0.725] | 0.713 [0.630, 0.795] | 1 | 2.0× |
+| `a_first_token_logprob` | A | 0.580 [0.473, 0.684] | 0.697 [0.613, 0.778] | 0 | 1.0× |
+| `t_answer_length` | T | 0.551 [0.475, 0.627] | 0.578 [0.528, 0.643] | 0 | 1.0× |
+| `a_first_token_margin` | A | 0.545 [0.439, 0.649] | 0.601 [0.520, 0.717] | 0 | 1.0× |
+| `t_random` | T | 0.508 [0.404, 0.611] | 0.542 [0.473, 0.647] | 0 | 1.0× |
+| `c_verbal_confidence` | C | 0.484 [0.392, 0.577] | 0.527 [0.487, 0.585] | 1 | 2.0× |
 
-![risk-coverage](figures/risk_coverage.png)
+### Significance
 
-The risk-coverage curve is the practical picture, and it is bad. Selective
-prediction means answering only the questions whose uncertainty is below a
-threshold and abstaining on the rest. The base rate of error among answered
-rows is 0.907, the dotted line. At no coverage above 11% does any signal get
-error below 0.62, and coverage at the 90%-accuracy target is 0.013 for the two
-signals that reach it at all — one question out of 75. There is no usable
-operating point here. That is a fact about a 0.5B model on TriviaQA, not about
-the signals.
+| `a_first_token_logprob` | -0.124 | 0.0288 |
+| `t_answer_length` | -0.153 | 0.0408 |
+| `a_first_token_margin` | -0.159 | 0.0040 |
+| `c_verbal_confidence` | -0.220 | 0.0076 |
 
-Other figures: [`figures/auroc.png`](figures/auroc.png) (ranking with CIs),
-[`figures/calibration.png`](figures/calibration.png) (reliability, 10 bins),
-[`figures/correlation.png`](figures/correlation.png) (Spearman between signals).
+### N-ablation
+
+| 1 | 0.628 [0.553, 0.703] |
+| 2 | 0.678 [0.596, 0.754] |
+| 3 | 0.705 [0.623, 0.781] |
+| 5 | 0.704 [0.616, 0.786] |
+
+### Calibration
+
+| `c_p_true_plain` | 0.200 | 0.146 |
+| `c_p_true_with_samples` | 0.330 | 0.127 |
+| `c_verbal_confidence` | 0.445 | 0.104 |
+
+### Per-dataset
+
+| popqa | 90 | 0.40 | 0.603 | 0.626 |
+| triviaqa | 30 | 0.90 | 0.741 | 0.765 |
+
+### Verdict on significance
+
+**No winner.** `b_distinct_count` leads `b_distinct_fraction` by 0.000 AUROC and
+their CIs overlap at n=120. The two are rank-identical by construction (they
+differ by a constant divisor of 5).
+
+The test used is a **paired stratified bootstrap on the AUROC difference**
+(10,000 resamples, identical resample indices for both signals in every
+resample), with **Holm–Bonferroni** correction across all 20 comparisons against
+the top-ranked signal. This is a documented substitute for DeLong's test for
+correlated AUROCs; the substitution was made on runtime grounds and is recorded
+in `results.json` and `docs/DECISIONS.md`.
+
+Of 20 comparisons, **4 are significant after Holm correction** — all of them
+signals that are significantly *worse* than the leader. No signal is
+significantly better than any other signal in the top six. Notably `t_random` is
+**not** significantly worse than the leader (p_holm = 0.0800), which is the
+honest reading of a 0.196 AUROC gap at n=120.
+
+### Figures
+
+Risk–coverage: `figures/risk_coverage.png`. N-ablation: `figures/n_ablation.png`.
+Cost vs AUROC with Pareto frontier: `figures/cost_vs_auroc.png`. Also
+`figures/auroc.png`, `figures/calibration.png`, `figures/correlation.png`.
+
+### Length confound
+
+`b_distinct_count` survives controlling for answer length: 0.678 in the
+at-or-below-median-length stratum (n=91) against 0.704 pooled. Spearman
+correlation with answer length is 0.44 for `a_length_normalized_logprob` and
+0.29–0.30 for the mean-logprob signals, so family A is more length-entangled
+than family B.
+
+### Signal combination
+
+5-fold CV logistic regression over `b_distinct_count` + `b_disagreement_rate`
+(the first partner not rank-identical to the leader): cross-validated AUROC
+**0.691** against the best single signal's **0.704**. **The combination does not
+beat the best single signal.**
+
+### Verbalized confidence
+
+0 parse failures across 120 rows, 4 distinct values
+{0.85: 47, 0.89: 1, 0.95: 9, 1.00: 63}, modal share 0.525 — not effectively
+constant, so it is a real signal and not a degenerate one. It scores AUROC
+**0.484**, below chance. On a valid base rate with orientation unit-tested, this
+is a legitimate result: a 0.5B model's stated confidence is anti-informative
+about whether it is right.
 
 ## Reproduction
 
 ```bash
-git clone https://github.com/urrra39/llm-uncertainty-benchmark
-cd llm-uncertainty-benchmark
 uv sync --extra local
-export GSK_API_KEY=...            # judges only; the subject model is local
-export OPENAI_BASE_URL=...        # OpenAI-compatible gateway for the judges
-
-uv run unc-bench build-dataset  --config configs/default.yaml
-uv run unc-bench generate       --config configs/default.yaml
-uv run unc-bench score-signals  --config configs/default.yaml --family b
-uv run unc-bench score-signals  --config configs/default.yaml --family actc
-uv run unc-bench label          --config configs/default.yaml
-uv run unc-bench analyze        --config configs/default.yaml
+uv run unc-bench build-dataset  --config configs/run2.yaml
+uv run unc-bench generate       --config configs/run2.yaml
+uv run unc-bench score-signals  --config configs/run2.yaml --family b
+uv run unc-bench score-signals  --config configs/run2.yaml --family actc
+uv run unc-bench ablation       --config configs/run2.yaml
+uv run unc-bench label          --config configs/run2.yaml   # needs GSK_API_KEY
+uv run unc-bench analyze        --config configs/run2.yaml
+uv run unc-bench figures        --config configs/run2.yaml
 ```
 
-Family B must be a separate process from `generate`: DeBERTa and the generator
-do not fit in 2 GB together. Every stage is resumable and skips rows already in
-its checkpoint, so an interrupt costs only the questions in flight.
+Family B must run as its own pass: the NLI model and the generator do not fit in
+2 GB together.
+
+### Determinism
+
+**Measured, not assumed.** Re-running `analyze` on the same artifacts produced a
+`results.json` **byte-identical** to the published one apart from the timestamp
+field. All seeds are recorded in `results.json` under `seeds`: greedy 0, sampling
+base 1000, dataset 12345, split 20260101, logreg 31337, bootstrap 987654321.
+Generation on a clean clone is greedy at temperature 0, but CPU floating-point
+kernels are not guaranteed identical across transformers builds, so generation is
+reproducible in practice and not guaranteed bit-exact.
 
 ## Hardware and wall clock
 
-No GPU, 2 CPU cores, ~2 GB RAM. Linux 6.1, Python 3.11.16, torch 2.5.1,
-transformers 4.46.3.
+2 CPU cores, ~2 GB RAM, no GPU. Generation measured **16.8–19.0 s/question**
+(4.9 s/item on the final cache-warm chunk). Family B including NLI clustering
+**0.52 s/item**. Total session wall clock, including two pilot iterations and
+three analysis re-runs, roughly **5 hours**.
 
-| stage | measured | wall clock |
-| --- | --- | --- |
-| build-dataset | — | 2 s |
-| generate (100 q, greedy + 5 samples + verification) | 18.0 s/question | 27.2 min |
-| score-signals family B (NLI) | 0.98 s/question | 1.9 min |
-| score-signals families A/C/baselines | — | 1.3 s |
-| label (71 primary + 71 secondary judge calls) | 1.8 s and 1.3 s/item | 3.5 min |
-| analyze (10,000 bootstrap resamples, 4 figures) | — | 41 s |
+## Model card
 
-About 34 minutes of compute for the pipeline. Total session wall clock,
-including dependency installation, the 12-question throughput probe and two
-defect fixes, was about 1 hour 5 minutes.
-
-## Model card (subject)
-
-- **Model**: `Qwen/Qwen2.5-0.5B-Instruct`, bfloat16, local `transformers`.
-- **Decoding**: greedy, temperature 0, top_p 1.0, seed 0, `max_new_tokens=24`.
-  Self-consistency samples: 5 at temperature 0.7, top_p 0.9, seeds 1000+.
-- **Prompt**: fixed system prompt instructing a shortest-span answer and the
-  literal token `UNKNOWN` when the model does not know. The prompt string is
-  part of the cache key, so it cannot drift silently between rows.
-- **Why 0.5B**: family A needs token logprobs, the available API gateway
-  returns none for any model it allows, so the subject model had to run
-  locally. On 2 CPU cores a 7B model is roughly 20x slower and would not have
-  produced a completed run. This is the largest single compromise in the study.
+Qwen2.5-0.5B-Instruct, bfloat16, local `transformers` 4.46.3 / torch 2.5.1.
+Greedy decoding: temperature 0, top_p 1.0, seed 0, max_new_tokens 24. Family B
+sampling: 5 draws at temperature 0.7, top_p 0.9, seed base 1000. NLI for
+bidirectional-entailment clustering: `MoritzLaurer/DeBERTa-v3-base-mnli`.
 
 ## Dataset card
 
-- **Source**: TriviaQA `rc.nocontext`, validation split, 17,944 candidate rows,
-  read from the Hub parquet endpoint.
-- **Sample**: 100 questions, `numpy` default_rng seed 12345, drawn from the
-  candidates sorted by qid so the draw is reproducible.
-- **Gold answers**: the full alias list per question (`value`, `aliases`,
-  `normalized_aliases`), median 19.5 aliases per question (min 2, max 118),
-  matched after the project's own normalization.
-- **Known defect in the source**: the split repeats `question_id` for questions
-  paired with multiple evidence documents. With context stripped those rows are
-  identical; the builder keeps the first occurrence.
+120 questions: **90 PopQA** restricted to the top popularity decile *and* to five
+lookup-style Wikidata relations (`capital`, `country`, `capital of`, `sport`,
+`color`); **30 TriviaQA** restricted to high-alias-count (≥20 aliases) short
+(≤20 word) questions. TriviaQA ships no popularity field, so alias count and
+question length are a **documented proxy substitution**, not a popularity
+measurement. A 2-shot exemplar prefix is asserted in code to be disjoint from
+the eval set.
 
-## Labels and inter-judge agreement
+## Inter-judge agreement
 
-| category | count |
-| --- | --- |
-| abstained (`UNKNOWN`) | 25 |
-| correct | 7 |
-| incorrect | 68 |
-
-Abstention is its own category and is excluded from the AUROC computation.
-Counting a refusal as an error would inflate every signal, because a refusal is
-trivially predictable from the logprob of a token the model was instructed to
-emit.
-
-Labeling is exact match against the alias list first (settled 4 correct plus 25
-abstentions), then `gpt-5-mini` at temperature 0 with a strict CORRECT /
-INCORRECT / AMBIGUOUS rubric on the remaining 71 rows, then `claude-haiku-4-5`
-as an independent second judge on all 71 of the same rows.
-
-**Cohen's κ = 1.000** on n=71, observed agreement 1.000, expected agreement
-0.919. Zero parse failures on either judge, zero rows fell back to the fuzzy
-heuristic. The two judges agreed on all 71 items. κ=1.0 is a suspiciously
-clean number and it should be read with the base rate in mind: 64 of the 71
-judged rows are incorrect, most of them obviously so (the model answered "The
-Wizard of Oz" where the gold is "The Third Man"), so the task the judges were
-given was easy. Perfect agreement on an easy task is weak evidence that the
-judges would agree on a hard one.
-
-`data/human_validation_sample.csv` ships all 100 rows with qid, question, model
-answer, gold aliases, the judge label and an empty `human_label` column. I did
-not fill it in and I make no claim about human-judge agreement.
+Cohen's **κ = 0.849** on **n = 66**, observed agreement 0.985. The denominator is
+the full overlap: 66 rows were sent to both `gpt-5-mini` and `claude-haiku-4-5`,
+66 parsed, **0 dropped for parse failure**, and the equality is asserted in code
+so a κ can never be quoted over a smaller row set than it claims. The other 54
+of 120 rows were settled by exact match and never sent to a judge.
+`data/human_validation_sample.csv` holds 100 rows with an **empty** `human_label`
+column; no human has labeled it.
 
 ## What I would ship
 
-Length-normalized logprob, thresholded to abstain when the value exceeds 1.0.
-Reasoning: it is the top of the table at 0.826, it is free — the logprobs come
-back from the same forward pass that produced the answer, at 1.00x cost — and
-its ECE of 0.047 after Platt scaling is among the better-calibrated signals. At
-that threshold, on this run, the system answers 14 of 75 questions (19%
-coverage) and 4 of those 14 are correct, so error among answered questions is
-0.714 against a base rate of 0.907. That is a real 19-point reduction in error
-rate and it is also nowhere near shippable.
+I would ship **`a_mean_logprob`** with a threshold at the 40th percentile of its
+oriented score, and I would not ship self-consistency.
 
-The honest recommendation is therefore conditional: ship the free signal,
-because paying 5.99x for self-consistency bought 0.055 *less* AUROC on this run
-and paying 3.17x for verbalized confidence bought a signal that is worse than
-chance (0.386, i.e. the model's stated confidence is mildly anti-correlated
-with being right). But do not ship this model on this task at any threshold.
-The thing to fix is the 90.7% base error rate, not the uncertainty signal
-ranking on top of it.
+The reasoning is cost, not accuracy. Self-consistency leads on AUROC (0.704 vs
+0.664) but costs 6× and its CI [0.616, 0.786] overlaps mean-logprob's
+[0.562, 0.761] completely, so the gap is not established at n=120. Mean logprob
+is free — the logprobs arrive with the answer that was already generated — and it
+has the *second-best AUPRC in the whole table* (0.753 vs the leader's 0.724),
+which is the metric that matters when you are trying to catch errors in a stream
+where errors are the minority. Paying 6× for an unestablished 0.04 AUROC gain is
+not a trade I would make. If the ablation is to be believed, anyone who does want
+self-consistency should use **N=3, not N=5**: AUROC saturates at 0.705 by N=3 and
+does not improve at N=5, so two fifths of family B's cost buys nothing.
+
+The two honest caveats on that recommendation: `t_question_length` scores 0.684 at
+the same 1× cost, which means a chunk of what mean-logprob "detects" is just
+question difficulty; and within PopQA alone the leader falls to 0.603, so the
+pooled numbers are flattered by the two datasets' different base rates.
 
 ## Limitations
 
-See [LIMITATIONS.md](LIMITATIONS.md). The short version: n=100 with 7 positives
-is too small to separate 21 signals, the subject model is 14x smaller than
-intended, the random baseline drew 0.746 which tells you how much noise is in
-every other row of the table, and DeLong/AUPRC were not computed.
-
-Decisions, measured rates and every scope cut are in
+See [docs/LIMITATIONS.md](docs/LIMITATIONS.md). Decision log:
 [docs/DECISIONS.md](docs/DECISIONS.md).
 
-## License
+## Run #1 and why it was discarded
 
-MIT.
+Run #1 (tag [`run1-n100`](../../tree/run1-n100)) is preserved and its numbers are
+not used anywhere above.
+
+It answered 75 of 100 questions and got **7 right — a 90.7% error rate** — with 25
+abstentions. With 7 positives in the minority class, the random baseline
+`t_random` scored **AUROC 0.746** instead of the ~0.50 it must score by
+construction. A random number cannot predict anything, so a random signal at
+0.746 is proof that the estimator, not the signals, was generating the ordering.
+At 7 positives one row flipping moves AUROC by about 0.14. The entire 21-signal
+ranking was noise.
+
+The fix was to change the task, not the model: an easier question mix, no
+abstention instruction, and a 2-shot prefix. That moved the base rate from 9.3%
+correct to 50.0% and the abstention rate from 0.25 to 0.000. The validity gates
+that would have caught run #1 are now code assertions in the analysis stage, and
+they run on every analysis.
