@@ -163,12 +163,59 @@ class CachedClient:
         return out
 
 
+def resolve_device(spec: ModelSpec, torch: Any) -> str:
+    """Which device a local model should run on.
+
+    Separated from the client so it is testable without weights: the decision is
+    three lines of policy and the thing that makes it hard to test is that
+    `LocalTransformersClient.__init__` downloads a model.
+
+    `auto` means CUDA when it is genuinely usable and CPU otherwise. "Genuinely
+    usable" is `torch.cuda.is_available()`, which is False on a CPU-only build of
+    torch as well as on a machine with no card, so one check covers both. An
+    explicit `cuda` that cannot be satisfied raises rather than falling back:
+    a config that asks for a GPU and silently gets CPU would produce a run at
+    1/40th of the expected speed with nothing in the output to say why.
+    """
+    if spec.device == "cpu":
+        return "cpu"
+    available = bool(torch.cuda.is_available())
+    if spec.device == "cuda":
+        if not available:
+            raise RuntimeError(
+                "config requests device: cuda but torch.cuda.is_available() is False. "
+                "Either no GPU is present or this is a CPU-only torch build. "
+                "Set device: auto to fall back to CPU deliberately."
+            )
+        return "cuda"
+    return "cuda" if available else "cpu"
+
+
+def resolve_dtype(spec: ModelSpec, torch: Any) -> Any:
+    """Map the config's dtype name onto a torch dtype.
+
+    A plain lookup, kept as a function so the client has no dtype table inline
+    and so the mapping is asserted by a test rather than by reading the code.
+    """
+    return {
+        "float32": torch.float32,
+        "bfloat16": torch.bfloat16,
+        "float16": torch.float16,
+    }[spec.dtype]
+
+
 class LocalTransformersClient:
-    """HuggingFace causal LM on CPU with exact per-token logprobs.
+    """HuggingFace causal LM with exact per-token logprobs, on CUDA or CPU.
 
     Only the generated tokens are scored. The prompt is never included in
     `answer_token_logprobs`, so no aggregate can accidentally average over
-    instruction boilerplate.
+    instruction boilerplate. That holds under batching too: each row's logprobs
+    are read from that row's own prompt length, so padding cannot leak in.
+
+    Device, dtype and batch size all come from `ModelSpec`. Nothing here reads
+    the machine except through `resolve_device`, and nothing is a constant:
+    run #2's configuration (CPU, bfloat16, batch size 1) produces the same call
+    pattern it always did.
     """
 
     def __init__(self, spec: ModelSpec) -> None:
@@ -181,16 +228,23 @@ class LocalTransformersClient:
 
         self._spec = spec
         self._torch = torch
-        # 2 cores available; leaving this to the default picked 1 thread.
-        torch.set_num_threads(max(1, os.cpu_count() or 1))
+        self._device = resolve_device(spec, torch)
+        # CPU thread pinning only. On CUDA the compute is not on these threads
+        # and capping them throttles the host-side loader for no benefit. On CPU
+        # this matters: leaving it to the default picked 1 thread of the 2
+        # available, which is where run #2's throughput measurements come from.
+        if self._device == "cpu":
+            torch.set_num_threads(max(1, os.cpu_count() or 1))
         self._tokenizer = AutoTokenizer.from_pretrained(spec.name)
         if self._tokenizer.pad_token is None:
             self._tokenizer.pad_token = self._tokenizer.eos_token
-        dtype = {
-            "float32": torch.float32,
-            "bfloat16": torch.bfloat16,
-            "float16": torch.float16,
-        }[spec.dtype]
+        # Left padding for a decoder-only model. Right padding would place pad
+        # tokens between the prompt and the first generated token, and the model
+        # attends to them: the answer would be conditioned on padding. Set
+        # unconditionally rather than only when batching, so the tokenizer's
+        # behaviour does not depend on a batch-size setting.
+        self._tokenizer.padding_side = "left"
+        dtype = resolve_dtype(spec, torch)
         # `torch_dtype`, not `dtype`. transformers 4.46 is pinned here, and its
         # `from_pretrained` has no `dtype` parameter: passing one raises a
         # TypeError from the model constructor rather than being ignored. The
@@ -198,6 +252,7 @@ class LocalTransformersClient:
         self._model = AutoModelForCausalLM.from_pretrained(
             spec.name, torch_dtype=dtype, low_cpu_mem_usage=True
         )
+        self._model.to(self._device)
         self._model.eval()
 
     @property
@@ -209,11 +264,91 @@ class LocalTransformersClient:
         return self._spec.name
 
     @property
+    def device(self) -> str:
+        """Where this client is actually running. Reported, not inferred."""
+        return self._device
+
+    @property
+    def batch_size(self) -> int:
+        """Prompts per forward pass, from config."""
+        return self._spec.generation_batch_size
+
+    @property
     def tokenizer(self) -> Any:
         return self._tokenizer
 
+    def _to_device(self, encoded: Any) -> Any:
+        """Move a tokenizer batch onto the model's device.
+
+        A dict-like `BatchEncoding` rather than a tensor, so this iterates the
+        values. Missing this is the classic CUDA failure: the model is on the
+        GPU, the inputs are on the CPU, and torch raises
+        "Expected all tensors to be on the same device" from inside `generate`.
+        """
+        if self._device == "cpu":
+            return encoded
+        return {k: v.to(self._device) for k, v in encoded.items()}
+
     def _encode(self, prompt: str) -> Any:
-        return self._tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
+        encoded = self._tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
+        return self._to_device(encoded)
+
+    def _encode_batch(self, prompts: list[str]) -> Any:
+        """Pad several prompts into one batch.
+
+        Returns the batch plus each row's true (unpadded) prompt length, because
+        with left padding the answer starts at the padded width for every row and
+        the per-row prompt length is what `Generation.prompt_tokens` must report.
+        """
+        encoded = self._tokenizer(
+            prompts, return_tensors="pt", add_special_tokens=False, padding=True
+        )
+        lengths = [int(m.sum()) for m in encoded["attention_mask"]]
+        return self._to_device(encoded), lengths
+
+    def _score_row(
+        self,
+        out: Any,
+        row: int,
+        *,
+        generated_from: int,
+        top_logprobs: int,
+    ) -> tuple[str, tuple[TokenLogprob, ...]]:
+        """Decode one output row and read its per-token logprobs.
+
+        `generated_from` is where the answer starts in `out.sequences[row]`. With
+        left padding that is the padded prompt width, identical for every row in
+        the batch, which is exactly why left padding is used: a right-padded batch
+        would need a different offset per row and the pad tokens would sit inside
+        the answer span.
+        """
+        torch = self._torch
+        eos_id = self._tokenizer.eos_token_id
+        token_ids = out.sequences[row][generated_from:].tolist()
+        per_token: list[TokenLogprob] = []
+        for step, token_id in enumerate(token_ids):
+            if token_id == eos_id:
+                break  # do not score the stop token as part of the answer
+            step_logits = out.scores[step][row].float()
+            step_logprobs = torch.log_softmax(step_logits, dim=-1)
+            chosen_lp = float(step_logprobs[token_id])
+            top_k = max(top_logprobs, 1)
+            top_vals, top_idx = torch.topk(step_logprobs, k=top_k)
+            alternatives = {
+                self._tokenizer.decode([int(i)]): float(v)
+                for v, i in zip(top_vals.tolist(), top_idx.tolist(), strict=True)
+            }
+            token_text = self._tokenizer.decode([token_id])
+            alternatives.setdefault(token_text, chosen_lp)
+            per_token.append(
+                TokenLogprob(
+                    token=token_text,
+                    logprob=chosen_lp,
+                    top_logprobs=alternatives,
+                )
+            )
+        text = self._tokenizer.decode(token_ids, skip_special_tokens=True)
+        return text, tuple(per_token)
 
     def generate(
         self,
@@ -226,66 +361,98 @@ class LocalTransformersClient:
         top_logprobs: int = 0,
         n: int = 1,
     ) -> list[Generation]:
+        """One prompt. Delegates to the batch path with a batch of one.
+
+        Written as a delegation rather than as a separate implementation so there
+        is one place where logprobs are read off `out.scores` and no possibility
+        of the single and batched paths drifting apart.
+        """
+        return self.generate_batch(
+            [prompt],
+            temperature=temperature,
+            top_p=top_p,
+            seed=seed,
+            max_new_tokens=max_new_tokens,
+            top_logprobs=top_logprobs,
+            n=n,
+        )[0]
+
+    def generate_batch(
+        self,
+        prompts: list[str],
+        *,
+        temperature: float,
+        top_p: float,
+        seed: int,
+        max_new_tokens: int,
+        top_logprobs: int = 0,
+        n: int = 1,
+    ) -> list[list[Generation]]:
+        """Several prompts through one forward pass, one result list per prompt.
+
+        `prompts` longer than `generation_batch_size` is split into consecutive
+        chunks of that size, so a caller can hand over a whole question set
+        without knowing the batch width. The seed is set once per chunk, before
+        the call, exactly as the single-prompt path did.
+
+        Returned latency is the chunk's wall clock divided by the number of
+        sequences in it. That is an amortized per-sequence figure, not a measured
+        one, and it is what makes batching visible in the cost table: the same
+        work over fewer forward passes reports a smaller per-sequence latency.
+        """
         torch = self._torch
-        enc = self._encode(prompt)
-        prompt_len = int(enc["input_ids"].shape[1])
+        if not prompts:
+            return []
         do_sample = temperature > 0.0
+        width = max(1, self._spec.generation_batch_size)
+        results: list[list[Generation]] = []
 
-        torch.manual_seed(seed)
-        started = time.perf_counter()
-        with torch.no_grad():
-            out = self._model.generate(
-                **enc,
-                max_new_tokens=max_new_tokens,
-                do_sample=do_sample,
-                temperature=temperature if do_sample else None,
-                top_p=top_p if do_sample else None,
-                num_return_sequences=n,
-                return_dict_in_generate=True,
-                output_scores=True,
-                pad_token_id=self._tokenizer.pad_token_id,
-            )
-        elapsed = time.perf_counter() - started
+        for start in range(0, len(prompts), width):
+            chunk = prompts[start : start + width]
+            enc, true_lengths = self._encode_batch(chunk)
+            padded_len = int(enc["input_ids"].shape[1])
 
-        eos_id = self._tokenizer.eos_token_id
-        results: list[Generation] = []
-        for row in range(n):
-            token_ids = out.sequences[row][prompt_len:].tolist()
-            per_token: list[TokenLogprob] = []
-            for step, token_id in enumerate(token_ids):
-                if token_id == eos_id:
-                    break  # do not score the stop token as part of the answer
-                step_logits = out.scores[step][row].float()
-                step_logprobs = torch.log_softmax(step_logits, dim=-1)
-                chosen_lp = float(step_logprobs[token_id])
-                top_k = max(top_logprobs, 1)
-                top_vals, top_idx = torch.topk(step_logprobs, k=top_k)
-                alternatives = {
-                    self._tokenizer.decode([int(i)]): float(v)
-                    for v, i in zip(top_vals.tolist(), top_idx.tolist(), strict=True)
-                }
-                token_text = self._tokenizer.decode([token_id])
-                alternatives.setdefault(token_text, chosen_lp)
-                per_token.append(
-                    TokenLogprob(
-                        token=token_text,
-                        logprob=chosen_lp,
-                        top_logprobs=alternatives,
+            torch.manual_seed(seed)
+            started = time.perf_counter()
+            with torch.no_grad():
+                out = self._model.generate(
+                    **enc,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=do_sample,
+                    temperature=temperature if do_sample else None,
+                    top_p=top_p if do_sample else None,
+                    num_return_sequences=n,
+                    return_dict_in_generate=True,
+                    output_scores=True,
+                    pad_token_id=self._tokenizer.pad_token_id,
+                )
+            elapsed = time.perf_counter() - started
+            per_sequence = elapsed / max(len(chunk) * n, 1)
+
+            # `num_return_sequences=n` lays the output out prompt-major: rows
+            # [0..n) belong to prompt 0, [n..2n) to prompt 1. Indexed rather than
+            # assumed, because getting this wrong would attribute one question's
+            # samples to another and nothing downstream would notice.
+            for index in range(len(chunk)):
+                per_prompt: list[Generation] = []
+                for repeat in range(n):
+                    row = index * n + repeat
+                    text, per_token = self._score_row(
+                        out, row, generated_from=padded_len, top_logprobs=top_logprobs
                     )
-                )
-            text = self._tokenizer.decode(token_ids, skip_special_tokens=True)
-            results.append(
-                Generation(
-                    text=text,
-                    answer_token_logprobs=tuple(per_token),
-                    is_greedy=not do_sample,
-                    seed=seed,
-                    temperature=0.0 if not do_sample else temperature,
-                    prompt_tokens=prompt_len,
-                    completion_tokens=len(per_token),
-                    latency_s=elapsed / n,
-                )
-            )
+                    per_prompt.append(
+                        Generation(
+                            text=text,
+                            answer_token_logprobs=per_token,
+                            is_greedy=not do_sample,
+                            seed=seed,
+                            temperature=0.0 if not do_sample else temperature,
+                            prompt_tokens=true_lengths[index],
+                            completion_tokens=len(per_token),
+                            latency_s=per_sequence,
+                        )
+                    )
+                results.append(per_prompt)
         return results
 
     def next_token_logprobs(self, prompt: str, *, seed: int = 0) -> dict[str, float]:

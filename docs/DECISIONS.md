@@ -1142,3 +1142,87 @@ rewritten client, and asked for a greedy answer plus five sampled continuations
 on the same prompts. The measured comparison is recorded in the session summary
 below. The tests that cover the device logic use a stub torch module and pass
 with no GPU and no weights, because CI installs neither.
+
+### D27. Measured: the CPU path is unchanged, and padding perturbs logprobs
+
+Both measurements below were made in this session on real weights,
+`Qwen/Qwen2.5-0.5B-Instruct` in bfloat16 on CPU — run #2's exact model and dtype.
+
+**The CPU path is byte-identical.** The client's full output was captured before
+and after the rewrite over three prompts (two answer prompts and one verification
+prompt) and compared field by field: greedy answer text, every per-token logprob
+to six decimals, every top-5 alternative, five sampled continuations at seeds
+1000-1004, the full 151,936-entry next-token distribution, the True/False logprob
+pair from one forward pass, and `prompt_tokens` / `completion_tokens` /
+`is_greedy` / `temperature` / `seed`. The two captures compare **equal as whole
+JSON documents**. Run #2's configuration would still produce run #2's rows.
+
+**Padding perturbs per-token logprobs, and this is unresolved.** Batching prompts
+of differing length requires padding, and padding is not free:
+
+| batch construction | max abs delta in per-token logprob vs batch size 1 |
+| --- | --- |
+| four prompts of differing length (padding present) | **2.52e-02** |
+| four copies of one prompt (no padding) | **0.00e+00** |
+| rows within one uniform batch, against each other | 0.00e+00 |
+
+Answer text, token sequence and `prompt_tokens` were identical in every case, so
+nothing about the *answers* changes. What changes is the logprob values that
+signal family A is computed from, and 2.5e-02 is not a rounding artifact.
+
+I isolated the mechanism partway. A single forward pass over a left-padded batch
+with `position_ids` derived from the attention mask is **bit-identical** to the
+unpadded pass (measured: 0.00e+00), while the same pass with the default
+`position_ids` differs by 3.15e-01. So masked attention itself is exact and the
+divergence is in how positions are assigned to a left-padded row. Inside
+`generate`, however, passing a precomputed `position_ids` produces a *different
+token sequence*, because `generate` advances positions itself per decode step and
+a static tensor fights that — so the fix is not simply to pass the tensor
+through, and I did not land one.
+
+**Consequence, stated as a caveat rather than resolved.** The default
+`generation_batch_size` is **1**, so no configuration in this repository is
+affected today and run #2's numbers are untouched. Any future config that raises
+it above 1 will produce family-A logprobs that differ from the unbatched values
+at the second decimal place, and **whether that materially moves an AUROC is
+unmeasured**. It is not safe to raise batch size for a family-A run until either
+the position handling is fixed or the effect on the ranking is quantified. This is
+recorded as an open defect, not as a solved problem.
+
+### Status at the end of session 7
+
+An honest account. This session did not finish the work it set out to do.
+
+**Landed, verified, and pushed:**
+
+- The artifact-tracking policy inversion, with the LFS-versus-git decision made
+  on a measured 6.68 MB worst case, both fallbacks (`make check-artifact-size`,
+  `make export-artifacts`) verified by running them, and 40 tests pinning the
+  rules against `git check-ignore`.
+- `ModelSpec.device` and `ModelSpec.generation_batch_size`, validated, with
+  guards rejecting both on the API backend where they would do nothing.
+- `resolve_device` / `resolve_dtype` and a device-aware
+  `LocalTransformersClient` that moves inputs to the model's device, pins CPU
+  threads only on CPU, and takes dtype and batch width from config.
+- `generate_batch`, with `generate` delegating to it so there is one place where
+  logprobs are read off `out.scores`.
+- The CPU-identity verification above, and the padding measurement above.
+- 21 device tests that pass with no GPU and no weights.
+
+**Not done, and therefore not claimed:**
+
+- **`configs/run3_gpu.yaml` does not exist.** The dataset filter numbers backing
+  it are measured and recorded in D22 (PopQA 243 at run #2 settings, 389 with
+  `religion`, `place of birth`, `occupation` added at quantile 0.9; TriviaQA 4060
+  at `min_aliases: 20`), so the config is a mechanical transcription of D22 plus
+  run #2's prompt block, but it has not been written or validated.
+- **`notebooks/run_on_colab.ipynb` does not exist.**
+- **The README has no run #3 section** and the `unc-bench human-agreement`
+  command line has not been added to its limitations.
+- **The four documents have not been audited against each other.**
+- The padding defect above is open.
+
+Run #3 is therefore **not yet possible** from this repository. What exists is the
+artifact policy that stops the next run's data being lost, the device-agnostic
+client that a GPU run needs, and the measured filter counts that the config will
+be built from.

@@ -41,6 +41,42 @@ class ModelSpec(Frozen):
     request_timeout_s: float = Field(default=120.0, gt=0)
     max_retries: int = Field(default=4, ge=0, le=10)
 
+    #: Where to run a `local_transformers` model. `auto` picks CUDA when
+    #: `torch.cuda.is_available()` and CPU otherwise, which is what a config
+    #: should say if it does not care. Naming a device explicitly overrides
+    #: detection, and `cpu` is what makes the CPU path testable on a machine
+    #: that has a GPU — without it, "does the CPU path still work" could only be
+    #: asked on hardware where it is the only option.
+    device: Literal["auto", "cuda", "cpu"] = "auto"
+
+    #: How many prompts `LocalTransformersClient` puts through one forward pass.
+    #: 1 is one prompt per call, which is exactly run #2's call pattern, so a
+    #: config that omits this field behaves as it did before batching existed.
+    #: Raising it is a GPU optimization: on 2 CPU cores a batch competes with
+    #: itself for the same threads and buys nothing.
+    #:
+    #: The cap is per *forward pass*, not per question. The sampling loop in
+    #: `stages/generate.py` still issues one call per seed, because a single
+    #: `n=5` call would share one seed across the batch and the N-ablation needs
+    #: each sample independently seeded (docs/DECISIONS.md D24).
+    generation_batch_size: int = Field(default=1, ge=1, le=256)
+
+    @model_validator(mode="after")
+    def _batching_is_local_only(self) -> ModelSpec:
+        # An OpenAI-shaped endpoint batches server-side or not at all; a
+        # client-side batch size would be a number that silently does nothing.
+        if self.backend != "local_transformers" and self.generation_batch_size != 1:
+            raise ValueError(
+                "generation_batch_size applies to the local_transformers backend only; "
+                f"backend is {self.backend!r}"
+            )
+        if self.backend != "local_transformers" and self.device != "auto":
+            raise ValueError(
+                f"device applies to the local_transformers backend only; "
+                f"backend is {self.backend!r}"
+            )
+        return self
+
 
 class GreedySpec(Frozen):
     """The one generation every signal is computed on."""
