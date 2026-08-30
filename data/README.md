@@ -23,21 +23,51 @@ on the machine label so a labeller sees an equal number of each verdict.
 | `model_answer` | what Qwen2.5-0.5B-Instruct answered under greedy decoding |
 | `heuristic_verdict` | the no-judge label: normalized exact match, then two-way token-sequence containment |
 | `judge_primary_verdict` | `gpt-5-mini`'s verdict; empty where exact match settled the row and no judge was called |
-| `judge_secondary_verdict` | `claude-haiku-4-5`'s verdict; **empty for every row** — see below |
+| `judge_secondary_verdict` | `claude-haiku-4-5`'s verdict; filled on the 53 judge-settled rows, empty on the 47 rows exact match settled — see below |
 | `machine_label` | the label that entered the analysis, the one `results.json` counts |
 | `machine_label_source` | `exact_match` or `judge` |
 | `human_label` | **empty. For a human to fill in.** |
 
-### Why `judge_secondary_verdict` is empty
+### How `judge_secondary_verdict` was recovered, and why 47 cells are still empty
 
 `results.json` records that 66 rows went to both judges and that they agreed on
 65 of them (`labels.kappa.observed_agreement` 0.9848 over `n` 66). It does not
-record *which* row the single disagreement fell on, and the per-row judge
-replies were not committed. So the secondary column cannot be filled from
-committed artifacts. It is left empty and kept in the schema because that is
-where those verdicts belong if the labelling stage is ever re-run; the
-alternative — deriving it from the agreement rate — would mean inventing 65
-verdicts to place one disagreement.
+record *which* row the single disagreement fell on, and run #2's per-row judge
+replies were never committed.
+
+The second judge is a pure function of (question, gold aliases, model answer)
+under the frozen rubric in `unc_bench.labeling.JUDGE_PROMPT`, so a row can be
+re-judged whenever those three inputs survive. They survive for exactly the rows
+in this file: `data/run2/` was never committed, so the `model_answer` column here
+is the only committed record of any run #2 answer.
+
+`scripts/recover_secondary_verdicts.py` re-ran `claude-haiku-4-5` at temperature
+0 over the 53 rows whose `machine_label_source` is `judge`, and those cells are
+now filled. It recovered 53 of 53 with no parse failures. The 47 `exact_match`
+rows are blank because no judge was ever asked about them — that blank is
+correct, not missing.
+
+Two limits worth stating plainly:
+
+- **The recovered κ is over 53 rows, not 66.** 13 of run #2's judged rows fall
+  outside this 100-row sample, and their model answers exist nowhere in the
+  repository, so they cannot be re-judged without re-running generation. The
+  script asserts rather than assumes that the 53 are a subset of the 66: with
+  `judges.cross_validation_n` at 120 against 66 judged rows, the second judge
+  saw all of them.
+- **κ over the recovered subset is 1.0000, against the stored 0.8493 on n=66.**
+  These are different estimators over different row sets and the gap is
+  arithmetic, not judge instability: run #2 recorded exactly one disagreement,
+  and it lies among the 13 rows that cannot be reproduced. Every one of the 53
+  recovered verdicts matches the primary verdict recorded in run #2, so no
+  instability was observed on any row that could be re-asked. `results.json`
+  keeps 0.8493 as the published value; the recovered figure is reported beside
+  it in `data/judge_verdicts_recovered.json` and is not a replacement for it.
+
+The underlying cause is fixed for future runs. The `label` stage now writes both
+verdict columns into its labels checkpoint and a standalone `judge_verdicts.json`
+naming every row either judge saw, so no later run can quote a κ it cannot
+recompute.
 
 `judge_primary_verdict` is recoverable because on a judged row the primary
 judge's verdict *is* the machine label: nothing else could have set it, given
@@ -99,6 +129,11 @@ It prints, for each of `heuristic_verdict`, `judge_primary_verdict`,
 `human_label` and Cohen's κ, over the rows where both sides have a verdict. It
 reads the CSV and prints; it writes nothing, calls no model, and does not touch
 `results.json`.
+
+Labelling one row takes well under a second — read three short strings, type one
+word — so a full pass over the 100 rows is a couple of minutes. Partial passes
+are fine: unlabelled rows are counted and skipped, so labelling twenty rows and
+running the command reports agreement over those twenty.
 
 Rows with an unrecognised `human_label` are rejected by name and no agreement
 is reported until they are fixed. Rows with a blank `human_label` are skipped

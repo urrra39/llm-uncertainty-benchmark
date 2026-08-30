@@ -82,6 +82,15 @@ def build_parser() -> argparse.ArgumentParser:
     _add_config(audit)
     audit.add_argument("--view", default="primary", choices=("primary", "with_abstentions"))
 
+    compare = subparsers.add_parser(
+        "compare-runs", help="side-by-side AUROC table for two results files, with both CIs"
+    )
+    compare.add_argument("left", type=Path, help="the earlier results file")
+    compare.add_argument("right", type=Path, help="the later results file")
+    compare.add_argument("--left-label", default=None, help="name for the left run in the header")
+    compare.add_argument("--right-label", default=None, help="name for the right run in the header")
+    compare.add_argument("--view", default="primary", choices=("primary", "with_abstentions"))
+
     human = subparsers.add_parser(
         "human-agreement", help="judge-versus-human agreement and Cohen's kappa from a filled CSV"
     )
@@ -112,6 +121,25 @@ def main(argv: list[str] | None = None) -> int:
     if command is None:
         print("no subcommand given; see --help", file=sys.stderr)
         return 2
+
+    # Handled before the config is loaded: this subcommand reads two results
+    # files and takes no --config, so requiring one would be an invented
+    # dependency on a file the comparison never touches.
+    if command == "compare-runs":
+        from unc_bench.analysis import compare as compare_module
+
+        differences = compare_module.run(
+            args.left,
+            args.right,
+            left_label=args.left_label,
+            right_label=args.right_label,
+            view=args.view,
+        )
+        # Exit 0 either way. A difference between two runs is the thing being
+        # measured, not a failure, and `make check` must not depend on two runs
+        # agreeing.
+        del differences
+        return 0
 
     cfg = _load(args)
 
