@@ -693,6 +693,15 @@ the target stayed at 120.
   (`auprc_baseline` = 0.525). `average_precision` was checked against sklearn
   (0.7611 both) and against a constant signal (returns the base rate).
 - **D5** — ECE before and after Platt scaling, fitted on the train split only.
+  The per-signal **reliability diagrams are now drawn**
+  (`figures/reliability.png`): one panel per probability-valued signal, both
+  curves against the diagonal, both ECE values in the panel legend. Only the
+  three signals the report marks `is_probability_valued` are plotted; the panel
+  set is derived from that flag rather than hardcoded, so a logprob cannot end
+  up on a probability axis. The previous `calibration.png` predated the
+  before/after-Platt fields — it drew the top three signals *by AUROC*, which
+  for run #2 are family-B count signals with no probability interpretation —
+  and was deleted rather than left to be misread.
 - **D6** — N-ablation at N=1,2,3,5 reusing `samples[:n]` from the same five
   generations. A self-check asserts N=5 reproduces the main family-B pass;
   measured max difference 0.0.
@@ -710,7 +719,12 @@ the target stayed at 120.
   (`qid_digest = ffff86216137caed`, identical across both views).
 - **D13** — Re-running `analyze` on the same artifacts produced a
   **bit-identical** `results.json` apart from the timestamp. Measured, not
-  assumed.
+  assumed. This covers the **analysis** half only. Whether **generation** on a
+  clean clone is bit-exact was never measured: decoding is greedy at temperature
+  0 with seed 0, but CPU floating-point kernels are not guaranteed identical
+  across `transformers`/`torch` builds and the `nondeterminism` stage was not
+  run against these rows. The README states both halves separately and makes no
+  claim about the second.
 - **D15** — The three validity gates are code in the analysis stage, not prose.
   All three pass.
 
@@ -735,3 +749,8 @@ the target stayed at 120.
 - The human-validation CSV ships with 100 rows and an empty `human_label`
   column. No human has labeled it. It is a template for validation, not
   evidence of validation.
+- **Generation-determinism probe: not run.** The `nondeterminism` stage exists
+  and is wired into the CLI, but it was never run against run #2's rows, so
+  run-to-run CPU drift in the greedy answers is unquantified. Reported as
+  unmeasured in the README and in LIMITATIONS rather than estimated.
+

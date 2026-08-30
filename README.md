@@ -368,7 +368,9 @@ ranking was noise.
 
 The fix was to change the task, not the model: an easier question mix, no
 abstention instruction, and a 2-shot prefix. That moved the base rate from 9.3%
-correct to 50.0% and the abstention rate from 0.25 to 0.000. The validity gates
+correct to 50.0% on the heuristic labeler — **57 correct / 63 incorrect = 47.5%
+after judging**, which is the figure every number above is computed on — and the
+abstention rate from 0.25 to 0.000. The validity gates
 that would have caught run #1 are now code assertions in the analysis stage, and
 they run on every analysis.
 

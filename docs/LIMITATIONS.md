@@ -14,7 +14,8 @@ Written against run #2 (n=120, `configs/run2.yaml`). Run #1 is discarded; see
    than a 7B model's, which would make family A look worse than it deserves.
 
 3. **The base rate landed in range partly by luck.** The 40-row pilot projected
-   36.6% correct; the full run measured 50.0%. The projection was 13 points off.
+   36.6% correct; the full run measured 50.0% on the heuristic labeler and 47.5%
+   (57/120) after judging. The projection was 13 points off.
    The gate (35–65%) was not met by either pilot iteration; the full run met the
    40–60% target anyway. See docs/DECISIONS.md.
 
