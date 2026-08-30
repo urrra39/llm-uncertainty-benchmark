@@ -16,7 +16,9 @@ failure `signals.base` exists to prevent, so nothing here re-derives it.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -420,3 +422,240 @@ def _midranks(values: FloatArray) -> FloatArray:
         ranks[order[i : j + 1]] = 0.5 * (i + j) + 1.0
         i = j + 1
     return ranks
+
+
+def average_precision(scores: FloatArray, labels: BoolArray) -> float:
+    """AUPRC as average precision, the step-wise sum, not trapezoidal.
+
+    Average precision rather than the trapezoid under an interpolated PR curve.
+    Interpolating precision between thresholds invents operating points that do
+    not exist, and at n=120 with ties on integer-valued signals the invented
+    points move the number more than the data does. The step-wise sum
+    sum_k (R_k - R_{k-1}) * P_k is the one that equals the expected precision
+    over the observed positives.
+
+    Ties get one shared operating point rather than one per row. A signal like
+    `b_distinct_count` takes six values, so an implementation that walks rows
+    individually would credit it with a precision it cannot deliver: at
+    prediction time you cannot break a tie you cannot see.
+
+    AUPRC is reported next to AUROC because the two answer different questions
+    and the study needs both. AUROC is base-rate independent, so it survives a
+    change in the error rate; AUPRC is not, so it says what a triage queue built
+    on the signal would actually feel like at this error rate.
+
+    Returns NaN when no positives are present. The baseline value is the base
+    rate itself, not 0.5.
+    """
+    if scores.size != labels.size:
+        raise ValueError(
+            f"average_precision needs paired arrays: got {scores.size} and {labels.size}"
+        )
+    keep = usable_mask(scores)
+    s = scores[keep]
+    y = labels[keep]
+    n_pos = int(np.count_nonzero(y))
+    if n_pos == 0 or s.size == 0:
+        return float("nan")
+
+    # Descending score order: the highest-risk row is retrieved first.
+    order = np.argsort(-s, kind="mergesort")
+    s_sorted = s[order]
+    y_sorted = y[order].astype(np.float64)
+    tp = np.cumsum(y_sorted)
+    retrieved = np.arange(1, s.size + 1, dtype=np.float64)
+
+    # Keep only the last index of each tied block: a threshold can only be set
+    # between distinct score values.
+    is_block_end = np.ones(s.size, dtype=bool)
+    is_block_end[:-1] = s_sorted[:-1] != s_sorted[1:]
+    idx = np.flatnonzero(is_block_end)
+
+    precision = tp[idx] / retrieved[idx]
+    recall = tp[idx] / float(n_pos)
+    recall_prev = np.concatenate([[0.0], recall[:-1]])
+    return float(np.sum((recall - recall_prev) * precision))
+
+
+def bootstrap_average_precision_ci(
+    scores: FloatArray,
+    labels: BoolArray,
+    *,
+    resamples: int,
+    seed: int,
+    level: float = 0.95,
+) -> CI:
+    """Stratified percentile bootstrap CI for average precision.
+
+    Stratified for the same reason as the AUROC interval: a resample with no
+    positives has no average precision. Stratifying also holds the base rate
+    fixed across resamples, which matters more here than for AUROC, because
+    average precision moves with the base rate and an interval that let it
+    wander would be measuring two things at once.
+    """
+    keep = usable_mask(scores)
+    s = scores[keep]
+    y = labels[keep]
+    point = average_precision(s, y)
+    pos_idx = np.flatnonzero(y)
+    neg_idx = np.flatnonzero(~y)
+    if pos_idx.size == 0 or neg_idx.size == 0:
+        return CI(point=point, low=float("nan"), high=float("nan"), n=int(s.size), resamples=0)
+
+    rng = np.random.default_rng(seed)
+    draws = np.empty(resamples, dtype=np.float64)
+    for r in range(resamples):
+        take_pos = rng.integers(0, pos_idx.size, size=pos_idx.size)
+        take_neg = rng.integers(0, neg_idx.size, size=neg_idx.size)
+        idx = np.concatenate([pos_idx[take_pos], neg_idx[take_neg]])
+        draws[r] = average_precision(s[idx], y[idx])
+    finite = draws[np.isfinite(draws)]
+    if finite.size == 0:  # pragma: no cover - stratification prevents this
+        return CI(point=point, low=float("nan"), high=float("nan"), n=int(s.size), resamples=0)
+    alpha = (1.0 - level) / 2.0
+    return CI(
+        point=point,
+        low=float(np.quantile(finite, alpha)),
+        high=float(np.quantile(finite, 1.0 - alpha)),
+        n=int(s.size),
+        resamples=int(finite.size),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class PairedAurocTest:
+    """One signal compared against the reference signal on identical rows."""
+
+    name: str
+    auroc: float
+    reference_auroc: float
+    delta: float
+    ci_low: float
+    ci_high: float
+    p_value: float
+    p_value_holm: float
+    significant_holm: bool
+    n_paired: int
+    resamples: int
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "auroc": self.auroc,
+            "reference_auroc": self.reference_auroc,
+            "delta": self.delta,
+            "ci_low": self.ci_low,
+            "ci_high": self.ci_high,
+            "p_value": self.p_value,
+            "p_value_holm": self.p_value_holm,
+            "significant_holm": self.significant_holm,
+            "n_paired": self.n_paired,
+            "resamples": self.resamples,
+        }
+
+
+def paired_bootstrap_auroc_diff(
+    reference: FloatArray,
+    other: FloatArray,
+    labels: BoolArray,
+    *,
+    resamples: int,
+    seed: int,
+    level: float = 0.95,
+) -> tuple[float, float, float, float, int]:
+    """Paired bootstrap on the AUROC difference between two correlated signals.
+
+    Returns (delta, ci_low, ci_high, two_sided_p, n_paired).
+
+    This is the substitute for DeLong's test, and the substitution is deliberate
+    rather than a shortcut. DeLong gives an analytic variance for the difference
+    of two correlated AUROCs via the structural components of the U statistic,
+    and its published derivation assumes no ties in the scores. Half the signals
+    here are integer-valued — `b_distinct_count` takes six values across the
+    whole study, `t_answer_length` about eight — so a large share of pairs are
+    tied and the midrank correction that keeps DeLong usable under ties is
+    exactly the part that is easy to get subtly wrong. A paired bootstrap makes
+    no distributional assumption, handles ties by construction because it just
+    recomputes the tie-aware AUROC on each resample, and costs a few seconds at
+    this n. README names this test rather than claiming DeLong.
+
+    Paired means the same resample indices are applied to both signals. That is
+    the whole point: the two signals are measured on the same rows and are
+    strongly correlated, so an unpaired comparison would attribute their shared
+    row-level noise to the difference between them and produce an interval far
+    too wide.
+
+    Rows where either signal is missing are dropped from both, so the comparison
+    is on the intersection of usable rows and the two AUROCs inside it are
+    recomputed on that intersection rather than reused from the full-column fit.
+
+    The p-value is the bootstrap two-sided achieved significance level: the
+    proportion of resamples whose delta falls on the opposite side of zero from
+    the observed delta, doubled, with the standard +1 correction so it can never
+    be exactly zero. A test on 10,000 resamples cannot resolve p below about
+    1e-4 and reporting 0.0 would overstate it.
+    """
+    if not (reference.size == other.size == labels.size):
+        raise ValueError("paired_bootstrap_auroc_diff needs three equal-length arrays")
+    keep = usable_mask(reference) & usable_mask(other)
+    a = reference[keep]
+    b = other[keep]
+    y = labels[keep]
+    pos_idx = np.flatnonzero(y)
+    neg_idx = np.flatnonzero(~y)
+    n_paired = int(y.size)
+    if pos_idx.size == 0 or neg_idx.size == 0:
+        return (float("nan"), float("nan"), float("nan"), float("nan"), n_paired)
+
+    delta = auroc(b, y) - auroc(a, y)
+    rng = np.random.default_rng(seed)
+    draws = np.empty(resamples, dtype=np.float64)
+    for r in range(resamples):
+        take_pos = rng.integers(0, pos_idx.size, size=pos_idx.size)
+        take_neg = rng.integers(0, neg_idx.size, size=neg_idx.size)
+        idx = np.concatenate([pos_idx[take_pos], neg_idx[take_neg]])
+        # Identical indices for both signals. This is the pairing.
+        draws[r] = auroc(b[idx], y[idx]) - auroc(a[idx], y[idx])
+    finite = draws[np.isfinite(draws)]
+    if finite.size == 0:  # pragma: no cover - stratification prevents this
+        return (delta, float("nan"), float("nan"), float("nan"), n_paired)
+
+    alpha = (1.0 - level) / 2.0
+    low = float(np.quantile(finite, alpha))
+    high = float(np.quantile(finite, 1.0 - alpha))
+    # Two-sided achieved significance level, centred on zero.
+    if delta >= 0.0:
+        tail = int(np.count_nonzero(finite <= 0.0))
+    else:
+        tail = int(np.count_nonzero(finite >= 0.0))
+    p = min(1.0, 2.0 * (tail + 1) / (finite.size + 1))
+    return (delta, low, high, p, n_paired)
+
+
+def holm_bonferroni(p_values: Sequence[float]) -> list[float]:
+    """Holm step-down adjustment. Returns adjusted p-values in input order.
+
+    Holm rather than plain Bonferroni because it is uniformly more powerful at
+    the same family-wise error rate, and the family here is 20 comparisons
+    against one reference signal, which is enough for plain Bonferroni to hide a
+    real effect.
+
+    Adjusted values are made monotone non-decreasing along the sorted order,
+    which is what makes "reject while adjusted p <= alpha" equivalent to the
+    step-down procedure. NaN inputs are carried through as NaN and excluded from
+    the count of comparisons, because a comparison that could not be computed is
+    not a comparison that was made.
+    """
+    values = list(p_values)
+    testable = [i for i, p in enumerate(values) if np.isfinite(p)]
+    out = [float("nan")] * len(values)
+    m = len(testable)
+    if m == 0:
+        return out
+    order = sorted(testable, key=lambda i: values[i])
+    running = 0.0
+    for rank, i in enumerate(order):
+        adjusted = (m - rank) * values[i]
+        running = max(running, adjusted)
+        out[i] = float(min(1.0, running))
+    return out

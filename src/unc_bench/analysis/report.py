@@ -23,15 +23,25 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
+from unc_bench.analysis.extended import (
+    cost_table,
+    length_confound,
+    logreg_combination,
+    per_dataset_auroc,
+    significance_table,
+    verbal_confidence_health,
+)
 from unc_bench.analysis.metrics import (
     apply_platt,
     bootstrap_auroc_ci,
+    bootstrap_average_precision_ci,
     expected_calibration_error,
     fit_platt,
     risk_coverage,
     spearman_matrix,
     usable_mask,
 )
+from unc_bench.analysis.validity import assert_frozen_analysis_set, evaluate_gates
 from unc_bench.config import Config
 from unc_bench.signals.base import FAMILY_LABELS, get_spec, signal_names
 from unc_bench.stages.common import StagePaths, read_checkpoint
@@ -65,6 +75,20 @@ def build_results(cfg: Config) -> dict[str, Any]:
     generations = read_checkpoint(paths.generations)
 
     merged = signals.merge(labels, on="qid", how="inner", validate="one_to_one")
+
+    # Carry the source dataset and the greedy answer through, for the
+    # per-dataset breakdown (D9) and the answer-length confound (D10). Joined
+    # here rather than recomputed so the per-dataset slices are guaranteed to be
+    # subsets of the same frozen row set as the pooled table.
+    dataset_frame = read_checkpoint(paths.dataset)
+    if dataset_frame is not None and "dataset" in dataset_frame.columns:
+        merged = merged.merge(
+            dataset_frame[["qid", "dataset"]], on="qid", how="left", validate="one_to_one"
+        )
+    if generations is not None and "greedy_answer" in generations.columns:
+        merged = merged.merge(
+            generations[["qid", "greedy_answer"]], on="qid", how="left", validate="one_to_one"
+        )
     total_rows = int(len(merged))
     n_ambiguous = int((merged["label"] == LABEL_AMBIGUOUS).sum())
     n_abstain = int((merged["label"] == LABEL_ABSTAIN).sum())
@@ -77,7 +101,11 @@ def build_results(cfg: Config) -> dict[str, Any]:
 
     names = [n for n in signal_names() if n in merged.columns]
     per_view: dict[str, Any] = {}
+    frozen: dict[str, Any] = {}
     for view_name, frame in views.items():
+        # D12: fix the row set before any signal is scored, and assert that every
+        # signal is scored against exactly it.
+        frozen[view_name] = assert_frozen_analysis_set(frame, names, view_name=view_name)
         per_view[view_name] = _analyze_view(frame, names, cfg)
 
     label_meta_path = cfg.paths.artifacts_dir / "label_meta.json"
@@ -94,6 +122,16 @@ def build_results(cfg: Config) -> dict[str, Any]:
             timings = json.loads(paths.timings.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             timings = {}
+
+    # D15: the gates are evaluated on the primary view, which is the one the
+    # README quotes. A failure is recorded, not raised: the failure is the result.
+    gates = evaluate_gates(
+        per_view["primary"],
+        n_abstentions=n_abstain,
+        n_scored=int(len(scored)),
+    )
+    # D7: cost per signal, using this run's own measured timings.
+    costs = cost_table(per_view["primary"]["signals"], timings, cfg)
 
     return {
         "run_name": cfg.run_name,
@@ -138,8 +176,19 @@ def build_results(cfg: Config) -> dict[str, Any]:
             "train_fraction": cfg.split.train_fraction,
             "min_meaningful_auroc_gap": cfg.analysis.min_meaningful_auroc_gap,
         },
+        "validity_gates": gates,
+        "frozen_analysis_set": frozen,
+        "cost": costs,
         "views": per_view,
         "timings": timings,
+        "seeds": {
+            "dataset_seed": cfg.dataset_seed,
+            "greedy_seed": cfg.greedy.seed,
+            "sampling_seed_base": cfg.sampling.seed_base,
+            "bootstrap_seed": cfg.analysis.bootstrap_seed,
+            "logreg_seed": cfg.analysis.logreg_seed,
+            "split_seed": cfg.split.seed,
+        },
         "signal_catalog": {
             name: {
                 "family": get_spec(name).family,
@@ -150,6 +199,44 @@ def build_results(cfg: Config) -> dict[str, Any]:
             for name in names
         },
     }
+
+
+#: Signals whose raw value is already a probability in [0,1], so an ECE can be
+#: computed on them before any recalibration. Everything else (logprobs,
+#: entropies, counts, lengths) has no pre-Platt ECE that means anything.
+PROBABILITY_VALUED = ("c_p_true_plain", "c_p_true_with_samples", "c_verbal_confidence")
+
+
+def _pre_platt_calibration(
+    name: str,
+    scores: npt.NDArray[np.float64],
+    y: npt.NDArray[np.bool_],
+    eval_mask: npt.NDArray[np.bool_],
+    cfg: Config,
+) -> dict[str, Any]:
+    """ECE before recalibration, for the probability-valued signals only (D5).
+
+    The stored column is oriented, meaning "higher = more likely wrong", and for
+    these three signals that orientation was produced by negating a confidence.
+    So the model's own asserted probability of being wrong is 1 + oriented_value
+    — the negation undone, then complemented. That is the number whose
+    calibration the reader cares about: it is what the model claimed.
+
+    Non-probability signals return null rather than a number. Min-max scaling a
+    logprob column into [0,1] would produce an ECE, and it would be an ECE of the
+    scaling choice rather than of the signal.
+    """
+    if name not in PROBABILITY_VALUED:
+        return {"ece": None, "calibration": None, "is_probability_valued": False}
+    asserted_wrong = 1.0 + scores
+    finite = np.isfinite(asserted_wrong)
+    use = eval_mask & finite
+    if not int(np.count_nonzero(use)):
+        return {"ece": None, "calibration": None, "is_probability_valued": True}
+    cal = expected_calibration_error(
+        np.clip(asserted_wrong[use], 0.0, 1.0), y[use], bins=cfg.analysis.ece_bins
+    )
+    return {"ece": cal.ece, "calibration": cal.as_dict(), "is_probability_valued": True}
 
 
 def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[str, Any]:
@@ -173,6 +260,13 @@ def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[st
             seed=cfg.analysis.bootstrap_seed,
             level=cfg.analysis.ci_level,
         )
+        ap = bootstrap_average_precision_ci(
+            scores,
+            y,
+            resamples=cfg.analysis.bootstrap_resamples,
+            seed=cfg.analysis.bootstrap_seed,
+            level=cfg.analysis.ci_level,
+        )
         rc = risk_coverage(scores, y, target_accuracy=cfg.analysis.target_accuracy)
 
         # Platt map fitted on TRAIN only, ECE reported on the held-out rest.
@@ -185,18 +279,31 @@ def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[st
             probs[eval_mask], y[eval_mask], bins=cfg.analysis.ece_bins
         )
 
+        # ECE BEFORE recalibration (D5), on the same held-out rows, so the two
+        # numbers are comparable. Only signals already on a probability scale
+        # have a meaningful pre-Platt ECE: a raw logprob is not a probability and
+        # squeezing one into [0,1] to score it would invent the calibration being
+        # measured. Those signals get null and are named as such.
+        pre_platt = _pre_platt_calibration(name, scores, y, eval_mask, cfg)
+
         signals_out[name] = {
             "family": spec.family,
             "orientation": spec.orientation,
             "description": spec.description,
             "auroc": ci.as_dict(),
+            "auprc": ap.as_dict(),
+            "auprc_baseline": base_rate,
             "usable_n": int(np.count_nonzero(usable_mask(scores))),
             "missing_n": int(np.count_nonzero(~usable_mask(scores))),
             "aurc": rc.aurc,
             "coverage_at_target_accuracy": rc.coverage_at_target,
             "platt": {"a": a, "b": b, "train_n": int(is_train.sum())},
             "ece": calibration.ece,
+            "ece_after_platt": calibration.ece,
+            "ece_before_platt": pre_platt["ece"],
+            "is_probability_valued": pre_platt["is_probability_valued"],
             "calibration": calibration.as_dict(),
+            "calibration_before_platt": pre_platt["calibration"],
             "risk_coverage": {"coverage": rc.coverage, "risk": rc.risk},
         }
 
@@ -216,6 +323,12 @@ def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[st
         "signals": signals_out,
         "ranking": ranked,
         "verdict": verdict,
+        # D3, D8, D9, D10: computed on the same frozen rows as the table above.
+        "significance": significance_table(columns, y, ranked, cfg),
+        "per_dataset": per_dataset_auroc(frame, names, y),
+        "length_confound": length_confound(columns, y, ranked),
+        "combination": logreg_combination(columns, y, ranked, cfg),
+        "verbal_confidence_health": verbal_confidence_health(frame),
         "correlation": {
             "names": corr_names,
             "spearman": [[None if not np.isfinite(v) else float(v) for v in row] for row in corr],
