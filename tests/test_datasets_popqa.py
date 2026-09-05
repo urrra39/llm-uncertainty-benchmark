@@ -12,8 +12,14 @@ from pathlib import Path
 
 import pytest
 
-from unc_bench.datasets.base import OfflineError, questions_to_frame
-from unc_bench.datasets.popqa import PopQABuilder
+from unc_bench.datasets.base import (
+    OfflineError,
+    deduplicate_questions,
+    gold_in_question,
+    questions_to_frame,
+)
+from unc_bench.datasets.popqa import INVERSE_RELATIONS, PopQABuilder
+from unc_bench.types import Question
 
 
 @pytest.fixture
@@ -92,3 +98,58 @@ def test_frame_roundtrip_rejects_duplicate_qids(builder: PopQABuilder) -> None:
     assert len(frame) == 3
     with pytest.raises(ValueError, match="duplicate qids"):
         questions_to_frame(questions + questions)
+
+
+def test_inverse_relation_raises_without_the_escape_hatch(tmp_path: Path) -> None:
+    assert "capital of" in INVERSE_RELATIONS
+    with pytest.raises(ValueError, match="allow_inverse_relations"):
+        PopQABuilder(tmp_path, relations=("capital of",))
+
+
+def test_inverse_relation_loads_with_the_escape_hatch(tmp_path: Path) -> None:
+    made = PopQABuilder(tmp_path, relations=("capital of",), allow_inverse_relations=True)
+    assert made.relations == ("capital of",)
+
+
+def test_gold_in_question_flags_the_echo_cases() -> None:
+    assert gold_in_question("What is Rome the capital of?", ["Rome", "Italy"])
+    assert gold_in_question("What is the capital of Nan?", ["Nan"])
+    assert not gold_in_question("What is Seattle the capital of?", ["King County"])
+    assert not gold_in_question("What color is Manchester United F.C.?", ["red"])
+    # Substring is not enough: "nan" must not match inside "finance".
+    assert not gold_in_question("Who runs finance?", ["Nan"])
+
+
+def test_deduplicate_merges_alias_lists_and_keeps_first_qid() -> None:
+    rows = [
+        Question(
+            qid="popqa-2",
+            dataset="popqa",
+            question="What is Rome the capital of?",
+            gold_answers=("Lazio",),
+        ),
+        Question(
+            qid="popqa-1",
+            dataset="popqa",
+            question="WHAT IS ROME THE CAPITAL OF? ",
+            gold_answers=("Rome",),
+        ),
+    ]
+    ordered = sorted(rows, key=lambda q: q.qid)
+    merged, collapsed = deduplicate_questions(ordered)
+    assert collapsed == 1
+    assert len(merged) == 1
+    assert merged[0].qid == "popqa-1"
+    assert set(merged[0].gold_answers) == {"Rome", "Lazio"}
+
+
+def test_frame_rejects_duplicate_question_text(builder: PopQABuilder) -> None:
+    questions = builder.build(3, seed=3)
+    clone = Question(
+        qid="popqa-clone",
+        dataset="popqa",
+        question=questions[0].question.upper(),
+        gold_answers=("Other",),
+    )
+    with pytest.raises(ValueError, match="duplicate question texts"):
+        questions_to_frame([*questions, clone])

@@ -74,27 +74,30 @@ dataset_mix:
   simpleqa: 0
 
 # Difficulty filters. Run #2's settings, with the PopQA relation allowlist
-# widened because run #2's five relations do not yield 300 rows.
+# widened because run #2's five relations do not yield 300 rows, minus
+# `capital of` (echo contamination, Part A1), minus gold-in-question rows.
 #
-# Measured through the project's own builders against the real corpora
-# (docs/DECISIONS.md D22, session 7):
+# Re-measured through the project's own builders against the real corpora
+# after dedup + leakage filtering (this session; run `build` counts, not
+# inherited notes):
 #
-#   PopQA, 5 relations (run #2), popularity quantile 0.9   ->  243 candidates
-#   PopQA, 8 relations (below),   popularity quantile 0.9   ->  389 candidates
-#   TriviaQA, easy_only + min_aliases 20 (run #2, unchanged) -> 4060 candidates
+#   PopQA, 7 relations (below), quantile 0.9, leakage dropped -> 340 rows,
+#     318 unique questions after near-duplicate collapse (16 leaked of 356)
+#   TriviaQA, easy_only + min_aliases 20, leakage dropped  -> 3746 rows,
+#     all unique (314 leaked of 4060)
 #
-# 243 is below 300, so run #2's filter would make DatasetBuilder.build raise
-# "asked for 300 questions but only 243 are usable". The three added relations
-# are `religion`, `place of birth` and `occupation`, chosen on the axis run #2's
-# D1(a) established: relation type, not subject popularity, moves the base rate
-# for a small model, and these three are lookup-shaped rather than
-# credit-recall-shaped like `screenwriter` or `composer`.
+# The three added relations are `religion`, `place of birth` and `occupation`,
+# chosen on the axis run #2's D1(a) established: relation type, not subject
+# popularity, moves the base rate for a small model, and these three are
+# lookup-shaped rather than credit-recall-shaped like `screenwriter` or
+# `composer`.
 #
-# 389 for 300 draws is a 1.30x margin, which is thin and is stated rather than
-# hidden: the PopQA slice is close to a census of its filter rather than a sample
-# from a large pool. The popularity quantile stays at 0.9 instead of being
-# loosened, because loosening it would reintroduce the long tail that made run #1
-# degenerate. TriviaQA is untouched at a 13.5x margin.
+# 318 for 300 draws is a 1.06x margin — razor thin and stated rather than
+# hidden: the PopQA slice is effectively a census of its filter, so it is
+# reproducible and unrepresentative at the same time. If the draw ever fails
+# with "asked for 300 questions but only N are usable", widen relations before
+# touching the popularity quantile: loosening it would reintroduce the long
+# tail that made run #1 degenerate. TriviaQA sits at a 12.5x margin.
 #
 # Unverified: whether the widened PopQA slice lands inside the pilot gate's
 # 35-65% band. The three added relations have never been generated against.
@@ -102,10 +105,19 @@ difficulty:
   triviaqa_easy_only: true
   triviaqa_min_aliases: 20
   popqa_popularity_quantile: 0.9
+  # Seven relations: run #2's five minus `capital of`, which is removed because
+  # it asks for the subject's container and the echo pathology it produces is
+  # documented in data/echo_contamination_report.json. `allow_inverse_relations`
+  # stays false so any reintroduction fails loudly. Plus `religion`,
+  # `place of birth` and `occupation` to reach 300 rows (see counts below).
+  allow_inverse_relations: false
+  # Drop candidate rows where a normalized gold alias sits inside the question
+  # (datasets.base.gold_in_question). Counts are in data/dataset_meta.json once
+  # built; run #2 predates the check and is unaffected.
+  drop_gold_in_question: true
   popqa_relations:
     - "capital"
     - "country"
-    - "capital of"
     - "sport"
     - "color"
     - "religion"
@@ -172,6 +184,10 @@ analysis:
   min_meaningful_auroc_gap: 0.02
   holm_alpha: 0.05
   nondeterminism_probe_n: 50
+  # On: resample question-text clusters rather than rows in every bootstrap.
+  # With dedup active the clusters are singletons and the two draws agree, so
+  # this is defence in depth rather than a correction.
+  cluster_bootstrap: true
 
 # Run #3 writes into its own directory and its own results file, so nothing here
 # can overwrite run #2's published numbers. The artifacts under data/run3/ are

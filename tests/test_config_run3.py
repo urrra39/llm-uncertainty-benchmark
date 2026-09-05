@@ -92,24 +92,28 @@ def test_run3_split_is_300_300(cfg: Config) -> None:
     assert mix.popqa == mix.triviaqa
 
 
-def test_run3_popqa_filter_is_widened_to_eight_relations(cfg: Config) -> None:
-    # Measured in session 7: run #2's five relations yield 243 candidates at
-    # quantile 0.9, which is under 300, so `DatasetBuilder.build` would raise.
-    # The eight below yield 389. See docs/DECISIONS.md D22.
+def test_run3_popqa_filter_is_seven_relations_without_the_inverse(
+    cfg: Config,
+) -> None:
+    # Part A1: `capital of` was removed after the echo-contamination report
+    # showed 14 of 20 echo rows decided purely by subject-in-alias-list.
+    # Seven lookup-shaped relations remain at quantile 0.9.
     relations = cfg.difficulty.popqa_relations
     assert relations is not None
     assert set(relations) == {
         "capital",
         "country",
-        "capital of",
         "sport",
         "color",
         "religion",
         "place of birth",
         "occupation",
     }
+    assert "capital of" not in relations
     assert cfg.difficulty.popqa_popularity_quantile == 0.9
-    # TriviaQA is unchanged from run #2: 4060 candidates, a 13.5x margin.
+    assert cfg.difficulty.allow_inverse_relations is False
+    assert cfg.difficulty.drop_gold_in_question is True
+    # TriviaQA is unchanged from run #2: easy_only + min_aliases 20.
     assert cfg.difficulty.triviaqa_min_aliases == 20
     assert cfg.difficulty.triviaqa_easy_only is True
 
@@ -178,8 +182,13 @@ def test_run3_inherits_run2s_frozen_blocks(cfg: Config) -> None:
     assert cfg.few_shot == run2.few_shot
     assert cfg.judges == run2.judges
     assert cfg.split == run2.split
-    assert cfg.analysis == run2.analysis
     assert cfg.dataset_seed == run2.dataset_seed
+    # The analysis block matches except the cluster-bootstrap switch: with
+    # dedup active the clusters are singletons and the two draws agree exactly
+    # at a fixed seed, so this is defence in depth rather than a new estimator.
+    assert cfg.analysis.model_copy(update={"cluster_bootstrap": False}) == run2.analysis
+    assert cfg.analysis.cluster_bootstrap is True
+    assert run2.analysis.cluster_bootstrap is False
 
 
 def test_run3_judges_differ_from_the_new_subject(cfg: Config) -> None:

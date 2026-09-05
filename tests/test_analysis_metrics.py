@@ -348,3 +348,43 @@ def test_spearman_is_nan_with_too_few_shared_rows() -> None:
 def test_usable_mask_excludes_nan_and_infinity() -> None:
     mask = usable_mask(_f([1.0, float("nan"), float("inf"), -float("inf"), 0.0]))
     assert list(mask) == [True, False, False, False, True]
+
+
+# ------------------------------------------------------- cluster bootstrap
+
+
+def _ids(values: list[int]) -> npt.NDArray[np.int64]:
+    return np.array(values, dtype=np.int64)
+
+
+def test_singleton_clusters_reproduce_the_row_bootstrap_exactly() -> None:
+    # One cluster per row: the cluster draw is the row draw given the same
+    # seed, so both point and endpoints must match bit-for-bit.
+    rng = np.random.default_rng(3)
+    scores = _f(list(rng.normal(size=40)))
+    labels = _b([True] * 20 + [False] * 20)
+    singletons = _ids(list(range(40)))
+    row = bootstrap_auroc_ci(scores, labels, resamples=500, seed=11)
+    clustered = bootstrap_auroc_ci(scores, labels, resamples=500, seed=11, cluster_ids=singletons)
+    assert (row.point, row.low, row.high) == (clustered.point, clustered.low, clustered.high)
+
+
+def test_duplicated_rows_widen_the_interval_under_clustering() -> None:
+    # Twenty unique items each appearing twice: the row bootstrap sees n=40
+    # independent rows, the cluster bootstrap sees 20 pairs that always travel
+    # together, so its interval must be wider.
+    rng = np.random.default_rng(5)
+    base = _f(list(rng.normal(size=20)))
+    scores = _f(list(base) + list(base))
+    labels = _b([True] * 10 + [False] * 10 + [True] * 10 + [False] * 10)
+    pairs = _ids(list(range(20)) + list(range(20)))
+    row = bootstrap_auroc_ci(scores, labels, resamples=1000, seed=11)
+    clustered = bootstrap_auroc_ci(scores, labels, resamples=1000, seed=11, cluster_ids=pairs)
+    assert clustered.width > row.width
+
+
+def test_cluster_ids_must_align_with_usable_rows() -> None:
+    scores = _f([0.1, 0.9, 0.2, 0.8])
+    labels = _b([False, True, False, True])
+    with pytest.raises(ValueError, match="one id per input row"):
+        bootstrap_auroc_ci(scores, labels, resamples=50, seed=0, cluster_ids=_ids([0, 1]))

@@ -191,6 +191,15 @@ class DifficultySpec(Frozen):
     #: 1 showed relation type dominates subject popularity as a difficulty axis:
     #: `capital` is a lookup, `screenwriter` is not.
     popqa_relations: tuple[str, ...] | None = None
+    #: Escape hatch for inverse relations (`capital of`). Requesting one without
+    #: this set raises in `PopQABuilder`: echoing the subject scores correct by
+    #: alias-list happenstance (data/echo_contamination_report.json). Defaults
+    #: off so run #2's config keeps meaning what it meant.
+    allow_inverse_relations: bool = False
+    #: Drop candidate rows where a normalized gold alias sits inside the
+    #: normalized question (`datasets.base.gold_in_question`). Defaults off so
+    #: run #2's config keeps meaning what it meant; run #3 sets it on.
+    drop_gold_in_question: bool = False
 
 
 class FewShotSpec(Frozen):
@@ -285,6 +294,11 @@ class AnalysisSpec(Frozen):
     min_meaningful_auroc_gap: float = Field(default=0.02, ge=0.0, le=0.5)
     holm_alpha: Probability = 0.05
     nondeterminism_probe_n: int = Field(default=50, ge=10)
+    #: Resample question-text clusters instead of rows in every bootstrap.
+    #: Defence in depth for near-duplicate prompts: with dedup active the
+    #: clusters are singletons and the two draws agree exactly at a fixed seed.
+    #: Off by default so committed intervals keep meaning what they meant.
+    cluster_bootstrap: bool = False
 
 
 class PathsSpec(Frozen):

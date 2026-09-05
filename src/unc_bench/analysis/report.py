@@ -85,6 +85,10 @@ def build_results(cfg: Config) -> dict[str, Any]:
         merged = merged.merge(
             dataset_frame[["qid", "dataset"]], on="qid", how="left", validate="one_to_one"
         )
+    if dataset_frame is not None and "question" in dataset_frame.columns:
+        merged = merged.merge(
+            dataset_frame[["qid", "question"]], on="qid", how="left", validate="one_to_one"
+        )
     if generations is not None and "greedy_answer" in generations.columns:
         merged = merged.merge(
             generations[["qid", "greedy_answer"]], on="qid", how="left", validate="one_to_one"
@@ -122,6 +126,24 @@ def build_results(cfg: Config) -> dict[str, Any]:
             timings = json.loads(paths.timings.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             timings = {}
+
+    dataset_meta_path = cfg.paths.artifacts_dir / "dataset_meta.json"
+    dataset_meta: dict[str, Any] = {}
+    if dataset_meta_path.exists():
+        try:
+            dataset_meta = json.loads(dataset_meta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            dataset_meta = {}
+    gold_leakage = {
+        "dropped": sum(int(v.get("gold_leakage_dropped", 0)) for v in dataset_meta.values())
+        if dataset_meta
+        else None,
+        "inspected": sum(int(v.get("gold_leakage_inspected", 0)) for v in dataset_meta.values())
+        if dataset_meta
+        else None,
+        "per_dataset": dataset_meta,
+        "method": "normalized gold alias as contiguous token subsequence of the question",
+    }
 
     # D15: the gates are evaluated on the primary view, which is the one the
     # README quotes. A failure is recorded, not raised: the failure is the result.
@@ -168,6 +190,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
             "seed": cfg.dataset_seed,
             "rows_with_labels": total_rows,
             "generated_rows": 0 if generations is None else int(len(generations)),
+            "gold_leakage": gold_leakage,
         },
         "labels": {
             "counts": {str(k): int(v) for k, v in merged["label"].value_counts().items()},
@@ -251,6 +274,27 @@ def _pre_platt_calibration(
     return {"ece": cal.ece, "calibration": cal.as_dict(), "is_probability_valued": True}
 
 
+def _cluster_ids(frame: pd.DataFrame, cfg: Config) -> npt.NDArray[np.int64] | None:
+    """Question-text cluster ids for the cluster bootstrap, or None.
+
+    Factorized normalized question text over the frozen view rows. Returned
+    only when `analysis.cluster_bootstrap` is on; otherwise None, which keeps
+    every bootstrap on the row-level estimator the committed intervals used.
+    """
+    if not cfg.analysis.cluster_bootstrap or "question" not in frame.columns:
+        return None
+    from unc_bench.normalize import normalize_answer
+
+    codes = (
+        frame["question"]
+        .astype(str)
+        .map(normalize_answer)
+        .astype("category")
+        .cat.codes.to_numpy(dtype=np.int64)
+    )
+    return np.asarray(codes, dtype=np.int64)
+
+
 def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[str, Any]:
     """AUROC table, risk-coverage, calibration and correlations for one view."""
     n = int(len(frame))
@@ -260,6 +304,7 @@ def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[st
     is_train = _train_mask(qids, cfg) if n else np.zeros(0, dtype=bool)
 
     columns = {name: frame[name].to_numpy(dtype=np.float64) for name in names}
+    clusters = _cluster_ids(frame, cfg)
 
     signals_out: dict[str, Any] = {}
     for name in names:
@@ -271,6 +316,7 @@ def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[st
             resamples=cfg.analysis.bootstrap_resamples,
             seed=cfg.analysis.bootstrap_seed,
             level=cfg.analysis.ci_level,
+            cluster_ids=clusters,
         )
         ap = bootstrap_average_precision_ci(
             scores,
@@ -278,6 +324,7 @@ def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[st
             resamples=cfg.analysis.bootstrap_resamples,
             seed=cfg.analysis.bootstrap_seed,
             level=cfg.analysis.ci_level,
+            cluster_ids=clusters,
         )
         rc = risk_coverage(scores, y, target_accuracy=cfg.analysis.target_accuracy)
 
@@ -336,8 +383,13 @@ def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[st
         "ranking": ranked,
         "verdict": verdict,
         # D3, D8, D9, D10: computed on the same frozen rows as the table above.
-        "significance": significance_table(columns, y, ranked, cfg),
-        "per_dataset": per_dataset_auroc(frame, names, y, cfg),
+        "significance": significance_table(columns, y, ranked, cfg, clusters),
+        "per_dataset": per_dataset_auroc(frame, names, y, cfg, clusters),
+        "cluster_bootstrap": {
+            "enabled": clusters is not None,
+            "n_clusters": int(len(set(clusters.tolist()))) if clusters is not None else 0,
+            "key": "normalized question text",
+        },
         "length_confound": length_confound(columns, y, ranked),
         "combination": logreg_combination(columns, y, ranked, cfg),
         "verbal_confidence_health": verbal_confidence_health(frame),

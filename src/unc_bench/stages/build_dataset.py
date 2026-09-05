@@ -11,6 +11,8 @@ PopQA builder would trigger a 14k-row TSV download for a sample of zero.
 
 from __future__ import annotations
 
+import json
+
 from unc_bench.config import Config
 from unc_bench.datasets.base import DatasetBuilder, questions_to_frame
 from unc_bench.datasets.popqa import PopQABuilder
@@ -37,12 +39,15 @@ def _construct(builder_cls: type[DatasetBuilder], name: str, cfg: Config) -> Dat
             cfg.paths.raw_dir,
             easy_only=cfg.difficulty.triviaqa_easy_only,
             min_aliases=cfg.difficulty.triviaqa_min_aliases,
+            drop_gold_in_question=cfg.difficulty.drop_gold_in_question,
         )
     if name == "popqa":
         return PopQABuilder(
             cfg.paths.raw_dir,
             popularity_quantile=cfg.difficulty.popqa_popularity_quantile,
             relations=cfg.difficulty.popqa_relations,
+            allow_inverse_relations=cfg.difficulty.allow_inverse_relations,
+            drop_gold_in_question=cfg.difficulty.drop_gold_in_question,
         )
     return builder_cls(cfg.paths.raw_dir)
 
@@ -66,6 +71,7 @@ def run(cfg: Config, *, force: bool = False) -> int:
         "simpleqa": cfg.dataset_mix.simpleqa,
     }
     questions: list[Question] = []
+    meta: dict[str, dict[str, int]] = {}
     for name, count in wanted.items():
         if count <= 0:
             continue
@@ -78,8 +84,17 @@ def run(cfg: Config, *, force: bool = False) -> int:
         drawn = builder.build(count, cfg.dataset_seed)
         print(f"[build_dataset] {name}: {len(drawn)} questions", flush=True)
         questions.extend(drawn)
+        meta[name] = {
+            "drawn": len(drawn),
+            "dedup_collapsed": int(getattr(builder, "last_dedup_collapsed", 0)),
+            "gold_leakage_dropped": int(getattr(builder, "last_gold_leakage_dropped", 0)),
+            "gold_leakage_inspected": int(getattr(builder, "last_gold_leakage_inspected", 0)),
+        }
 
     frame = questions_to_frame(questions)
     write_checkpoint(frame, paths.dataset)
+    meta_path = cfg.paths.artifacts_dir / "dataset_meta.json"
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
+    meta_path.write_text(json.dumps(meta, indent=2, sort_keys=True), encoding="utf-8")
     print(f"[build_dataset] wrote {len(frame)} rows to {paths.dataset}", flush=True)
     return int(len(frame))

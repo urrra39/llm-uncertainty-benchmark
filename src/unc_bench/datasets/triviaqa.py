@@ -24,7 +24,12 @@ from typing import Any
 
 import pandas as pd
 
-from unc_bench.datasets.base import DatasetBuilder, cached_download, clean_alias_list
+from unc_bench.datasets.base import (
+    DatasetBuilder,
+    cached_download,
+    clean_alias_list,
+    gold_in_question,
+)
 from unc_bench.types import Question
 
 # The Hub's parquet endpoint for this configuration returns exactly one shard.
@@ -66,10 +71,16 @@ class TriviaQABuilder(DatasetBuilder):
         *,
         easy_only: bool = False,
         min_aliases: int = MIN_ALIASES_FOR_EASY,
+        drop_gold_in_question: bool = False,
     ) -> None:
         super().__init__(raw_dir)
         self.easy_only = easy_only
         self.min_aliases = min_aliases
+        self.drop_gold_in_question = drop_gold_in_question
+        #: Rows dropped by the last `load_candidates` call's gold-leakage
+        #: filter, and rows it inspected. Zero until run.
+        self.last_gold_leakage_dropped = 0
+        self.last_gold_leakage_inspected = 0
 
     @property
     def local_path(self) -> Path:
@@ -78,6 +89,8 @@ class TriviaQABuilder(DatasetBuilder):
     def load_candidates(self) -> list[Question]:
         path = cached_download(TRIVIAQA_URL, self.local_path)
         frame = pd.read_parquet(path, columns=["question", "question_id", "answer"])
+        self.last_gold_leakage_dropped = 0
+        self.last_gold_leakage_inspected = 0
 
         required = {"question", "question_id", "answer"}
         missing = required - set(frame.columns)
@@ -110,6 +123,10 @@ class TriviaQABuilder(DatasetBuilder):
             ):
                 continue
             seen.add(key)
+            self.last_gold_leakage_inspected += 1
+            if self.drop_gold_in_question and gold_in_question(text, aliases):
+                self.last_gold_leakage_dropped += 1
+                continue
             out.append(
                 Question(
                     qid=f"triviaqa-{qid}",

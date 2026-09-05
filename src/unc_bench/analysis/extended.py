@@ -45,6 +45,7 @@ def significance_table(
     y: BoolArray,
     ranking: list[str],
     cfg: Config,
+    cluster_ids: npt.NDArray[np.int64] | None = None,
 ) -> dict[str, Any]:
     """Every signal compared against the top-ranked one, Holm-corrected.
 
@@ -76,6 +77,7 @@ def significance_table(
             resamples=cfg.analysis.bootstrap_resamples,
             seed=cfg.analysis.bootstrap_seed,
             level=cfg.analysis.ci_level,
+            cluster_ids=cluster_ids,
         )
         raw.append(
             {
@@ -136,6 +138,7 @@ def per_dataset_auroc(
     names: list[str],
     y: BoolArray,
     cfg: Config | None = None,
+    cluster_ids: npt.NDArray[np.int64] | None = None,
 ) -> dict[str, Any]:
     """AUROC per signal within each source dataset, alongside the pooled table.
 
@@ -178,6 +181,7 @@ def per_dataset_auroc(
     for source in sorted(str(d) for d in frame["dataset"].unique()):
         mask = (frame["dataset"] == source).to_numpy(dtype=bool)
         y_sub = y[mask]
+        clusters_sub = cluster_ids[mask] if cluster_ids is not None else None
         n_pos = int(np.count_nonzero(y_sub))
         n_neg = int(y_sub.size - n_pos)
         entry: dict[str, Any] = {
@@ -194,7 +198,9 @@ def per_dataset_auroc(
             )
         else:
             entry["signals"] = {
-                name: _per_dataset_signal(frame[name].to_numpy(dtype=np.float64)[mask], y_sub, cfg)
+                name: _per_dataset_signal(
+                    frame[name].to_numpy(dtype=np.float64)[mask], y_sub, cfg, clusters_sub
+                )
                 for name in names
             }
         out["datasets"][source] = entry
@@ -205,6 +211,7 @@ def _per_dataset_signal(
     scores: FloatArray,
     y_sub: BoolArray,
     cfg: Config | None,
+    cluster_ids: npt.NDArray[np.int64] | None = None,
 ) -> dict[str, Any]:
     """One signal on one dataset subset: point estimates, then the interval.
 
@@ -226,6 +233,7 @@ def _per_dataset_signal(
         resamples=cfg.analysis.bootstrap_resamples,
         seed=cfg.analysis.bootstrap_seed,
         level=cfg.analysis.ci_level,
+        cluster_ids=cluster_ids,
     )
     ap = bootstrap_average_precision_ci(
         scores,
@@ -233,6 +241,7 @@ def _per_dataset_signal(
         resamples=cfg.analysis.bootstrap_resamples,
         seed=cfg.analysis.bootstrap_seed,
         level=cfg.analysis.ci_level,
+        cluster_ids=cluster_ids,
     )
     entry["auroc_ci"] = ci.as_dict()
     entry["auprc_ci"] = ap.as_dict()

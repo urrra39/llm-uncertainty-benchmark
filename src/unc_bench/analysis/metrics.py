@@ -101,6 +101,43 @@ class CI:
         }
 
 
+def _stratified_cluster_draw(
+    y: BoolArray,
+    cluster_ids: npt.NDArray[np.int64],
+    rng: np.random.Generator,
+) -> npt.NDArray[np.int64]:
+    """One stratified resample of row indices, drawn at the cluster level.
+
+    Clusters are labelled by majority vote of their member rows and resampled
+    with replacement within each class stratum, preserving the observed number
+    of clusters per class. Rows of a drawn cluster all enter together, so
+    perfectly correlated rows (identical prompts under greedy decoding) cannot
+    be split across the resample. With singleton clusters this reduces exactly
+    to the row-level stratified draw given the same seed.
+    """
+    clusters, inverse = np.unique(cluster_ids, return_inverse=True)
+    votes = np.zeros(len(clusters), dtype=np.float64)
+    counts = np.zeros(len(clusters), dtype=np.int64)
+    for position, flag in enumerate(y):
+        votes[inverse[position]] += 1.0 if flag else -1.0
+        counts[inverse[position]] += 1
+    positive = np.flatnonzero(votes >= 0.0)
+    negative = np.flatnonzero(votes < 0.0)
+    if positive.size == 0 or negative.size == 0:
+        # Degenerate clustering (every cluster votes one way). Fall back to the
+        # row-level stratified draw rather than crashing in `integers(0, 0)`.
+        pos_idx = np.flatnonzero(y)
+        neg_idx = np.flatnonzero(~y)
+        take_pos = rng.integers(0, pos_idx.size, size=pos_idx.size)
+        take_neg = rng.integers(0, neg_idx.size, size=neg_idx.size)
+        return np.concatenate([pos_idx[take_pos], neg_idx[take_neg]])
+    take_pos = rng.integers(0, positive.size, size=positive.size)
+    take_neg = rng.integers(0, negative.size, size=negative.size)
+    chosen = np.concatenate([positive[take_pos], negative[take_neg]])
+    members: list[npt.NDArray[np.int64]] = [np.flatnonzero(inverse == int(c)) for c in chosen]
+    return np.concatenate(members) if members else np.zeros(0, dtype=np.int64)
+
+
 def bootstrap_auroc_ci(
     scores: FloatArray,
     labels: BoolArray,
@@ -108,6 +145,7 @@ def bootstrap_auroc_ci(
     resamples: int,
     seed: int,
     level: float = 0.95,
+    cluster_ids: npt.NDArray[np.int64] | None = None,
 ) -> CI:
     """Stratified percentile bootstrap CI for AUROC.
 
@@ -130,13 +168,26 @@ def bootstrap_auroc_ci(
     neg_idx = np.flatnonzero(~y)
     if pos_idx.size == 0 or neg_idx.size == 0:
         return CI(point=point, low=float("nan"), high=float("nan"), n=int(s.size), resamples=0)
+    if cluster_ids is not None and cluster_ids.shape[0] != scores.shape[0]:
+        raise ValueError(
+            f"cluster bootstrap needs one id per input row: got {cluster_ids.shape[0]} "
+            f"for {scores.shape[0]} rows"
+        )
+    clusters = cluster_ids[keep] if cluster_ids is not None else None
+    if clusters is not None and clusters.shape != y.shape:
+        raise ValueError(
+            f"cluster bootstrap needs one id per usable row: got {clusters.shape} for {y.shape}"
+        )
 
     rng = np.random.default_rng(seed)
     draws = np.empty(resamples, dtype=np.float64)
     for r in range(resamples):
-        take_pos = rng.integers(0, pos_idx.size, size=pos_idx.size)
-        take_neg = rng.integers(0, neg_idx.size, size=neg_idx.size)
-        idx = np.concatenate([pos_idx[take_pos], neg_idx[take_neg]])
+        if clusters is not None:
+            idx = _stratified_cluster_draw(y, clusters, rng)
+        else:
+            take_pos = rng.integers(0, pos_idx.size, size=pos_idx.size)
+            take_neg = rng.integers(0, neg_idx.size, size=neg_idx.size)
+            idx = np.concatenate([pos_idx[take_pos], neg_idx[take_neg]])
         draws[r] = auroc(s[idx], y[idx])
     finite = draws[np.isfinite(draws)]
     if finite.size == 0:  # pragma: no cover - stratification prevents this
@@ -484,6 +535,7 @@ def bootstrap_average_precision_ci(
     resamples: int,
     seed: int,
     level: float = 0.95,
+    cluster_ids: npt.NDArray[np.int64] | None = None,
 ) -> CI:
     """Stratified percentile bootstrap CI for average precision.
 
@@ -501,13 +553,26 @@ def bootstrap_average_precision_ci(
     neg_idx = np.flatnonzero(~y)
     if pos_idx.size == 0 or neg_idx.size == 0:
         return CI(point=point, low=float("nan"), high=float("nan"), n=int(s.size), resamples=0)
+    if cluster_ids is not None and cluster_ids.shape[0] != scores.shape[0]:
+        raise ValueError(
+            f"cluster bootstrap needs one id per input row: got {cluster_ids.shape[0]} "
+            f"for {scores.shape[0]} rows"
+        )
+    clusters = cluster_ids[keep] if cluster_ids is not None else None
+    if clusters is not None and clusters.shape != y.shape:
+        raise ValueError(
+            f"cluster bootstrap needs one id per usable row: got {clusters.shape} for {y.shape}"
+        )
 
     rng = np.random.default_rng(seed)
     draws = np.empty(resamples, dtype=np.float64)
     for r in range(resamples):
-        take_pos = rng.integers(0, pos_idx.size, size=pos_idx.size)
-        take_neg = rng.integers(0, neg_idx.size, size=neg_idx.size)
-        idx = np.concatenate([pos_idx[take_pos], neg_idx[take_neg]])
+        if clusters is not None:
+            idx = _stratified_cluster_draw(y, clusters, rng)
+        else:
+            take_pos = rng.integers(0, pos_idx.size, size=pos_idx.size)
+            take_neg = rng.integers(0, neg_idx.size, size=neg_idx.size)
+            idx = np.concatenate([pos_idx[take_pos], neg_idx[take_neg]])
         draws[r] = average_precision(s[idx], y[idx])
     finite = draws[np.isfinite(draws)]
     if finite.size == 0:  # pragma: no cover - stratification prevents this
@@ -562,6 +627,7 @@ def paired_bootstrap_auroc_diff(
     resamples: int,
     seed: int,
     level: float = 0.95,
+    cluster_ids: npt.NDArray[np.int64] | None = None,
 ) -> tuple[float, float, float, float, int]:
     """Paired bootstrap on the AUROC difference between two correlated signals.
 
@@ -608,12 +674,25 @@ def paired_bootstrap_auroc_diff(
         return (float("nan"), float("nan"), float("nan"), float("nan"), n_paired)
 
     delta = auroc(b, y) - auroc(a, y)
+    if cluster_ids is not None and cluster_ids.shape[0] != reference.shape[0]:
+        raise ValueError(
+            f"cluster bootstrap needs one id per input row: got {cluster_ids.shape[0]} "
+            f"for {reference.shape[0]} rows"
+        )
+    clusters = cluster_ids[keep] if cluster_ids is not None else None
+    if clusters is not None and clusters.shape != y.shape:
+        raise ValueError(
+            f"cluster bootstrap needs one id per usable row: got {clusters.shape} for {y.shape}"
+        )
     rng = np.random.default_rng(seed)
     draws = np.empty(resamples, dtype=np.float64)
     for r in range(resamples):
-        take_pos = rng.integers(0, pos_idx.size, size=pos_idx.size)
-        take_neg = rng.integers(0, neg_idx.size, size=neg_idx.size)
-        idx = np.concatenate([pos_idx[take_pos], neg_idx[take_neg]])
+        if clusters is not None:
+            idx = _stratified_cluster_draw(y, clusters, rng)
+        else:
+            take_pos = rng.integers(0, pos_idx.size, size=pos_idx.size)
+            take_neg = rng.integers(0, neg_idx.size, size=neg_idx.size)
+            idx = np.concatenate([pos_idx[take_pos], neg_idx[take_neg]])
         # Identical indices for both signals. This is the pairing.
         draws[r] = auroc(b[idx], y[idx]) - auroc(a[idx], y[idx])
     finite = draws[np.isfinite(draws)]

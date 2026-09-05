@@ -17,11 +17,34 @@ from pathlib import Path
 
 import pandas as pd
 
-from unc_bench.datasets.base import DatasetBuilder, cached_download, clean_alias_list
+from unc_bench.datasets.base import (
+    DatasetBuilder,
+    cached_download,
+    clean_alias_list,
+    gold_in_question,
+)
 from unc_bench.types import Question
 
 # The repo ships one file, test.tsv, holding all 14k items.
 POPQA_URL = "https://huggingface.co/datasets/akariasai/PopQA/resolve/main/test.tsv"
+
+#: Relations whose question template asks for the subject's container rather
+#: than the subject's attribute ("What is X the capital of?"). A model that
+#: echoes the subject scores correct exactly when the alias list happens to
+#: contain the subject's own name, so near-random labels land in the confident
+#: stratum. See data/echo_contamination_report.json: 14 of 20 echo rows in the
+#: 100-row validation sample are decided purely by subject-in-alias-list.
+#:
+#: Audited against all 16 relations in test.tsv (14,267 rows). The other 15
+#: templates ask for an attribute of a named subject and cannot be answered by
+#: echoing it: author / capital / color / composer / country / director /
+#: father / genre / mother / occupation / place of birth / producer / religion /
+#: screenwriter / sport. `country` ("In what country is X?") and `place of
+#: birth` ("In what city was X born?") are container-shaped, but their objects
+#: (countries, cities) never coincide with the named subject the way a
+#: capital-of alias list coincides with its city, so no label flip was
+#: observed; the general `gold_in_question` check below still applies to them.
+INVERSE_RELATIONS: frozenset[str] = frozenset({"capital of"})
 
 
 class PopQABuilder(DatasetBuilder):
@@ -50,14 +73,35 @@ class PopQABuilder(DatasetBuilder):
         *,
         popularity_quantile: float | None = None,
         relations: tuple[str, ...] | None = None,
+        allow_inverse_relations: bool = False,
+        drop_gold_in_question: bool = False,
     ) -> None:
         super().__init__(raw_dir)
         self.popularity_quantile = popularity_quantile
         self.relations = relations
+        self.allow_inverse_relations = allow_inverse_relations
+        self.drop_gold_in_question = drop_gold_in_question
+        if relations is not None and not allow_inverse_relations:
+            bad = sorted(set(relations) & INVERSE_RELATIONS)
+            if bad:
+                raise ValueError(
+                    f"popqa: inverse relation(s) {bad} requested without "
+                    "allow_inverse_relations=True. These templates ask for the "
+                    "subject's container, and a model that echoes the subject "
+                    "scores correct exactly when the alias list happens to "
+                    "contain it (see data/echo_contamination_report.json). "
+                    "Remove them or set the escape hatch deliberately."
+                )
+        #: Rows dropped by the last `load_candidates` call's gold-leakage
+        #: filter, and rows it inspected. Zero until run.
+        self.last_gold_leakage_dropped = 0
+        self.last_gold_leakage_inspected = 0
 
     def load_candidates(self) -> list[Question]:
         path = cached_download(POPQA_URL, self.local_path)
         frame = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)
+        self.last_gold_leakage_dropped = 0
+        self.last_gold_leakage_inspected = 0
 
         required = {"id", "question", "possible_answers", "obj"}
         missing = required - set(frame.columns)
@@ -81,14 +125,17 @@ class PopQABuilder(DatasetBuilder):
             aliases = clean_alias_list(list(aliases))
             if not aliases:
                 continue
-            out.append(
-                Question(
-                    qid=f"popqa-{row.id}",
-                    dataset=self.name,
-                    question=question,
-                    gold_answers=aliases,
-                )
+            question_obj = Question(
+                qid=f"popqa-{row.id}",
+                dataset=self.name,
+                question=question,
+                gold_answers=aliases,
             )
+            self.last_gold_leakage_inspected += 1
+            if self.drop_gold_in_question and gold_in_question(question, aliases):
+                self.last_gold_leakage_dropped += 1
+                continue
+            out.append(question_obj)
         return out
 
     def _restrict_to_relations(self, frame: pd.DataFrame) -> pd.DataFrame:
