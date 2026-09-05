@@ -31,6 +31,8 @@ def test_identical_levels_have_zero_delta_and_high_p() -> None:
     row = out["comparisons"][0]
     assert row["delta_vs_reference"] == 0.0
     assert row["p_value"] > 0.5
+    assert row["p_value_holm"] > 0.5
+    assert row["significant_holm"] is False
     assert row["n_paired"] == 40
 
 

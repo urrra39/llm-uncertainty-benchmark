@@ -26,7 +26,12 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-from unc_bench.analysis.metrics import auroc, bootstrap_auroc_ci, paired_bootstrap_auroc_diff
+from unc_bench.analysis.metrics import (
+    auroc,
+    bootstrap_auroc_ci,
+    holm_bonferroni,
+    paired_bootstrap_auroc_diff,
+)
 from unc_bench.config import Config
 from unc_bench.signals.base import orient_all, signal_names
 from unc_bench.signals.consistency import compute_family_b
@@ -205,6 +210,15 @@ def ablation_level_differences(
                     "n_paired": n_paired,
                 }
             )
+    adjusted = holm_bonferroni([c["p_value"] for c in out["comparisons"]])
+    for entry, adj in zip(out["comparisons"], adjusted, strict=True):
+        entry["p_value_holm"] = adj
+        entry["significant_holm"] = bool(adj <= 0.05)
+    out["holm_note"] = (
+        "Holm across every (signal, level-pair) comparison in this block; "
+        "per-level intervals cannot test levels against each other because the "
+        "levels are nested subsets of the same samples"
+    )
     return out
 
 

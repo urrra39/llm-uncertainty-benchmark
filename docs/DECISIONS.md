@@ -536,6 +536,14 @@ in place rather than re-requested: no additional API calls, and the published
 verdicts are the ones the judges actually returned. `cross_validation_n` was
 raised from 60 to 100 so the second judge covers every judged row.
 
+> Correction (remediation session): the 60/100 figures above describe run #1's
+> labeling pass, not run #2's. Run #2 ships `cross_validation_n: 120`
+> (`configs/run2.yaml`), which covers all 66 judged rows, so the README's "66
+> rows sent to both judges, 66 parsed, 0 dropped" stands and there is no
+> contradiction — only a session boundary the original note failed to mark.
+> The "60" worth distrusting was the compliance-selected denominator, which is
+> what the D11 code assertion now guards.
+
 Result: **κ = 1.000 on n=71**, observed agreement 1.000, expected 0.919, 0 parse
 failures on either judge, 0 rows on the fuzzy fallback. Two existing tests
 asserted the old strict behaviour and were updated rather than deleted; the suite

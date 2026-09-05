@@ -36,6 +36,54 @@ BoolArray = npt.NDArray[np.bool_]
 
 
 # --------------------------------------------------------------------------
+# B4: rank-equivalent duplicates are appendix material, not family members
+# --------------------------------------------------------------------------
+
+
+def resolve_distinct_ranking(
+    ranking: list[str],
+    columns: dict[str, FloatArray],
+) -> tuple[list[str], list[str]]:
+    """Split a ranking into distinct signals and verified duplicates.
+
+    A signal declaring `rank_equivalent_to` is dropped only when the frozen
+    rows confirm it: absolute Spearman exactly 1.0 against its declared
+    target. A declared equivalence that measures anything else means the
+    configuration changed under the declaration (e.g. a varying sample count
+    un-fixing the `ln(6)` divisor), and that raises rather than silently
+    re-admitting a duplicate column — or silently dropping a signal that
+    became informative. Unmeasurable pairs (fewer than 3 shared usable rows)
+    are kept and named, since absence of evidence is not equivalence.
+    Returns (distinct ranking in input order, dropped names).
+    """
+    from unc_bench.analysis.metrics import _spearman, usable_mask
+
+    distinct: list[str] = []
+    dropped: list[str] = []
+    for name in ranking:
+        target = get_spec(name).rank_equivalent_to
+        if target is None or target not in columns or name not in columns:
+            distinct.append(name)
+            continue
+        both = usable_mask(columns[name]) & usable_mask(columns[target])
+        if int(np.count_nonzero(both)) < 3:
+            distinct.append(name)
+            continue
+        rho = _spearman(columns[name][both], columns[target][both])
+        if not np.isfinite(rho):
+            distinct.append(name)
+            continue
+        if abs(rho) != 1.0:
+            raise AssertionError(
+                f"{name} declares rank_equivalent_to={target!r} but measures "
+                f"Spearman {rho:.6f} on the frozen rows: the configuration "
+                "changed under the declaration"
+            )
+        dropped.append(name)
+    return distinct, dropped
+
+
+# --------------------------------------------------------------------------
 # D3: pairwise significance against the top-ranked signal
 # --------------------------------------------------------------------------
 
@@ -66,6 +114,13 @@ def significance_table(
             "test": None,
         }
 
+    distinct_ranking, dropped_duplicates = resolve_distinct_ranking(ranking, columns)
+
+    # Legacy full-family table first, computed exactly as before (reference is
+    # rank 1 of the full ranking), so stored numbers stay traceable to one
+    # procedure across runs. The primary correction is then re-derived over the
+    # distinct signals only, reusing the stored p-values: dropping a family
+    # member changes only the Holm family size, never the test.
     reference = ranking[0]
     others = list(ranking[1:])
     raw: list[dict[str, Any]] = []
@@ -96,15 +151,21 @@ def significance_table(
         entry["p_value_holm"] = adj
         entry["significant_holm"] = bool(np.isfinite(adj) and adj <= alpha)
 
-    n_sig = sum(1 for r in raw if r["significant_holm"])
+    primary = [r for r in raw if r["name"] not in dropped_duplicates]
+    distinct_adjusted = holm_bonferroni([r["p_value"] for r in primary])
+    for entry, adj in zip(primary, distinct_adjusted, strict=True):
+        entry["p_value_holm_distinct"] = adj
+        entry["significant_holm_distinct"] = bool(np.isfinite(adj) and adj <= alpha)
+
+    n_sig = sum(1 for r in primary if r["significant_holm_distinct"])
     return {
         "available": True,
         "test": "paired stratified bootstrap on the AUROC difference",
         "test_detail": (
             f"{cfg.analysis.bootstrap_resamples} resamples, identical resample "
             f"indices applied to both signals, two-sided achieved significance "
-            f"level, Holm-Bonferroni across {len(raw)} comparisons at "
-            f"alpha={alpha}"
+            f"level, Holm-Bonferroni across {len(primary)} distinct comparisons "
+            f"at alpha={alpha} ({len(raw)} in the full family)"
         ),
         "delong_substituted": True,
         "delong_substitution_reason": (
@@ -114,9 +175,12 @@ def significance_table(
         ),
         "reference": reference,
         "alpha": alpha,
-        "n_comparisons": len(raw),
+        "n_comparisons": len(primary),
+        "n_comparisons_full_family": len(raw),
         "n_significant_after_holm": n_sig,
-        "comparisons": raw,
+        "rank_equivalent_dropped": dropped_duplicates,
+        "comparisons": primary,
+        "comparisons_full_family": raw,
     }
 
 

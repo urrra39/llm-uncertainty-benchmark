@@ -4,7 +4,15 @@
   "dry_run": false,
   "expected_agreement": 0.8932004271982912,
   "kappa": 1.0,
+  "kappa_ci_95": [
+    1.0,
+    1.0
+  ],
+  "kappa_ci_note": "paired bootstrap, 2000 resamples: every draw is unanimous, so the interval is degenerate at [1,1]. The interval is honest; the minority count is the reason not to quote the point.",
   "kappa_n": 53,
+  "method": "secondary verdicts re-asked; primary side is the committed judge_primary_verdict column (faithful: committed results.json records heuristic_fallback_rows=0 and judge_parse_failures=0). The stored run kappa 0.849 on n=66 implies exactly one disagreement, so it sits in the 13 unrecoverable rows.",
+  "min_minority_for_trust": 10,
+  "minority_count": 6,
   "n_agreements": 53,
   "n_csv_rows": 100,
   "n_judged_rows": 53,
@@ -69,7 +77,8 @@
   },
   "secondary_model": "claude-haiku-4-5",
   "secondary_seed": 4242,
-  "trustworthy": true,
+  "trustworthy": false,
+  "trustworthy_reason": "6 pooled minority assignments is below the MIN_MINORITY_FOR_TRUST floor of 10: one flip moves this kappa substantially (the D26 trap in miniature). Recomputed from committed rows; no verdict changed.",
   "verdicts": {
     "popqa-1249362": "incorrect",
     "popqa-1388910": "incorrect",

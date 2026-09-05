@@ -26,11 +26,14 @@ REPO = Path(__file__).resolve().parents[1]
 #: One run's outputs. Every one of these must be committable.
 TRACKED_ARTIFACTS = (
     "dataset.parquet",
+    "dataset_meta.json",
     "generations.parquet",
     "signals_actc.parquet",
     "signals_b.parquet",
     "labels.parquet",
     "judge_verdicts.json",
+    "ablation.json",
+    "nondeterminism.json",
     "timings.json",
     "pilot_gate.json",
 )

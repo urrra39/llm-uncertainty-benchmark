@@ -238,6 +238,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
                 "family_label": FAMILY_LABELS[get_spec(name).family],
                 "orientation": get_spec(name).orientation,
                 "description": get_spec(name).description,
+                "rank_equivalent_to": get_spec(name).rank_equivalent_to,
             }
             for name in names
         },

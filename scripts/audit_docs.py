@@ -250,6 +250,22 @@ def check_calibration(results: dict[str, Any], problems: list[str]) -> None:
 def check_misc(results: dict[str, Any], problems: list[str]) -> None:
     view = results["views"]["primary"]
 
+    # The recovered secondary-judge file must carry its minority floor: 53
+    # unanimous rows are not a quotable kappa (the D26 trap in miniature).
+    recovered_path = REPO_ROOT / "data" / "judge_verdicts_recovered.json"
+    if recovered_path.exists():
+        recovered = json.loads(recovered_path.read_text(encoding="utf-8"))
+        if recovered.get("trustworthy") is not False:
+            problems.append("judge_verdicts_recovered.json still claims trustworthy: true")
+        if recovered.get("minority_count") != 6:
+            problems.append(
+                f"recovered minority count moved: {recovered.get('minority_count')}"
+            )
+        if recovered.get("kappa_n") != 53:
+            problems.append(f"recovered kappa n moved: {recovered.get('kappa_n')}")
+    else:
+        problems.append("data/judge_verdicts_recovered.json is absent")
+
     # Length confound: 0.678 in the at-or-below-median stratum, n=91.
     lc = view["length_confound"]
     stratum = lc["strata"]["at_or_below_median_length"]
@@ -385,6 +401,11 @@ def check_cross_document(problems: list[str]) -> None:
                 problems.append(f"{label} contains the superseded runtime figure {stale!r}")
 
     decisions = texts[REPO_ROOT / "docs" / "DECISIONS.md"]
+    if "only a session boundary" not in decisions:
+        problems.append(
+            "docs/DECISIONS.md lacks the 66-vs-60 reconciliation note "
+            "(run #1's 60 vs run #2's 66 must be marked as a session boundary)"
+        )
     # The session-7 status block claimed three files did not exist.
     for claim in (
         "`configs/run3_gpu.yaml` does not exist.",

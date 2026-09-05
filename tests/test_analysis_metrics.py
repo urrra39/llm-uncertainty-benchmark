@@ -388,3 +388,45 @@ def test_cluster_ids_must_align_with_usable_rows() -> None:
     labels = _b([False, True, False, True])
     with pytest.raises(ValueError, match="one id per input row"):
         bootstrap_auroc_ci(scores, labels, resamples=50, seed=0, cluster_ids=_ids([0, 1]))
+
+
+# ------------------------------------------------- distinct-signal ranking
+
+
+def test_declared_duplicates_drop_on_monotone_data() -> None:
+    from unc_bench.analysis.extended import resolve_distinct_ranking
+    from unc_bench.signals import consistency, logprob_signals, trivial
+
+    assert logprob_signals.PERPLEXITY.rank_equivalent_to == "a_mean_logprob"
+    assert consistency.DISTINCT_FRACTION.rank_equivalent_to == "b_distinct_count"
+    assert trivial.RANDOM.rank_equivalent_to is None
+
+    mean = _f([-3.0, -2.0, -1.0, -0.5, -0.1])
+    columns = {
+        "a_mean_logprob": mean,
+        "a_perplexity": _f(
+            [math.exp(3.0), math.exp(2.0), math.exp(1.0), math.exp(0.5), math.exp(0.1)]
+        ),
+        "t_random": _f([0.5, 0.1, 0.9, 0.3, 0.7]),
+    }
+    distinct, dropped = resolve_distinct_ranking(
+        ["a_mean_logprob", "a_perplexity", "t_random"], columns
+    )
+    assert distinct == ["a_mean_logprob", "t_random"]
+    assert dropped == ["a_perplexity"]
+
+
+def test_broken_equivalence_raises_loudly() -> None:
+    from unc_bench.analysis.extended import resolve_distinct_ranking
+    from unc_bench.signals.logprob_signals import PERPLEXITY
+
+    assert PERPLEXITY.rank_equivalent_to == "a_mean_logprob"
+
+    columns = {
+        "a_mean_logprob": _f([-3.0, -2.0, -1.0, -0.5, -0.1]),
+        # Genuinely different ranks (a reversal would still be |rho| == 1.0).
+        "a_perplexity": _f([1.0, 5.0, 2.0, 4.0, 3.0]),
+        "t_random": _f([0.5, 0.1, 0.9, 0.3, 0.7]),
+    }
+    with pytest.raises(AssertionError, match="rank_equivalent_to"):
+        resolve_distinct_ranking(["a_mean_logprob", "a_perplexity", "t_random"], columns)

@@ -382,3 +382,21 @@ def test_gate_fails_honestly_without_human_labels() -> None:
     assert "0.000" in failed.observed
     assert human_label_gate(None).passed is False
     assert human_label_gate(MIN_HUMAN_LABEL_COVERAGE).passed is True
+
+
+def test_recovered_kappa_is_flagged_untrustworthy_with_minority_floor() -> None:
+    """The 53-row unanimous recovery must not read as a quotable kappa.
+
+    Six pooled minority assignments sit below the floor of 10, so the point
+    estimate (1.0, degenerate interval) is recorded alongside the reason it
+    cannot be quoted — the D26 trap in miniature.
+    """
+    import json as _json
+
+    recovered = _json.loads((SHIPPED.parent / "judge_verdicts_recovered.json").read_text())
+    assert recovered["kappa"] == 1.0
+    assert recovered["kappa_n"] == 53
+    assert recovered["trustworthy"] is False
+    assert recovered["minority_count"] == 6
+    assert recovered["kappa_ci_95"] == [1.0, 1.0]
+    assert "minority" in recovered["trustworthy_reason"]
