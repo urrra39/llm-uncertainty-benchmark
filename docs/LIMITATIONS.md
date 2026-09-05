@@ -137,3 +137,16 @@ Written against run #2 (n=120, `configs/run2.yaml`). Run #1 is discarded; see
     the judge scored it incorrect. Which is right is a human judgement that has
     not been made. 9 of the 100 sampled rows have the heuristic and the judge
     disagreeing.
+
+15. **Semantic entropy mixes two decoding temperatures, and the clustering is
+    order-dependent.** The scored answer set is `[greedy(T=0),
+    *samples(T=0.7)]`, so the entropy is computed over a distribution that mixes
+    a mode-seeking draw with stochastic draws. Farquhar et al. estimate the
+    entropy of the output distribution at one temperature; including greedy is a
+    defensible choice (it scores the answer under evaluation) but it biases
+    entropy downward in a way that varies with row difficulty, and that deviation
+    is a property of this pipeline rather than of the published method.
+    Separately, clustering assigns each answer against the first member of each
+    cluster, which is order-dependent in principle; no audit of greedy versus
+    exhaustive assignment is stored, so the "agree on every case observed" claim
+    cannot be rechecked from committed artifacts.

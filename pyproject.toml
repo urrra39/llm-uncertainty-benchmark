@@ -13,8 +13,6 @@ dependencies = [
     "numpy==1.26.4",
     "pandas==2.2.3",
     "pyarrow==17.0.0",
-    "scipy==1.14.1",
-    "scikit-learn==1.5.2",
     "matplotlib==3.9.2",
     "openai==1.54.4",
     # Pinned below 0.28. openai 1.54.4 constructs its httpx client with
@@ -88,8 +86,6 @@ plugins = ["pydantic.mypy"]
 # These ship no usable stubs.
 module = [
     "matplotlib.*",
-    "sklearn.*",
-    "scipy.*",
     "torch.*",
     "transformers.*",
     "tqdm.*",

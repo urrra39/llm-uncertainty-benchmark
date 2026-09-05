@@ -582,6 +582,13 @@ def cost_table(
     one or two extra forward passes. Family B costs N sampled generations plus
     the NLI clustering pass, and it is the only family that needs a second model
     resident.
+
+    Counted in extra model calls, not tokens: a short verification scoring pass
+    counts the same as a full generation, so family C's 2.0x understates nothing
+    but also prices nothing by length. Run #1 measured token multiples instead
+    (P(True) 1.52x, verbalized confidence 3.17x); this table does not, because
+    verification token counts are not stored per row. Read the multiplier as a
+    call-count price, not a token price.
     """
     n_samples = cfg.sampling.n_samples
     generate = timings.get("generate", {})
@@ -615,6 +622,10 @@ def cost_table(
     out: dict[str, Any] = {
         "available": True,
         "unit": "multiple of the single greedy answer every signal requires",
+        "method": (
+            "extra-model-call multiples; a verification scoring pass counts as "
+            "one call regardless of prompt length, so this is not a token price"
+        ),
         "measured_generate_seconds_per_question": per_question_s,
         "measured_family_b_seconds_per_question": b_per_question_s,
         "n_samples": n_samples,

@@ -222,6 +222,14 @@ that N=5 reproduces the main family-B pass; measured maximum difference 0.000.
 | 3 | **0.705 [0.623, 0.781]** |
 | 5 | 0.704 [0.616, 0.786] |
 
+No CI is stored on the *difference* between levels in run #2: the levels are
+nested subsets of the same five samples, so they are perfectly correlated by
+construction and the per-level intervals above do not test N=3 against N=5.
+The supported reading is therefore "no measurable gain from samples 4–5 in
+this single draw", not "N=3 is optimal". The ablation stage now records paired
+bootstrap differences between levels, so the first run with that artifact
+carries the test this claim needs.
+
 Each extra sample is another full generation, so N=5 costs 6.0× the single
 greedy answer (the measured multiplier in `results.json`) against N=3's four
 generations for the same discrimination.

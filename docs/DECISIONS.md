@@ -1330,8 +1330,12 @@ documents:**
 `unc-bench audit` and `unc-bench audit --config configs/run2.yaml` both exit 0.
 `unc-bench human-agreement --csv data/human_validation_sample.csv` exits 0 and
 reports no usable rows, which is correct for a template with an empty column.
-`make figures` exits 0 and is byte-reproducible: `git status` reports no change
-to `figures/` afterwards. `unc-bench build-dataset --config configs/run2.yaml`
+`make figures` exits 0 and is data-reproducible: every figure is drawn from
+`results.json` alone, so the numbers cannot drift. PNG bytes are not pinned
+across matplotlib/freetype builds — the same command on a different build may
+rewrite the files with identical content but different bytes, so `git status`
+may report a change to `figures/` afterwards. That is a rendering difference,
+not a data difference. `unc-bench build-dataset --config configs/run2.yaml`
 exits 0 and draws 90/30. That last one has a trap worth recording: it writes
 `data/run2/dataset.parquet`, a *fresh* draw sitting at the path where run #2's
 lost artifact belongs. It was deleted immediately. A future reader verifying

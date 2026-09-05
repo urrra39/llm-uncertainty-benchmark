@@ -23,6 +23,7 @@ report says so.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,7 @@ import pandas as pd
 
 from unc_bench.config import Config
 from unc_bench.labeling import (
+    JUDGE_PROMPT,
     JudgeOutcome,
     TextJudge,
     build_judge,
@@ -65,12 +67,19 @@ MAX_CONSECUTIVE_FAILURES = 5
 
 
 class JudgeCache:
-    """Tiny JSON cache of judge verdicts, keyed by model, qid and answer.
+    """Tiny JSON cache of judge verdicts, keyed by model, qid, answer and rubric.
 
     Keyed on the answer text as well as the qid so that regenerating an answer
     invalidates its verdict instead of silently reusing the grade of a different
-    string.
+    string. The rubric hash is part of the key for the same reason: editing
+    `JUDGE_PROMPT` must invalidate stale verdicts rather than silently mixing
+    two rubric versions inside one label set. Older entries without the rubric
+    segment simply miss, which is the safe direction.
     """
+
+    #: Short hash of the active judge rubric. Bumped implicitly when the prompt
+    #: text changes, without a manual version number to forget.
+    RUBRIC_DIGEST: str = hashlib.sha256(JUDGE_PROMPT.encode("utf-8")).hexdigest()[:12]
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -85,7 +94,7 @@ class JudgeCache:
 
     @staticmethod
     def key(model: str, qid: str, answer: str) -> str:
-        return f"{model}\u0000{qid}\u0000{answer}"
+        return f"v2:{JudgeCache.RUBRIC_DIGEST}\u0000{model}\u0000{qid}\u0000{answer}"
 
     def get(self, model: str, qid: str, answer: str) -> dict[str, Any] | None:
         return self.data.get(self.key(model, qid, answer))

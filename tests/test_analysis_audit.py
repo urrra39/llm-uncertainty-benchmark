@@ -30,6 +30,7 @@ from unc_bench.analysis.audit import (
     per_dataset_analytic_cis,
     render_report,
     spearman_between,
+    stratified_pooled_auroc,
 )
 from unc_bench.analysis.metrics import auroc
 
@@ -309,6 +310,35 @@ def test_report_names_its_method_and_the_inconclusive_verdict(payload: dict[str,
 
 def test_report_runs_on_the_secondary_view(payload: dict[str, Any]) -> None:
     assert render_report(payload, view="with_abstentions")
+
+
+def test_stratified_average_is_sample_size_weighted() -> None:
+    """Hand-checked: (90 * 0.6 + 30 * 0.9) / 120 = 0.675."""
+    fake: dict[str, Any] = {
+        "views": {
+            "primary": {
+                "per_dataset": {
+                    "datasets": {
+                        "popqa": {"n": 90, "signals": {"s": {"auroc": 0.6}}},
+                        "triviaqa": {"n": 30, "signals": {"s": {"auroc": 0.9}}},
+                    }
+                }
+            }
+        }
+    }
+    out = stratified_pooled_auroc(fake)
+    assert out["weights"] == {"popqa": 90, "triviaqa": 30}
+    assert out["rows"][0]["stratified_auroc"] == pytest.approx(0.675)
+
+
+def test_stratified_leader_loses_the_provenance_credit(payload: dict[str, Any]) -> None:
+    """The review's core check: pooled 0.704 must fall once provenance is removed."""
+    out = stratified_pooled_auroc(payload)
+    by_name = {row["name"]: row["stratified_auroc"] for row in out["rows"]}
+    assert by_name["b_distinct_count"] == pytest.approx((90 * 0.603 + 30 * 0.741) / 120, abs=1e-3)
+    assert by_name["b_distinct_count"] < 0.704
+    assert by_name["t_question_length"] == pytest.approx((90 * 0.505 + 30 * 0.580) / 120, abs=1e-3)
+    assert "Stratified (provenance-free)" in render_report(payload)
 
 
 def test_load_results_round_trips(tmp_path: Path) -> None:

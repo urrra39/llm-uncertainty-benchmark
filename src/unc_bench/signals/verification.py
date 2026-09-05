@@ -2,8 +2,9 @@
 
 Two P(True) variants after Kadavath et al. 2022, "Language Models (Mostly) Know
 What They Know": one showing only the proposed answer, one also showing the five
-sampled answers as context. Cost is about 1.1x, since a verification is a single
-forward pass rather than a generation.
+sampled answers as context. Cost is 2x: one extra scoring pass for P(True) or
+one short generation for verbalized confidence, over the single greedy answer
+every signal requires (see `analysis.extended.cost_table`).
 
 The renormalization is the part that matters. `exp(logprob(" True"))` is not
 P(True). On a 0.5B model most of the next-token mass at that position goes to

@@ -407,6 +407,8 @@ def check_cross_document(problems: list[str]) -> None:
         "data/artifacts",
         "data/run3",
         "figures/run3",
+        "data/cache",
+        "data/raw",
     )
     for path, text in texts.items():
         label = str(path.relative_to(REPO_ROOT))

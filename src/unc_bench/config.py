@@ -59,6 +59,12 @@ class ModelSpec(Frozen):
     #: `stages/generate.py` still issues one call per seed, because a single
     #: `n=5` call would share one seed across the batch and the N-ablation needs
     #: each sample independently seeded (docs/DECISIONS.md D24).
+    #:
+    #: D27 (docs/DECISIONS.md, session 7) measured that a padded ragged batch
+    #: perturbs per-token logprobs by up to 2.52e-02, so the cap used to be safe
+    #: only at 1. Session 9 closed it: `generate_batch` buckets every chunk into
+    #: equal-length forward passes, so any value is bit-identical to 1 for
+    #: signal family A and a raised cap trades only memory and occupancy.
     generation_batch_size: int = Field(default=1, ge=1, le=256)
 
     @model_validator(mode="after")

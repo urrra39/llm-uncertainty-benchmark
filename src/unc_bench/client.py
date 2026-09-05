@@ -18,11 +18,35 @@ from __future__ import annotations
 
 import os
 import time
+from collections.abc import Sequence
 from typing import Any, Protocol, runtime_checkable
 
 from unc_bench.cache import ResponseCache, cache_key
 from unc_bench.config import ModelSpec
 from unc_bench.types import Generation, TokenLogprob
+
+
+def bucket_indices_by_length(lengths: Sequence[int], cap: int) -> list[list[int]]:
+    """Group indices into same-length buckets of at most `cap` members.
+
+    Pure and dependency-free so the grouping policy is testable without torch.
+    The property everything else leans on is that a bucket never mixes lengths:
+    D27 (docs/DECISIONS.md, session 7) measured that a uniform-length batch is
+    bit-identical to batch size 1 while a padded ragged batch is not, so the
+    fix for ragged batching is to never build one. Order is deterministic:
+    buckets come out in first-seen order of their length, and indices keep
+    their input order inside a bucket, so a chunk of equal-length prompts is
+    still one bucket in arrival order.
+    """
+    grouped: dict[int, list[int]] = {}
+    for index, length in enumerate(lengths):
+        grouped.setdefault(length, []).append(index)
+    buckets: list[list[int]] = []
+    width = max(cap, 1)
+    for members in grouped.values():
+        for start in range(0, len(members), width):
+            buckets.append(members[start : start + width])
+    return buckets
 
 
 @runtime_checkable
@@ -209,8 +233,10 @@ class LocalTransformersClient:
 
     Only the generated tokens are scored. The prompt is never included in
     `answer_token_logprobs`, so no aggregate can accidentally average over
-    instruction boilerplate. That holds under batching too: each row's logprobs
-    are read from that row's own prompt length, so padding cannot leak in.
+    instruction boilerplate. Under batching the guarantee is stronger still:
+    ragged chunks are bucketed into equal-length forward passes, so the model is
+    never handed a padded generation batch and what it scores is bit-identical
+    to the unbatched pass (docs/DECISIONS.md, session 9).
 
     Device, dtype and batch size all come from `ModelSpec`. Nothing here reads
     the machine except through `resolve_device`, and nothing is a constant:
@@ -377,6 +403,16 @@ class LocalTransformersClient:
             n=n,
         )[0]
 
+    def _true_lengths(self, prompts: list[str]) -> list[int]:
+        """Tokenized prompt lengths, before any batching decision.
+
+        One unpadded tokenizer pass over the chunk. The lengths are what
+        `bucket_indices_by_length` groups on, so a ragged chunk is split before
+        the model ever sees it rather than padded into a uniform shape.
+        """
+        encoded = self._tokenizer(prompts, add_special_tokens=False)
+        return [len(ids) for ids in encoded["input_ids"]]
+
     def generate_batch(
         self,
         prompts: list[str],
@@ -388,71 +424,93 @@ class LocalTransformersClient:
         top_logprobs: int = 0,
         n: int = 1,
     ) -> list[list[Generation]]:
-        """Several prompts through one forward pass, one result list per prompt.
+        """Several prompts, one result list per prompt, never a padded batch.
+
+        D27 (docs/DECISIONS.md, session 7) measured that padding a ragged batch
+        perturbs per-token logprobs by up to 2.52e-02 against the unbatched
+        values — the values signal family A is computed from — while a
+        uniform-length batch is bit-identical (0.00e+00). Each chunk is therefore
+        split by `bucket_indices_by_length` into equal-length groups and each
+        group gets its own forward pass: no pad token is ever inserted into a
+        generation batch, so any `generation_batch_size` is bit-identical to
+        batch size 1 for family A, and the width trades only memory and
+        occupancy, never correctness.
 
         `prompts` longer than `generation_batch_size` is split into consecutive
-        chunks of that size, so a caller can hand over a whole question set
-        without knowing the batch width. The seed is set once per chunk, before
-        the call, exactly as the single-prompt path did.
+        chunks of that size first, so the cap remains a per-forward-pass cap. The
+        seed is set before each forward pass, so a pass's output is a function of
+        the seed and its own inputs alone, not of how many passes preceded it.
+        Greedy passes — the pipeline's only calls today — consume no randomness.
 
-        Returned latency is the chunk's wall clock divided by the number of
-        sequences in it. That is an amortized per-sequence figure, not a measured
-        one, and it is what makes batching visible in the cost table: the same
-        work over fewer forward passes reports a smaller per-sequence latency.
+        Returned latency is the chunk's forwards' wall clock divided by the
+        number of sequences in it. That is an amortized per-sequence figure, not
+        a measured one, and it is what makes batching visible in the cost table:
+        the same work over fewer forward passes reports a smaller per-sequence
+        latency.
         """
         torch = self._torch
         if not prompts:
             return []
         do_sample = temperature > 0.0
         width = max(1, self._spec.generation_batch_size)
-        results: list[list[Generation]] = []
+        results: list[list[Generation]] = [[] for _ in prompts]
 
         for start in range(0, len(prompts), width):
             chunk = prompts[start : start + width]
-            enc, true_lengths = self._encode_batch(chunk)
-            padded_len = int(enc["input_ids"].shape[1])
+            lengths = self._true_lengths(chunk)
 
-            torch.manual_seed(seed)
-            started = time.perf_counter()
-            with torch.no_grad():
-                out = self._model.generate(
-                    **enc,
-                    max_new_tokens=max_new_tokens,
-                    do_sample=do_sample,
-                    temperature=temperature if do_sample else None,
-                    top_p=top_p if do_sample else None,
-                    num_return_sequences=n,
-                    return_dict_in_generate=True,
-                    output_scores=True,
-                    pad_token_id=self._tokenizer.pad_token_id,
-                )
-            elapsed = time.perf_counter() - started
-            per_sequence = elapsed / max(len(chunk) * n, 1)
+            for bucket in bucket_indices_by_length(lengths, width):
+                bucket_prompts = [chunk[i] for i in bucket]
+                enc, true_lengths = self._encode_batch(bucket_prompts)
+                padded_len = int(enc["input_ids"].shape[1])
 
-            # `num_return_sequences=n` lays the output out prompt-major: rows
-            # [0..n) belong to prompt 0, [n..2n) to prompt 1. Indexed rather than
-            # assumed, because getting this wrong would attribute one question's
-            # samples to another and nothing downstream would notice.
-            for index in range(len(chunk)):
-                per_prompt: list[Generation] = []
-                for repeat in range(n):
-                    row = index * n + repeat
-                    text, per_token = self._score_row(
-                        out, row, generated_from=padded_len, top_logprobs=top_logprobs
+                torch.manual_seed(seed)
+                started = time.perf_counter()
+                with torch.no_grad():
+                    out = self._model.generate(
+                        **enc,
+                        max_new_tokens=max_new_tokens,
+                        do_sample=do_sample,
+                        temperature=temperature if do_sample else None,
+                        top_p=top_p if do_sample else None,
+                        num_return_sequences=n,
+                        return_dict_in_generate=True,
+                        output_scores=True,
+                        pad_token_id=self._tokenizer.pad_token_id,
                     )
-                    per_prompt.append(
-                        Generation(
-                            text=text,
-                            answer_token_logprobs=per_token,
-                            is_greedy=not do_sample,
-                            seed=seed,
-                            temperature=0.0 if not do_sample else temperature,
-                            prompt_tokens=true_lengths[index],
-                            completion_tokens=len(per_token),
-                            latency_s=per_sequence,
+                elapsed = time.perf_counter() - started
+                per_sequence = elapsed / max(len(bucket) * n, 1)
+
+                # `num_return_sequences=n` lays the output out prompt-major: rows
+                # [0..n) belong to bucket prompt 0, [n..2n) to bucket prompt 1.
+                # Indexed rather than assumed, because getting this wrong would
+                # attribute one question's samples to another and nothing
+                # downstream would notice.
+                for position, index in enumerate(bucket):
+                    per_prompt: list[Generation] = []
+                    for repeat in range(n):
+                        row = position * n + repeat
+                        text, per_token = self._score_row(
+                            out, row, generated_from=padded_len, top_logprobs=top_logprobs
                         )
-                    )
-                results.append(per_prompt)
+                        per_prompt.append(
+                            Generation(
+                                text=text,
+                                answer_token_logprobs=per_token,
+                                is_greedy=not do_sample,
+                                seed=seed,
+                                temperature=0.0 if not do_sample else temperature,
+                                prompt_tokens=true_lengths[position],
+                                completion_tokens=len(per_token),
+                                latency_s=per_sequence,
+                            )
+                        )
+                    results[start + index] = per_prompt
+
+        if any(not filled for filled in results):
+            # Unreachable if bucket_indices_by_length partitions correctly; kept
+            # because the alternative on a bug is silently returning short rows.
+            raise RuntimeError("internal batching error: a prompt never reached a forward pass")
         return results
 
     def next_token_logprobs(self, prompt: str, *, seed: int = 0) -> dict[str, float]:

@@ -28,7 +28,7 @@ ORIENT_CONFIDENCE = "confidence"
 
 FAMILY_A = "A"  # token logprobs of the greedy answer, 1x cost
 FAMILY_B = "B"  # self-consistency over N samples, ~6x cost
-FAMILY_C = "C"  # self-verification, ~1.1x cost
+FAMILY_C = "C"  # self-verification, 2x cost
 FAMILY_T = "T"  # trivial baselines, 0x cost
 
 FAMILY_LABELS: dict[str, str] = {

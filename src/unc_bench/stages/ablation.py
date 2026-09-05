@@ -20,16 +20,21 @@ stage, run after `generate` has exited.
 from __future__ import annotations
 
 import json
+from itertools import pairwise
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
-from unc_bench.analysis.metrics import auroc, bootstrap_auroc_ci
+from unc_bench.analysis.metrics import auroc, bootstrap_auroc_ci, paired_bootstrap_auroc_diff
 from unc_bench.config import Config
 from unc_bench.signals.base import orient_all, signal_names
 from unc_bench.signals.consistency import compute_family_b
 from unc_bench.stages.common import Progress, StagePaths, json_load, read_checkpoint
 from unc_bench.types import LABEL_ABSTAIN, LABEL_AMBIGUOUS, LABEL_INCORRECT
+
+FloatArray = npt.NDArray[np.float64]
+BoolArray = npt.NDArray[np.bool_]
 
 
 #: Family-B signal names, taken from the registry so a new B signal is included
@@ -66,6 +71,7 @@ def run(cfg: Config) -> dict[str, Any]:
     levels = sorted(cfg.sampling.ablation_n)
 
     per_n: dict[str, Any] = {}
+    columns_by_n: dict[int, dict[str, FloatArray]] = {}
     for n_samples in levels:
         progress = Progress(f"ablation_n{n_samples}", len(scored), every=25)
         columns: dict[str, list[float]] = {name: [] for name in names}
@@ -85,8 +91,10 @@ def run(cfg: Config) -> dict[str, Any]:
             progress.tick(str(record["qid"]))
 
         entry: dict[str, Any] = {"n_samples": n_samples, "signals": {}}
+        arrays: dict[str, FloatArray] = {}
         for name in names:
             scores = np.array(columns[name], dtype=np.float64)
+            arrays[name] = scores
             ci = bootstrap_auroc_ci(
                 scores,
                 y,
@@ -95,6 +103,7 @@ def run(cfg: Config) -> dict[str, Any]:
                 level=cfg.analysis.ci_level,
             )
             entry["signals"][name] = ci.as_dict()
+        columns_by_n[n_samples] = arrays
         per_n[str(n_samples)] = entry
 
     payload = {
@@ -114,12 +123,89 @@ def run(cfg: Config) -> dict[str, Any]:
 
     consistency = _check_top_level_matches_main_pass(cfg, per_n, names, levels)
     payload["agreement_with_main_family_b_pass"] = consistency
+    payload["level_differences"] = ablation_level_differences(
+        columns_by_n,
+        y,
+        levels,
+        resamples=cfg.analysis.bootstrap_resamples,
+        seed=cfg.analysis.bootstrap_seed,
+        level=cfg.analysis.ci_level,
+    )
 
     out_path = cfg.paths.artifacts_dir / "ablation.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     print(f"[ablation] wrote {out_path}", flush=True)
     return payload
+
+
+def ablation_level_differences(
+    columns_by_n: dict[int, dict[str, FloatArray]],
+    y: BoolArray,
+    levels: list[int],
+    *,
+    resamples: int,
+    seed: int,
+    level: float,
+) -> dict[str, Any]:
+    """Paired bootstrap CI on the AUROC *difference* between ablation levels.
+
+    Per-level intervals cannot test N=3 against N=5: the levels are nested
+    subsets of the same samples, so they are perfectly correlated by
+    construction and overlapping intervals say nothing about the difference.
+    The same paired bootstrap the significance table uses
+    (`paired_bootstrap_auroc_diff`, identical resample indices for both
+    levels) does test it. Computed for every family-B signal at every level
+    below the max, against the max level; a consecutive-pair entry (each level
+    against the previous one) is included for the same reason.
+    Pure function of in-memory columns, so it is unit-testable without the
+    NLI model or any checkpoint.
+    """
+    if not levels:
+        return {"available": False, "reason": "no ablation levels"}
+    top = max(levels)
+    below = sorted(n for n in levels if n != top)
+    if not below or top not in columns_by_n:
+        return {"available": False, "reason": "fewer than two computed levels available"}
+    names = sorted(columns_by_n[top])
+    out: dict[str, Any] = {
+        "available": True,
+        "reference_level": top,
+        "test": "paired stratified bootstrap on the AUROC difference",
+        "comparisons": [],
+    }
+    ordered = sorted(levels)
+    pairs: list[tuple[int, int]] = [(n, top) for n in below]
+    for first, second in pairwise(ordered):
+        if (first, second) not in pairs:
+            pairs.append((first, second))
+    for low, high in pairs:
+        if low not in columns_by_n or high not in columns_by_n:
+            continue
+        for name in names:
+            if name not in columns_by_n[low] or name not in columns_by_n[high]:
+                continue
+            delta, ci_low, ci_high, p, n_paired = paired_bootstrap_auroc_diff(
+                columns_by_n[high][name],
+                columns_by_n[low][name],
+                y,
+                resamples=resamples,
+                seed=seed + low,
+                level=level,
+            )
+            out["comparisons"].append(
+                {
+                    "signal": name,
+                    "level": low,
+                    "reference_level": high,
+                    "delta_vs_reference": delta,
+                    "ci_low": ci_low,
+                    "ci_high": ci_high,
+                    "p_value": p,
+                    "n_paired": n_paired,
+                }
+            )
+    return out
 
 
 def _check_top_level_matches_main_pass(

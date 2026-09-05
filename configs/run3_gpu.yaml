@@ -29,13 +29,15 @@ model_under_test:
   dtype: float16
   device: auto
   max_new_tokens: 24
-  # Open defect D27 (docs/DECISIONS.md, session 7). Padding a ragged batch
-  # perturbs per-token logprobs by up to 2.52e-02 against the unbatched values,
-  # while a batch of equal-length prompts is bit-identical (0.00e+00). The cause
-  # is partially traced to position assignment on left-padded rows and is NOT
-  # fixed. Raising this value invalidates signal family A until D27 is resolved.
-  # Leave it at 1.
-  generation_batch_size: 1
+  # Defect D27 (docs/DECISIONS.md, session 7) measured that padding a ragged
+  # batch perturbs per-token logprobs by up to 2.52e-02 against the unbatched
+  # values, while a batch of equal-length prompts is bit-identical (0.00e+00).
+  # session 9 closed it: `generate_batch` buckets every chunk into equal-length
+  # forward passes, so this width can never move family A's logprobs — it trades
+  # only memory and occupancy. 4 is a conservative width for a free T4 with the
+  # 3B model in fp16; peak memory at this width is UNMEASURED. Drop back to 1
+  # if the run hits CUDA out-of-memory.
+  generation_batch_size: 4
 
 # The one generation every signal is computed on.
 greedy:

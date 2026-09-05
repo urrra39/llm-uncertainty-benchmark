@@ -240,6 +240,48 @@ def per_dataset_analytic_cis(
     return out
 
 
+def stratified_pooled_auroc(
+    payload: dict[str, Any],
+    *,
+    view: str = "primary",
+) -> dict[str, Any]:
+    """Sample-size-weighted mean of the per-dataset AUROCs, per signal.
+
+    The pooled AUROC credits a signal that merely separates datasets with
+    different base rates (README finding 4). Averaging the within-dataset
+    AUROCs with weights proportional to subset size removes that provenance
+    credit: each term is computed inside one dataset, so no term can reward
+    telling the datasets apart. This is a pure function of stored point
+    estimates and subset sizes, so it is computable for run #2 despite the
+    lost per-row artifacts — unlike a bootstrap on the stratified quantity,
+    which needs the rows and is therefore left to the run that has them.
+    Sorted by stratified value descending.
+    """
+    block = payload["views"][view]["per_dataset"]["datasets"]
+    sources = sorted(block)
+    weights = {source: int(block[source]["n"]) for source in sources}
+    total = sum(weights.values())
+    names: set[str] = set()
+    for source in sources:
+        names.update(block[source].get("signals", {}))
+    rows: list[dict[str, Any]] = []
+    for name in sorted(names):
+        terms: dict[str, float] = {}
+        for source in sources:
+            entry = block[source].get("signals", {}).get(name)
+            terms[source] = float(entry["auroc"]) if entry is not None else float("nan")
+        usable = {source: value for source, value in terms.items() if math.isfinite(value)}
+        if not usable or total <= 0:
+            combined = float("nan")
+        else:
+            combined = math.fsum(
+                value * weights[source] for source, value in usable.items()
+            ) / math.fsum(weights[source] for source in usable)
+        rows.append({"name": name, "stratified_auroc": combined, "per_dataset": terms})
+    rows.sort(key=lambda row: (-row["stratified_auroc"], row["name"]))
+    return {"weights": weights, "n_total": total, "rows": rows}
+
+
 def holm(p_values: dict[str, float], *, alpha: float = 0.05) -> dict[str, tuple[float, bool]]:
     """Holm-Bonferroni step-down over a family of p-values.
 
@@ -487,5 +529,17 @@ def render_report(payload: dict[str, Any], *, view: str = "primary") -> str:
                 )
         else:
             add("  no signal's interval excludes 0.50 on this subset")
+
+    stratified = stratified_pooled_auroc(payload, view=view)
+    add("")
+    add("Stratified (provenance-free) pooled AUROC: sample-size-weighted mean of")
+    add("the per-dataset AUROCs. No term rewards separating the datasets.")
+    add(f"  weights {stratified['weights']}, n_total {stratified['n_total']}")
+    srows: list[dict[str, Any]] = stratified["rows"][:12]
+    for srow in srows:
+        terms = "  ".join(
+            f"{source} {srow['per_dataset'][source]:.3f}" for source in sorted(srow["per_dataset"])
+        )
+        add(f"  {srow['name']:32s} {srow['stratified_auroc']:6.3f}  ({terms})")
 
     return "\n".join(lines)
