@@ -420,6 +420,17 @@ def check_cross_document(problems: list[str]) -> None:
     readme = texts[REPO_ROOT / "README.md"]
     if "human_label_coverage" not in readme:
         problems.append("README.md quotes rankings without naming the human_label_coverage gate")
+    # The two-phase human gates must be named identically in the gate module,
+    # the pre-registration and the defect tracker, or the ordering control
+    # silently forks into three versions of the rule.
+    prereg = (REPO_ROOT / "docs" / "PREREGISTRATION.md").read_text(encoding="utf-8")
+    for gate in ("labeling_protocol_validated", "human_label_coverage"):
+        if gate not in prereg:
+            problems.append(f"docs/PREREGISTRATION.md does not name the {gate} gate")
+    defects_text = (REPO_ROOT / "docs" / "OPEN_DEFECTS.md").read_text(encoding="utf-8")
+    for gate in ("labeling_protocol_validated", "human_label_coverage"):
+        if gate not in defects_text:
+            problems.append(f"docs/OPEN_DEFECTS.md does not name the {gate} gate")
     # The session-7 status block claimed three files did not exist.
     for claim in (
         "`configs/run3_gpu.yaml` does not exist.",
@@ -499,11 +510,13 @@ OPEN_DEFECTS: tuple[dict[str, str], ...] = (
     },
     {
         "id": "HUMAN-COVERAGE",
-        "title": "No human has verified any label (gate human_label_coverage fails at 0.0)",
+        "title": "No human has verified any label (gates fail at 0.0)",
         "status": "open",
         "measurement_to_close": (
-            "data/human_validation_sample.csv human_label coverage >= 0.80, "
-            "per docs/HUMAN_LABELING.md"
+            "PRE-run labeling_protocol_validated at >= 0.50 on "
+            "data/human_validation_sample.csv, then POST-run "
+            "human_label_coverage at >= 0.80 on the new run's subsample, per "
+            "the ordering in docs/PREREGISTRATION.md"
         ),
         "blocks": "validity_gates.all_passed for every future run",
     },

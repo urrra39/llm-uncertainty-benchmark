@@ -45,9 +45,19 @@ MAX_ABSTENTION_RATE = 0.10
 
 #: Floor on the fraction of validation rows carrying a human label. Labels are
 #: the ground the AUROC table stands on; a machine-only label set is unmeasured
-#: correctness no matter how high the judge-versus-judge kappa reads. 0.80 is a
-#: judgement call and is stated as one.
+#: correctness no matter how high the judge-versus-judge kappa reads.
 MIN_HUMAN_LABEL_COVERAGE = 0.80
+
+#: Floor for the PRE-run protocol gate: the labelling protocol counts as
+#: validated once a prior sample reaches this coverage. Lower than the
+#: publishability bar on purpose — shaking out instruction bugs needs breadth
+#: of edge cases, not full power — and stated as a judgement call.
+MIN_PROTOCOL_COVERAGE = 0.50
+
+#: The validation sample the labelling protocol targets. Fixed repo location:
+#: run #2's sample, whose edge cases (echo rows, granularity mismatches) are
+#: what the protocol was written against.
+PROTOCOL_CSV = "data/human_validation_sample.csv"
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,12 +170,12 @@ def abstention_gate(n_abstentions: int, n_scored: int) -> Gate:
 
 
 def human_label_gate(coverage: float | None) -> Gate:
-    """Human-label coverage of the validation sample must clear the floor.
+    """POST-run gate: this run's validation subsample must clear the floor.
 
-    `coverage` is labelled validation rows over validation rows (None when the
-    file is absent or unreadable). Records failure rather than raising, per the
-    module convention: the missing human labels are a visible gate failure, not
-    a paragraph in LIMITATIONS. Today this gate fails honestly at 0.0.
+    `coverage` is labelled validation rows over validation rows of the run's
+    own sample (None when the file is absent or unreadable). Records failure
+    rather than raising, per the module convention. Today this gate fails
+    honestly at 0.0.
     """
     ok = coverage is not None and math.isfinite(coverage) and coverage >= MIN_HUMAN_LABEL_COVERAGE
     observed = "validation file absent" if coverage is None else f"coverage {coverage:.3f}"
@@ -179,7 +189,34 @@ def human_label_gate(coverage: float | None) -> Gate:
             "AUROC against those labels can mean"
             if ok
             else "no human has verified any label, so the label set's correctness "
-            "is unmeasured; fill data/human_validation_sample.csv (docs/HUMAN_LABELING.md)"
+            "is unmeasured; fill the run's validation CSV (docs/HUMAN_LABELING.md)"
+        ),
+    )
+
+
+def protocol_validated_gate(coverage: float | None) -> Gate:
+    """PRE-run gate: the labelling protocol must be validated on a prior sample.
+
+    The protocol (`docs/HUMAN_LABELING.md`) was written against run #2's
+    sample; it counts as validated once that file reaches MIN_PROTOCOL_COVERAGE
+    coverage. Without this, a new run's POST-run gate could pass on labels
+    produced under untested instructions. Same record-don't-raise convention.
+    """
+    ok = coverage is not None and math.isfinite(coverage) and coverage >= MIN_PROTOCOL_COVERAGE
+    observed = (
+        f"{PROTOCOL_CSV} absent" if coverage is None else f"coverage {coverage:.3f}"
+    )
+    return Gate(
+        name="labeling_protocol_validated",
+        passed=ok,
+        observed=observed,
+        requirement=f">= {MIN_PROTOCOL_COVERAGE:.2f} of the protocol sample labelled",
+        detail=(
+            "the labelling instructions have been exercised on real edge cases"
+            if ok
+            else "the protocol has never been validated: label the prior sample "
+            "first (docs/HUMAN_LABELING.md), or the new run's human labels rest "
+            "on untested instructions"
         ),
     )
 
@@ -190,6 +227,7 @@ def evaluate_gates(
     n_abstentions: int,
     n_scored: int,
     human_label_coverage: float | None = None,
+    protocol_coverage: float | None = None,
 ) -> dict[str, Any]:
     """Run every gate and summarize. Never raises.
 
@@ -200,6 +238,7 @@ def evaluate_gates(
         random_baseline_gate(view),
         class_balance_gate(view),
         abstention_gate(n_abstentions, n_scored),
+        protocol_validated_gate(protocol_coverage),
         human_label_gate(human_label_coverage),
     ]
     failed = [g.name for g in gates if not g.passed]

@@ -105,6 +105,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
     }
 
     names = [n for n in signal_names() if n in merged.columns]
+    coverage = _assert_signal_coverage(merged, names)
     per_view: dict[str, Any] = {}
     frozen: dict[str, Any] = {}
     for view_name, frame in views.items():
@@ -150,6 +151,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
     # a missing or empty human column is the shipped state, reported as
     # coverage 0.0 with a reason rather than as a number.
     label_quality = _label_quality(path=cfg.paths.human_validation_csv)
+    protocol_quality = _label_quality(path=Path("data/human_validation_sample.csv"))
 
     # D15: the gates are evaluated on the primary view, which is the one the
     # README quotes. A failure is recorded, not raised: the failure is the result.
@@ -158,6 +160,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
         n_abstentions=n_abstain,
         n_scored=int(len(scored)),
         human_label_coverage=label_quality.get("coverage"),
+        protocol_coverage=protocol_quality.get("coverage"),
     )
     # D7: cost per signal, using this run's own measured timings.
     costs = cost_table(per_view["primary"]["signals"], timings, cfg, _token_means(generations))
@@ -233,6 +236,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
         },
         "validity_gates": gates,
         "frozen_analysis_set": frozen,
+        "signal_coverage": coverage,
         "cost": costs,
         "ablation": ablation,
         "family_b_clustering": family_b_clustering,
@@ -377,6 +381,38 @@ def _pre_platt_calibration(
         np.clip(asserted_wrong[use], 0.0, 1.0), y[use], bins=cfg.analysis.ece_bins
     )
     return {"ece": cal.ece, "calibration": cal.as_dict(), "is_probability_valued": True}
+
+
+def _assert_signal_coverage(frame: pd.DataFrame, names: list[str]) -> dict[str, Any]:
+    """The registry and the scored table must agree about scope, loudly.
+
+    Every scored column must be registered (an unregistered column is exactly
+    the orientation bug `signals.base` exists to prevent). Every registered
+    signal absent from the table must be named in the coverage block with its
+    reason — a registry that silently describes a study nobody ran is how the
+    12-signal divergence happened. Raises on the first case (a bug); the
+    second is data and is returned.
+    """
+    registered = signal_names()
+    signal_columns = [c for c in frame.columns if c != "qid"]
+    unregistered = [c for c in signal_columns if c not in registered]
+    if unregistered:
+        raise AssertionError(f"scored signals without a registry entry: {unregistered}")
+    unscored = [n for n in registered if n not in signal_columns]
+    return {
+        "n_registered": len(registered),
+        "n_scored_in_this_run": len(names),
+        "registered_but_unscored": [
+            {
+                "name": n,
+                "reason": (
+                    "absent from this run's signal artifacts "
+                    "(run #2: registered after the run; no artifact to score)"
+                ),
+            }
+            for n in unscored
+        ],
+    }
 
 
 def _cluster_ids(frame: pd.DataFrame, cfg: Config) -> npt.NDArray[np.int64] | None:

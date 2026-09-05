@@ -453,3 +453,27 @@ def test_token_price_is_null_without_token_means() -> None:
     assert priced["signals"]["b_distinct_count"]["token_multiplier"] == 6.0
     assert priced["signals"]["a_mean_logprob"]["token_multiplier"] == 1.0
     assert priced["signals"]["c_p_true_plain"]["token_multiplier"] is None
+
+
+def test_signal_coverage_names_unscored_registered_signals() -> None:
+    import pandas as pd
+
+    from unc_bench.analysis.report import _assert_signal_coverage
+    from unc_bench.signals import logprob_signals
+
+    assert logprob_signals.MEAN_LOGPROB.name == "a_mean_logprob"
+    frame = pd.DataFrame({"qid": ["q1"], "a_mean_logprob": [0.5]})
+    coverage = _assert_signal_coverage(frame, ["a_mean_logprob"])
+    assert coverage["n_scored_in_this_run"] == 1
+    assert coverage["n_registered"] > coverage["n_scored_in_this_run"]
+    assert all("reason" in entry for entry in coverage["registered_but_unscored"])
+
+
+def test_signal_coverage_rejects_unregistered_columns() -> None:
+    import pandas as pd
+
+    from unc_bench.analysis.report import _assert_signal_coverage
+
+    frame = pd.DataFrame({"qid": ["q1"], "a_signal_that_does_not_exist": [1.0]})
+    with pytest.raises(AssertionError, match="without a registry entry"):
+        _assert_signal_coverage(frame, ["a_signal_that_does_not_exist"])

@@ -21,7 +21,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Sequence
 from contextlib import nullcontext
 from types import SimpleNamespace
-from typing import Any, overload
+from typing import Any, cast, overload
 
 import pytest
 
@@ -222,7 +222,7 @@ def _client(batch_size: int) -> tuple[LocalTransformersClient, _Model, _Torch]:
     client._spec = spec
     client._device = "cpu"
     torch = _Torch()
-    client._torch = torch  # the real field is the module
+    client._torch = cast(Any, torch)  # the real field is the torch module
     client._tokenizer = _Tokenizer()
     model = _Model()
     client._model = model

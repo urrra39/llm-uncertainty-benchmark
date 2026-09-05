@@ -1,5 +1,11 @@
 # Which cheap uncertainty signal best predicts an LLM's factual errors?
 
+> **Run #2's ranking below is withdrawn.** Up to 34 of its 120 labels (28%)
+> could flip under the echo-contamination bound beside the tables, which
+> exceeds what any interval here can absorb. The tables stay as the record of
+> the invalidated run, on the same footing as run #1. The primary result is
+> run #2b's, once it has run.
+
 Twenty-one uncertainty signals from three families — token logprobs (1× cost),
 self-consistency over 5 samples (6× cost), and self-verification / P(True)
 (2× cost) — ranked by how well each predicts that Qwen2.5-0.5B-Instruct got a
@@ -64,7 +70,10 @@ not support shipping any of them at this scale.
 
 The primary table. Run #2, n=120, `configs/run2.yaml`, positive class
 **incorrect answer**. Two datasets with very different base rates, scored
-separately so no signal can earn credit for telling them apart.
+separately so no signal can earn credit for telling them apart. Scope: 9 of
+the 27 registered signals — the six `_samples_only` variants and the three
+appendix duplicates were never scored in this run (registry postdates it; see
+`signal_coverage` in future results files).
 
 | signal | family | cost | PopQA AUROC (n=90, 40% incorrect) | TriviaQA AUROC (n=30, 90% incorrect) | pooled AUROC |
 |---|---|---|---|---|---|
@@ -112,6 +121,9 @@ carries real per-dataset intervals instead.
 ## Supporting results (pooled)
 
 ### AUROC and AUPRC, all 21 signals
+
+Scope: 18 of the 27 registered signals (3 duplicates in the appendix; the 6
+`_samples_only` variants are registered, never scored — they await a run).
 
 Every number below was computed in this run on the identical 120-row frozen
 analysis set (`qid_digest = ffff86216137caed`). Positive class is **incorrect
@@ -623,6 +635,24 @@ to 0.50, and it very likely explains `c_verbal_confidence` at 0.484 and
 `a_mean_logprob` at 0.514 on PopQA. Run #3 removes `capital of`, drops
 gold-in-question rows, and deduplicates near-identical questions; run #2's
 config and numbers stand as the record of what was run.
+
+## Run #2 and why its ranking is withdrawn
+
+Run #2's tables above are preserved and are no longer quoted as findings.
+
+The sensitivity bound: 14 rows in the observed 100 are label-decided by alias
+happenstance, and the 20 unobserved rows could in the worst case all be
+echo rows with flipped labels — so up to **34 of 120 labels (28%)** could
+change under decontamination. The pooled confidence intervals are roughly
+±0.09 wide; a 28% label-flip bound exceeds anything those intervals can
+absorb, the same way run #1's 0.746 random baseline proved its estimator was
+generating the ordering. A ranking whose labels could move by more than its
+intervals is not a ranking.
+
+What replaces it is run #2b (same model, same n, decontaminated 60/60 split),
+whose tables become primary once it has run. Until then the honest headline
+of this repository is that it has no valid finding — an instrument with
+excellent hygiene and no measurement yet.
 
 ## License
 

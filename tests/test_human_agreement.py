@@ -400,3 +400,12 @@ def test_recovered_kappa_is_flagged_untrustworthy_with_minority_floor() -> None:
     assert recovered["minority_count"] == 6
     assert recovered["kappa_ci_95"] == [1.0, 1.0]
     assert "minority" in recovered["trustworthy_reason"]
+
+
+def test_protocol_gate_passes_below_the_publishability_bar() -> None:
+    from unc_bench.analysis.validity import MIN_PROTOCOL_COVERAGE, protocol_validated_gate
+
+    assert MIN_PROTOCOL_COVERAGE == 0.50
+    assert protocol_validated_gate(0.0).passed is False
+    assert protocol_validated_gate(None).passed is False
+    assert protocol_validated_gate(MIN_PROTOCOL_COVERAGE).passed is True

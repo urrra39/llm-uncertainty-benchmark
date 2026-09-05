@@ -36,10 +36,31 @@ than the trivial baselines (family T)?
 ## Validity gates (all must pass or the ranking is not publishable)
 
 Random-baseline CI contains 0.50; ≥30 rows per class in each subset;
-abstention rate below 0.10; human-label coverage ≥0.80
-(`analysis.validity.human_label_coverage` — currently failing at 0.0, which
-means this pre-registration ALSO requires the labelling in
-`docs/HUMAN_LABELING.md` to happen before the run counts).
+abstention rate below 0.10; and the two-phase human-label rule, whose order
+matters (see below): PRE-run `labeling_protocol_validated` requires the
+protocol sample (`data/human_validation_sample.csv`) at ≥0.50 coverage, and
+POST-run `human_label_coverage` requires the new run's own validation
+subsample at ≥0.80 coverage. Both gates are defined in
+`src/unc_bench/analysis/validity.py`, tracked in `docs/OPEN_DEFECTS.md`, and
+named here so the three cannot disagree (pinned by `scripts/audit_docs.py`).
+
+## Ordering (read before executing anything)
+
+1. Label the prior sample (`data/human_validation_sample.csv`) per
+   `docs/HUMAN_LABELING.md` until coverage ≥ 0.50. This validates the
+   instructions against real edge cases and opens the PRE-run gate.
+2. Run the pilot (build → generate → label → pilot-gate). If the base rate
+   lands outside 25–65%, the run is a record of that failure; re-mixing ends
+   after the two permitted iterations.
+3. Execute the full run (generate → score → ablation → label → analyze).
+4. Generate the new run's validation subsample (100 rows, balanced on machine
+   label, `human_label` empty) and label it to ≥ 0.80 coverage.
+5. Re-run `analyze` so `human_label_coverage` and `label_quality` reflect the
+   labels. Only now, with all gates passing, is the ranking publishable.
+
+Skipping step 1 makes step 4's gate vacuous (labels under untested
+instructions); skipping step 4 leaves the POST-run gate failing and the
+ranking unpublished. The order is the control.
 
 ## Stopping rule
 
