@@ -92,9 +92,11 @@ def test_run3_split_is_300_300(cfg: Config) -> None:
 def test_run3_popqa_filter_is_seven_relations_without_the_inverse(
     cfg: Config,
 ) -> None:
-    # Part A1: `capital of` was removed after the echo-contamination report
-    # showed 14 of 20 echo rows decided purely by subject-in-alias-list.
-    # Seven lookup-shaped relations remain at quantile 0.9.
+    # Part A1 + C2: `capital of` removed (echo pathology),
+    # `place of birth` removed (granularity-span 0.620 in
+    # data/gold_quality_report.json), `genre` added (single-alias 0.074).
+    # `religion` and `occupation` were flagged by suspicion and cleared by
+    # measurement. Quantile 0.5 buys the 3x sampling margin (see below).
     relations = cfg.difficulty.popqa_relations
     assert relations is not None
     assert set(relations) == {
@@ -103,11 +105,12 @@ def test_run3_popqa_filter_is_seven_relations_without_the_inverse(
         "sport",
         "color",
         "religion",
-        "place of birth",
         "occupation",
+        "genre",
     }
     assert "capital of" not in relations
-    assert cfg.difficulty.popqa_popularity_quantile == 0.9
+    assert "place of birth" not in relations
+    assert cfg.difficulty.popqa_popularity_quantile == 0.5
     assert cfg.difficulty.allow_inverse_relations is False
     assert cfg.difficulty.drop_gold_in_question is True
     # TriviaQA is unchanged from run #2: easy_only + min_aliases 20.

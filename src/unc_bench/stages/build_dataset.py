@@ -12,6 +12,7 @@ PopQA builder would trigger a 14k-row TSV download for a sample of zero.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from unc_bench.config import Config
 from unc_bench.datasets.base import DatasetBuilder, questions_to_frame
@@ -71,7 +72,7 @@ def run(cfg: Config, *, force: bool = False) -> int:
         "simpleqa": cfg.dataset_mix.simpleqa,
     }
     questions: list[Question] = []
-    meta: dict[str, dict[str, int]] = {}
+    meta: dict[str, dict[str, Any]] = {}
     for name, count in wanted.items():
         if count <= 0:
             continue
@@ -84,8 +85,19 @@ def run(cfg: Config, *, force: bool = False) -> int:
         drawn = builder.build(count, cfg.dataset_seed)
         print(f"[build_dataset] {name}: {len(drawn)} questions", flush=True)
         questions.extend(drawn)
+        pool = int(getattr(builder, "last_pool_unique", 0))
+        margin = (pool / count) if count > 0 else float("nan")
+        if count > 0 and pool and margin < 2.0:
+            print(
+                f"[build_dataset] WARNING {name}: sampling margin {margin:.2f}x "
+                f"({pool} unique for {count} draws) is below 2x; the seed is "
+                "near-decorative and the subset is a census, not a sample",
+                flush=True,
+            )
         meta[name] = {
             "drawn": len(drawn),
+            "pool_unique": pool,
+            "sampling_margin": margin,
             "dedup_collapsed": int(getattr(builder, "last_dedup_collapsed", 0)),
             "gold_leakage_dropped": int(getattr(builder, "last_gold_leakage_dropped", 0)),
             "gold_leakage_inspected": int(getattr(builder, "last_gold_leakage_inspected", 0)),

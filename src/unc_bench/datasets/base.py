@@ -81,6 +81,7 @@ class DatasetBuilder(ABC):
         candidates = sorted(candidates, key=lambda q: q.qid)
         candidates, collapsed = deduplicate_questions(candidates)
         self.last_dedup_collapsed = collapsed
+        self.last_pool_unique = len(candidates)
         if collapsed:
             print(
                 f"[{self.name}] collapsed {collapsed} near-duplicate questions "
@@ -98,6 +99,8 @@ class DatasetBuilder(ABC):
 
     #: Rows collapsed by the last `build` call's deduplication. Zero until run.
     last_dedup_collapsed: int = 0
+    #: Unique candidates the last `build` drew from. Zero until run.
+    last_pool_unique: int = 0
 
 
 def questions_to_frame(questions: list[Question]) -> pd.DataFrame:

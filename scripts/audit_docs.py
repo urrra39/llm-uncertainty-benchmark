@@ -481,6 +481,24 @@ def check_cross_document(problems: list[str]) -> None:
             except Exception as exc:  # reporting the failure is the point
                 problems.append(f"{label} names {target.name}, which fails to load: {exc}")
 
+    # Pilot-gate thresholds must be identical across shipped configs. The
+    # remediation audit claimed error_rate_low moved 0.35 -> 0.25 in run #3's
+    # config; git history shows 0.25 since introduction and pilot_gate.py
+    # documents 25-65%, so the claim is refused with evidence and this check
+    # pins the equality instead: any future drift must arrive with a DECISIONS
+    # entry citing both values.
+    bands = {}
+    for config_name in ("default.yaml", "pilot.yaml", "run2.yaml", "run3_gpu.yaml"):
+        target = REPO_ROOT / "configs" / config_name
+        if not target.exists():
+            continue
+        bands[config_name] = (
+            Config.load(target).pilot_gate.error_rate_low,
+            Config.load(target).pilot_gate.error_rate_high,
+        )
+    if len(set(bands.values())) > 1:
+        problems.append(f"pilot-gate bands differ across configs: {bands}")
+
 
 #: Open defects as structured data. `docs/OPEN_DEFECTS.md` is rendered from
 #: this list by `render_open_defects`, and `check_misc` fails the audit when

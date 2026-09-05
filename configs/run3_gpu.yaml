@@ -76,43 +76,43 @@ dataset_mix:
   popqa: 300
   simpleqa: 0
 
-# Difficulty filters. Run #2's settings, with the PopQA relation allowlist
-# widened because run #2's five relations do not yield 300 rows, minus
-# `capital of` (echo contamination, Part A1), minus gold-in-question rows.
+# Difficulty filters: run #2's TriviaQA settings unchanged; PopQA rebuilt from
+# gold-list evidence (see data/gold_quality_report.json and the difficulty
+# block below).
 #
 # Re-measured through the project's own builders against the real corpora
-# after dedup + leakage filtering (this session; run `build` counts, not
-# inherited notes):
+# after dedup + leakage filtering (this session):
 #
-#   PopQA, 7 relations (below), quantile 0.9, leakage dropped -> 340 rows,
-#     318 unique questions after near-duplicate collapse (16 leaked of 356)
+#   PopQA, 7 relations (below), quantile 0.5, leakage dropped -> 2159 rows,
+#     2074 unique questions (118 leaked) = 6.91x margin for 300 draws
 #   TriviaQA, easy_only + min_aliases 20, leakage dropped  -> 3746 rows,
-#     all unique (314 leaked of 4060)
+#     all unique (314 leaked of 4060) = 12.5x margin
 #
-# The three added relations are `religion`, `place of birth` and `occupation`,
-# chosen on the axis run #2's D1(a) established: relation type, not subject
-# popularity, moves the base rate for a small model, and these three are
-# lookup-shaped rather than credit-recall-shaped like `screenwriter` or
-# `composer`.
+# The relations are `capital`, `country`, `sport`, `color` (run #2's,
+# minus `capital of`), `religion` + `occupation` (kept: cleared by
+# measurement), and `genre` (added: single-alias 0.074, leak 0.006).
+# `place of birth` was cut on granularity-span 0.620.
 #
-# 318 for 300 draws is a 1.06x margin — razor thin and stated rather than
-# hidden: the PopQA slice is effectively a census of its filter, so it is
-# reproducible and unrepresentative at the same time. If the draw ever fails
-# with "asked for 300 questions but only N are usable", widen relations before
-# touching the popularity quantile: loosening it would reintroduce the long
-# tail that made run #1 degenerate. TriviaQA sits at a 12.5x margin.
-#
-# Unverified: whether the widened PopQA slice lands inside the pilot gate's
-# 35-65% band. The three added relations have never been generated against.
+# Unverified: whether this slice lands inside the pilot gate's 25-65% band
+# for a 3B model. Four of the seven relations have never been generated
+# against at any scale.
 difficulty:
   triviaqa_easy_only: true
   triviaqa_min_aliases: 20
-  popqa_popularity_quantile: 0.9
-  # Seven relations: run #2's five minus `capital of`, which is removed because
-  # it asks for the subject's container and the echo pathology it produces is
-  # documented in data/echo_contamination_report.json. `allow_inverse_relations`
-  # stays false so any reintroduction fails loudly. Plus `religion`,
-  # `place of birth` and `occupation` to reach 300 rows (see counts below).
+  # Quantile lowered 0.9 -> 0.5 (s_pop cutoff 69770 -> 618) for one reason:
+  # the 0.9 slice holds 318 unique questions after dedup, a 1.06x margin at
+  # which the seed is decorative. The tradeoff is a longer popularity tail for
+  # a 3B model; the pilot gate (25-65%) is the backstop, and it is the gate's
+  # job, not the filter's, to reject a degenerate base rate.
+  popqa_popularity_quantile: 0.5
+  # Seven relations, selected FROM the gold-quality evidence
+  # (data/gold_quality_report.json), not from recall-difficulty intuition:
+  # `capital of` removed (echo pathology); `place of birth` removed
+  # (granularity-span 0.620: city-vs-country aliases flip labels); `genre`
+  # added (single-alias 0.074, leak 0.006 — the most complete list outside the
+  # run #2 five). `religion` (0.050) and `occupation` (0.147, leak 0.000) stay:
+  # flagged by suspicion, cleared by measurement. `allow_inverse_relations`
+  # stays false so any reintroduction fails loudly.
   allow_inverse_relations: false
   # Drop candidate rows where a normalized gold alias sits inside the question
   # (datasets.base.gold_in_question). Counts are in data/dataset_meta.json once
@@ -124,8 +124,8 @@ difficulty:
     - "sport"
     - "color"
     - "religion"
-    - "place of birth"
     - "occupation"
+    - "genre"
 
 # Two exemplars, for answer FORMAT only. Asserted absent from the eval set at
 # generation time. Neither is a TriviaQA or PopQA item.

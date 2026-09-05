@@ -214,6 +214,11 @@ def build_results(cfg: Config) -> dict[str, Any]:
             "rows_with_labels": total_rows,
             "generated_rows": 0 if generations is None else int(len(generations)),
             "gold_leakage": gold_leakage,
+            "sampling_margin": {
+                name: entry.get("sampling_margin") for name, entry in dataset_meta.items()
+            }
+            if dataset_meta
+            else None,
         },
         "labels": {
             "counts": {str(k): int(v) for k, v in merged["label"].value_counts().items()},
