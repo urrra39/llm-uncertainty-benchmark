@@ -71,6 +71,7 @@ PERPLEXITY = register(
         family=FAMILY_A,
         orientation=ORIENT_RISK,
         description="exp(-mean logprob) over the answer span",
+        rank_equivalent_to="a_mean_logprob",
     )
 )
 FIRST_TOKEN_LOGPROB = register(

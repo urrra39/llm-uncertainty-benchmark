@@ -47,6 +47,11 @@ class SignalSpec:
     family: str
     orientation: str
     description: str
+    #: Name of the signal this one restates by a strictly monotone transform
+    #: (same ranking, same AUROC) under the current configuration, or None.
+    #: Declared here so analysis can assert the equivalence empirically instead
+    #: of discovering it in a heatmap footnote. None means "claims independence".
+    rank_equivalent_to: str | None = None
 
     def __post_init__(self) -> None:
         if self.orientation not in (ORIENT_RISK, ORIENT_CONFIDENCE):

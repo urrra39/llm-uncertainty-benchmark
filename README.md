@@ -12,6 +12,15 @@ correct** (both classes ≥ 30). Abstention rate **0/120 = 0.000** (below the 0.
 ceiling). The ranking below is publishable. Run #1's ranking was not; see the
 last section.
 
+A fourth gate, `human_label_coverage`, exists in code and **fails today at
+coverage 0.0**: no human has verified any label
+(`data/human_validation_sample.csv` ships with an empty `human_label` column).
+Run #2's committed `results.json` predates the gate and records three gates;
+every future run records four. Label quality beside every ranking in this
+document: **0/100 human-labelled — the correctness of the label set is
+unmeasured, so every AUROC below is discrimination against machine labels,
+not against truth.**
+
 ## Findings
 
 **1. No signal separated from the others at n=120.** The top six span AUROC
@@ -60,10 +69,8 @@ separately so no signal can earn credit for telling them apart.
 | signal | family | cost | PopQA AUROC (n=90, 40% incorrect) | TriviaQA AUROC (n=30, 90% incorrect) | pooled AUROC |
 |---|---|---|---|---|---|
 | `b_distinct_count` | B | 6.0× | 0.603 | 0.741 | 0.704 |
-| `b_distinct_fraction` † | B | 6.0× | 0.603 | 0.741 | 0.704 |
 | `b_disagreement_rate` | B | 6.0× | 0.601 | 0.685 | 0.701 |
 | `b_semantic_entropy` | B | 6.0× | 0.579 | 0.704 | 0.693 |
-| `b_semantic_entropy_normalized` † | B | 6.0× | 0.579 | 0.704 | 0.693 |
 | `b_mean_pairwise_f1` | B | 6.0× | 0.595 | 0.691 | 0.691 |
 | `t_question_length` | T | 1.0× | 0.505 | 0.580 | 0.684 |
 | `a_mean_logprob` | A | 1.0× | 0.514 | 0.753 | 0.664 |
@@ -71,9 +78,10 @@ separately so no signal can earn credit for telling them apart.
 | `t_random` | T | 1.0× | 0.511 | 0.691 | 0.508 |
 | `c_verbal_confidence` | C | 2.0× | 0.395 | **0.765** | 0.484 |
 
-Rows marked † are rank-equivalent duplicates of the row above (see
-[the pooled table](#auroc-and-auprc-all-21-signals)); the 11 rows are 9 distinct
-signals.
+The 9 rows are 9 distinct signals. `b_distinct_fraction` duplicates
+`b_distinct_count` and `b_semantic_entropy_normalized` duplicates
+`b_semantic_entropy` exactly (Spearman +1.000); both live in the appendix
+below rather than here.
 
 Three things in that table are worth stating plainly:
 
@@ -91,6 +99,16 @@ Three things in that table are worth stating plainly:
 Per-dataset AUPRC is in `results.json` under
 `views.primary.per_dataset.datasets.<name>.signals`.
 
+A provenance-free single number exists alongside this table. The
+sample-size-weighted mean of the two per-dataset AUROCs credits no signal for
+separating the datasets — each term is computed inside one dataset. It is a
+pure function of the stored per-dataset points (`unc-bench audit` prints the
+full table), not a new measurement: the leader falls to **0.637**,
+`c_p_true_plain` to **0.635** (a 0.002 gap), and `t_question_length` to
+**0.524** — the pooled 0.684 was nearly all provenance. Run #2's per-row
+values are lost, so no bootstrap interval can be put on these means; run #3
+carries real per-dataset intervals instead.
+
 ## Supporting results (pooled)
 
 ### AUROC and AUPRC, all 21 signals
@@ -105,8 +123,11 @@ it.
 **The 21 rows are 18 distinct signals.** AUROC is invariant under any strictly
 monotone transform of the score, so a signal that is a monotone
 reparameterization of another produces an identical ranking and an identical
-AUROC — it is the same signal wearing a different unit. Three pairs are
-rank-equivalent, each verified by measuring the Spearman rank correlation over
+AUROC — it is the same signal wearing a different unit. The three duplicates
+are now declared in code (`SignalSpec.rank_equivalent_to`, asserted empirically
+at analysis time so a configuration change that breaks an equivalence fails
+loudly) and listed once in the appendix below rather than in the ranking.
+Each pair below was verified by measuring the Spearman rank correlation over
 the 120 frozen rows and finding it exactly **+1.000** (`views.primary.correlation`
 in `results.json`; reproduce with `unc-bench audit`):
 
@@ -136,22 +157,23 @@ since only the family size changes, so both are reported. Recomputing Holm over
 the 17 non-duplicate comparisons **changes no verdict**: the same 4 comparisons
 are significant either way, and the largest movement is `a_min_logprob` from
 1.000 to 0.974, still far from 0.05. **The original 20-comparison correction
-therefore remains primary** and no published p-value changes. Full side-by-side
+therefore remains primary for run #2** and no published p-value changes. New
+code corrects over the distinct comparisons with the full family retained
+beside it (`comparisons_full_family` in `results.json`), so the next run does
+not pay a Holm penalty for columns carrying no information. Full side-by-side
 table: `unc-bench audit`.
 
-Rows marked † are rank-equivalent duplicates of the row immediately above them.
+Rows marked † are rank-equivalent duplicates of the row immediately above them;
+they are listed once more in the appendix below and nowhere else.
 
 | signal | family | AUROC [95% CI] | AUPRC [95% CI] | extra calls/q | cost |
 |---|---|---|---|---|---|
 | `b_distinct_count` | B | 0.704 [0.616, 0.786] | 0.724 [0.651, 0.796] | 5 | 6.0× |
-| `b_distinct_fraction` † | B | 0.704 [0.616, 0.786] | 0.724 [0.651, 0.796] | 5 | 6.0× |
 | `b_disagreement_rate` | B | 0.701 [0.612, 0.783] | 0.716 [0.636, 0.795] | 5 | 6.0× |
 | `b_semantic_entropy` | B | 0.693 [0.604, 0.774] | 0.712 [0.635, 0.789] | 5 | 6.0× |
-| `b_semantic_entropy_normalized` † | B | 0.693 [0.604, 0.774] | 0.712 [0.635, 0.789] | 5 | 6.0× |
 | `b_mean_pairwise_f1` | B | 0.691 [0.600, 0.775] | 0.714 [0.635, 0.794] | 5 | 6.0× |
 | `t_question_length` | T | 0.684 [0.599, 0.763] | 0.697 [0.618, 0.788] | 0 | 1.0× |
 | `a_mean_logprob` | A | 0.664 [0.562, 0.761] | 0.753 [0.674, 0.830] | 0 | 1.0× |
-| `a_perplexity` † | A | 0.664 [0.562, 0.761] | 0.753 [0.674, 0.830] | 0 | 1.0× |
 | `a_length_normalized_logprob` | A | 0.662 [0.556, 0.761] | 0.752 [0.664, 0.836] | 0 | 1.0× |
 | `a_total_logprob` | A | 0.660 [0.554, 0.758] | 0.742 [0.653, 0.832] | 0 | 1.0× |
 | `c_p_true_plain` | C | 0.659 [0.555, 0.755] | **0.756** [0.675, 0.831] | 1 | 2.0× |
@@ -164,6 +186,19 @@ Rows marked † are rank-equivalent duplicates of the row immediately above them
 | `a_first_token_margin` | A | 0.545 [0.439, 0.649] | 0.601 [0.520, 0.717] | 0 | 1.0× |
 | `t_random` | T | 0.508 [0.404, 0.611] | 0.542 [0.473, 0.647] | 0 | 1.0× |
 | `c_verbal_confidence` | C | 0.484 [0.392, 0.577] | 0.527 [0.487, 0.585] | 1 | 2.0× |
+
+### Appendix: the three rank-equivalent duplicates
+
+Same numbers as the rows they duplicate, which is the point — a monotone
+reparameterization carries no information the family did not already have, so
+these are not ranked, and Holm is corrected over the 18 distinct orderings
+with the 20-comparison correction retained beside it for traceability.
+
+| signal | duplicates | AUROC [95% CI] | AUPRC [95% CI] |
+|---|---|---|---|
+| `b_distinct_fraction` | `b_distinct_count` | 0.704 [0.616, 0.786] | 0.724 [0.651, 0.796] |
+| `b_semantic_entropy_normalized` | `b_semantic_entropy` | 0.693 [0.604, 0.774] | 0.712 [0.635, 0.789] |
+| `a_perplexity` | `a_mean_logprob` | 0.664 [0.562, 0.761] | 0.753 [0.674, 0.830] |
 
 Note that AUROC and AUPRC disagree about the winner: `c_p_true_plain` has the
 best AUPRC in the table (0.756) while ranking 12th on AUROC (0.659), and
@@ -233,6 +268,15 @@ carries the test this claim needs.
 Each extra sample is another full generation, so N=5 costs 6.0× the single
 greedy answer (the measured multiplier in `results.json`) against N=3's four
 generations for the same discrimination.
+
+No interval is stored on the *difference* between levels in run #2: the levels
+are nested subsets of the same five samples, so per-level intervals cannot test
+N=3 against N=5. The ablation stage now records paired bootstrap differences
+between levels with Holm correction (`level_differences` in `ablation.json`),
+so the first run with that artifact carries the test this claim needs. Until
+then the supported reading is "no measurable gain from samples 4–5 in this
+single draw" — and N=1 here means "the first of the five", not an independent
+single-sample run.
 
 Figure: `figures/n_ablation.png`.
 
@@ -551,6 +595,34 @@ The same failure mode is still visible *inside* this run's TriviaQA subset,
 where 3 correct rows out of 30 push `t_random` to 0.691 — which is why the
 per-dataset table above is presented with that warning attached rather than as a
 second ranking.
+
+## Run #2's PopQA slice and why run #3 drops a relation
+
+Run #2 is published and nothing above is restated. But a contamination found
+after publication affects how the primary subset should be read, parallel to
+how run #1's base rate affects the pooled table.
+
+`configs/run2.yaml` includes the PopQA relation `capital of` — the inverse
+template "What is X the capital of?". Qwen2.5-0.5B-Instruct echoes the subject
+("Rome" → "Rome") on essentially every such row, and whether the echo scores
+correct depends on whether that row's Wikidata alias list happens to contain
+the subject's own name: Rome's list contains "Rome" (labelled **correct** by
+exact match), Seattle's contains only "King County" (labelled **incorrect** by
+the judge), Delhi's dynasties contain "Delhi Sultanate" (heuristic correct,
+judge incorrect). Same model failure, opposite labels, decided by alias-list
+happenstance. The diagnosis is committed as
+`data/echo_contamination_report.json`: of 21 inverse-phrased rows in the
+100-row validation sample, 20 echo the subject and 14 are decided purely by
+subject-in-alias-list.
+
+An echo is confident by every signal under test — short answer, high mean
+logprob, five identical samples, zero semantic entropy — so near-random labels
+were injected precisely into the stratum where the signals say "this one is
+fine". That is the most efficient possible mechanism for driving PopQA AUROC
+to 0.50, and it very likely explains `c_verbal_confidence` at 0.484 and
+`a_mean_logprob` at 0.514 on PopQA. Run #3 removes `capital of`, drops
+gold-in-question rows, and deduplicates near-identical questions; run #2's
+config and numbers stand as the record of what was run.
 
 ## License
 

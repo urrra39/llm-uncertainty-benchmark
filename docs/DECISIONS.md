@@ -1353,3 +1353,57 @@ dataset while actually containing a different one.
 **Decision-ID numbering.** D20–D27 each appear twice in this file. This was
 checked and is not a defect: numbering restarts per session, and the two ranges
 are session 4's and session 7's. There are no duplicate headings.
+
+## Remediation session (Parts A–D of the external audit)
+
+An external audit found the primary result invalid for a reason two prior
+reviews missed: the `capital of` slice rewards echoing the question. What
+follows is the remediation, in the order the audit demanded (A1, A2, A3
+first). Run #2's config, numbers and committed `results.json` are untouched
+throughout; everything new targets run #3 or the infrastructure around it.
+
+- **R1. The echo pathology is real and measured, with one correction to the
+  audit.** `scripts/diagnose_echo_contamination.py` over the committed 100-row
+  sample finds 21 inverse-phrased PopQA rows, 20 echoing the subject (the 21st
+  answers in a sentence), 8 labelled correct against 12 incorrect, and 14
+  decided purely by subject-in-alias-list (`data/echo_contamination_report.json`).
+  The audit's "every visible instance" is 20 of 21, not 21 of 21 — recorded
+  precisely because the exception matters less than the rule.
+- **R2. The 16-relation audit, from the source file rather than memory.**
+  `test.tsv` (14,267 rows) holds exactly the 16 relations the literature
+  names. Only `capital of` asks for the subject's container in a way whose
+  aliases coincide with the subject, so `INVERSE_RELATIONS` names exactly it;
+  `country` and `place of birth` are container-shaped but their objects never
+  coincide with the named subject (verified: no label flip observed), and the
+  general `gold_in_question` check covers them anyway.
+- **R3. The leakage check caught more than the echo.** 16 of 356 PopQA and 314
+  of 4060 TriviaQA easy rows contain an acceptable answer verbatim ("Caped
+  Crusader", "Highest mountain in Africa"). Those 314 are not model failures
+  at all — they are free points for any signal that reads the question. This
+  is a new finding, worth more than the plumbing around it.
+- **R4. Run #3's PopQA margin is 1.06x and that is stated on the tin.** After
+  leakage filtering (340) and near-duplicate collapse (318 unique), the 300-row
+  draw is effectively a census. The config comment carries the re-measured
+  numbers; widening relations further would trade the census problem for the
+  base-rate problem run #1 died of.
+- **R5. The bootstrap is roughly calibrated; the audit's suspicion is not
+  sustained.** 200 exchangeable null trials hold type-I near 0.05 and a planted
+  0.196 gap has power (`tests/test_bootstrap_calibration.py`). The t_random
+  non-significance is Holm-over-20 plus n=120, as documented — so no
+  null-centred estimator was added and the published p-values stay traceable
+  to one procedure. A defended non-implementation, per the audit's own rule.
+- **R6. D27 reopened.** The session-9 closure extrapolated CPU/bfloat16
+  bit-identity to CUDA/fp16 (unmeasured: batched GEMM selects kernels by batch
+  dimension), claimed width trades "never correctness" (false for family B:
+  per-forward reseeding interleaves sampled streams), and assumed a speedup
+  bucketing rarely buys (real prompts mostly singleton-bucket). Width returns
+  to 1; per-prompt seeds (C2) make sampled tokens width-invariant for the day
+  batching returns; the harness decides the closure on the T4, not prose.
+- **R7. What was deliberately not done.** No estimator was swapped under
+  published p-values (B1); no duplicate was deleted from run #2's tables, only
+  moved to an appendix with identical numbers (B4); no human cell was filled
+  (A3); no run #3 number was invented anywhere — every new table is either
+  populated by code over committed artifacts or marked as a run-#3 template.
+  The two runs still needed are named in `docs/PREREGISTRATION.md`, and the
+  repo description (a GitHub setting, not a file) still leads with the pooled
+  claim the analysis disowns — the owner must rewrite it by hand.

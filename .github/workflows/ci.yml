@@ -41,6 +41,14 @@ jobs:
       - name: mypy
         run: uv run mypy
 
+      # No --extra local here either: importing every module must work on the
+      # dev dependency set alone, so an undeclared heavy import fails the build
+      # instead of passing locally and breaking a fresh clone.
+      - name: import every module without heavy deps
+        run: uv run python scripts/check_imports.py
+        env:
+          UNC_BENCH_OFFLINE: "1"
+
       - name: pytest
         run: uv run pytest -q
         env:

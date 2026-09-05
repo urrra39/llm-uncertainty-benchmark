@@ -250,6 +250,16 @@ def check_calibration(results: dict[str, Any], problems: list[str]) -> None:
 def check_misc(results: dict[str, Any], problems: list[str]) -> None:
     view = results["views"]["primary"]
 
+    # `docs/OPEN_DEFECTS.md` is generated from OPEN_DEFECTS below. If the table
+    # drifted from its source, the defect tracker is decorative.
+    generated = render_open_defects()
+    defects_path = REPO_ROOT / "docs" / "OPEN_DEFECTS.md"
+    if not defects_path.exists():
+        problems.append("docs/OPEN_DEFECTS.md is absent; generate it from OPEN_DEFECTS")
+    elif defects_path.read_text(encoding="utf-8") != generated:
+        problems.append("docs/OPEN_DEFECTS.md drifted from OPEN_DEFECTS in scripts/audit_docs.py")
+    view = results["views"]["primary"]
+
     # The recovered secondary-judge file must carry its minority floor: 53
     # unanimous rows are not a quotable kappa (the D26 trap in miniature).
     recovered_path = REPO_ROOT / "data" / "judge_verdicts_recovered.json"
@@ -258,9 +268,7 @@ def check_misc(results: dict[str, Any], problems: list[str]) -> None:
         if recovered.get("trustworthy") is not False:
             problems.append("judge_verdicts_recovered.json still claims trustworthy: true")
         if recovered.get("minority_count") != 6:
-            problems.append(
-                f"recovered minority count moved: {recovered.get('minority_count')}"
-            )
+            problems.append(f"recovered minority count moved: {recovered.get('minority_count')}")
         if recovered.get("kappa_n") != 53:
             problems.append(f"recovered kappa n moved: {recovered.get('kappa_n')}")
     else:
@@ -406,6 +414,12 @@ def check_cross_document(problems: list[str]) -> None:
             "docs/DECISIONS.md lacks the 66-vs-60 reconciliation note "
             "(run #1's 60 vs run #2's 66 must be marked as a session boundary)"
         )
+    # The README may not quote a ranking without stating the label-quality
+    # status beside it (Part A3): the committed run predates the fourth gate,
+    # so the statement is prose rather than a value from results.json.
+    readme = texts[REPO_ROOT / "README.md"]
+    if "human_label_coverage" not in readme:
+        problems.append("README.md quotes rankings without naming the human_label_coverage gate")
     # The session-7 status block claimed three files did not exist.
     for claim in (
         "`configs/run3_gpu.yaml` does not exist.",
@@ -455,6 +469,81 @@ def check_cross_document(problems: list[str]) -> None:
                 Config.load(target)
             except Exception as exc:  # reporting the failure is the point
                 problems.append(f"{label} names {target.name}, which fails to load: {exc}")
+
+
+#: Open defects as structured data. `docs/OPEN_DEFECTS.md` is rendered from
+#: this list by `render_open_defects`, and `check_misc` fails the audit when
+#: the committed file drifts from it — so the tracker cannot go stale without
+#: the audit saying so. Permanent consequences (run #2's lost artifacts) are
+#: recorded as such rather than as open work.
+OPEN_DEFECTS: tuple[dict[str, str], ...] = (
+    {
+        "id": "D27",
+        "title": "Batched generation perturbs per-token logprobs (2.52e-02, CPU/bfloat16)",
+        "status": "open",
+        "measurement_to_close": (
+            "`unc-bench nondeterminism` batch_invariance.pass == true on the "
+            "run's target device and dtype (T4, fp16 for run #3)"
+        ),
+        "blocks": "configs/run3_gpu.yaml generation_batch_size (pinned at 1)",
+    },
+    {
+        "id": "D36",
+        "title": "No per-config lock file; concurrent generate halves throughput",
+        "status": "open",
+        "measurement_to_close": (
+            "second invocation against the same config refuses to start; "
+            "covered by a test that launches two runs"
+        ),
+        "blocks": "operator time, not correctness",
+    },
+    {
+        "id": "HUMAN-COVERAGE",
+        "title": "No human has verified any label (gate human_label_coverage fails at 0.0)",
+        "status": "open",
+        "measurement_to_close": (
+            "data/human_validation_sample.csv human_label coverage >= 0.80, "
+            "per docs/HUMAN_LABELING.md"
+        ),
+        "blocks": "validity_gates.all_passed for every future run",
+    },
+    {
+        "id": "RUN2-ARTIFACTS",
+        "title": "Run #2 per-row artifacts lost to the old ignore policy",
+        "status": "permanent",
+        "measurement_to_close": "none recoverable; run #3 artifacts are tracked",
+        "blocks": "run #2 per-dataset bootstrap intervals (Hanley-McNeil fallback stands)",
+    },
+    {
+        "id": "GEN-DETERMINISM",
+        "title": "Generation reproducibility unmeasured on every run",
+        "status": "open",
+        "measurement_to_close": (
+            "`unc-bench nondeterminism` greedy double-run mismatch rate on the " "run's rows"
+        ),
+        "blocks": "no claim in either direction (README states this)",
+    },
+)
+
+
+def render_open_defects() -> str:
+    """The open-defect tracker as markdown, generated from OPEN_DEFECTS."""
+    lines = [
+        "# Open defects",
+        "",
+        "Generated from `OPEN_DEFECTS` in `scripts/audit_docs.py` — edit the",
+        "source, not this file. The docs audit fails when the two disagree.",
+        "",
+        "| ID | Title | Status | What closes it | What it blocks |",
+        "|---|---|---|---|---|",
+    ]
+    for defect in OPEN_DEFECTS:
+        lines.append(
+            f"| {defect['id']} | {defect['title']} | {defect['status']} | "
+            f"{defect['measurement_to_close']} | {defect['blocks']} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
 
 
 def main() -> int:

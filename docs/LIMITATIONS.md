@@ -138,6 +138,30 @@ Written against run #2 (n=120, `configs/run2.yaml`). Run #1 is discarded; see
     not been made. 9 of the 100 sampled rows have the heuristic and the judge
     disagreeing.
 
+15. **The `capital of` slice is contaminated by echo behavior, not just noisy.**
+    The model echoes the subject on essentially every inverse-template row and
+    the label follows alias-list happenstance (14 of 20 echo rows in the
+    validation sample; `data/echo_contamination_report.json`). Echoes are
+    confident under every signal, so the noise concentrates in the
+    looks-fine stratum and pushes PopQA AUROC toward 0.50 by construction.
+    Run #3 removes the relation; run #2's numbers include it.
+
+16. **n=120 holds fewer than 120 independent items.** PopQA repeats questions
+    with permuted alias lists — Rome three times, Jerusalem four, Delhi three
+    in the visible sample alone — and greedy decoding at temperature 0 gives
+    byte-identical outputs for identical prompts. Duplicate rows are perfectly
+    correlated in every signal column and in the label, while the bootstrap
+    resamples rows as independent, so every interval in `results.json` is too
+    narrow. Run #3 deduplicates on normalized question text with alias-list
+    merging and resamples question clusters.
+
+17. **The fourth validity gate fails and will keep failing until a human
+    labels.** `human_label_coverage` records 0.0 today. That is not a footnote:
+    it means `validity_gates.all_passed` is false for every future run until
+    `data/human_validation_sample.csv` reaches 0.80 coverage per
+    `docs/HUMAN_LABELING.md` — the ranking is unpublished until then by the
+    project's own rule.
+
 15. **Semantic entropy mixes two decoding temperatures, and the clustering is
     order-dependent.** The scored answer set is `[greedy(T=0),
     *samples(T=0.7)]`, so the entropy is computed over a distribution that mixes
