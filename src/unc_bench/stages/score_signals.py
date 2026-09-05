@@ -149,14 +149,20 @@ def run_b(cfg: Config, *, limit: int | None = None) -> int:
                 sample_answers,
                 model,
                 cfg.nli,
+                clusterer=cfg.nli.primary_clusterer,
             )
-            raw.update(compute_family_b_samples_only(sample_answers, model, cfg.nli))
-            try:
+            raw.update(
+                compute_family_b_samples_only(
+                    sample_answers, model, cfg.nli, clusterer=cfg.nli.primary_clusterer
+                )
+            )
+            if _audit_row(qid, cfg):
                 clustering_audited += 1
-                if clustering_disagreement(greedy_answer, sample_answers, model, cfg.nli):
-                    clustering_disagreements += 1
-            except Exception as audit_exc:
-                print(f"[score_signals] family B audit {qid} failed: {audit_exc}", flush=True)
+                try:
+                    if clustering_disagreement(greedy_answer, sample_answers, model, cfg.nli):
+                        clustering_disagreements += 1
+                except Exception as audit_exc:
+                    print(f"[score_signals] family B audit {qid} failed: {audit_exc}", flush=True)
             out: dict[str, Any] = {"qid": qid}
             out.update(orient_all(raw))
             rows.append(out)
@@ -174,6 +180,8 @@ def run_b(cfg: Config, *, limit: int | None = None) -> int:
     clustering_meta = {
         "n_rows_audited": clustering_audited,
         "greedy_vs_exhaustive_disagreements": clustering_disagreements,
+        "primary_clusterer": cfg.nli.primary_clusterer,
+        "audit_fraction": cfg.nli.audit_fraction,
         "note": (
             "rows where greedy single-pass assignment and transitive-closure "
             "clustering partition the answer set differently; on disagreement "
@@ -189,6 +197,25 @@ def run_b(cfg: Config, *, limit: int | None = None) -> int:
         flush=True,
     )
     return len(rows)
+
+
+def _audit_row(qid: str, cfg: Config) -> bool:
+    """Whether this row gets both clusterers, deterministically per qid.
+
+    A seeded fraction (default 0.2) keeps the audit's NLI cost bounded on weak
+    hardware; `force_full_audit` covers validation runs. Deterministic so
+    reruns audit the same rows.
+    """
+    import hashlib
+
+    if cfg.nli.force_full_audit:
+        return True
+    if cfg.nli.audit_fraction >= 1.0:
+        return True
+    if cfg.nli.audit_fraction <= 0.0:
+        return False
+    digest = hashlib.sha256(qid.encode()).digest()
+    return (int.from_bytes(digest[:8], "big") / 2**64) < cfg.nli.audit_fraction
 
 
 def merged_signals(cfg: Config) -> pd.DataFrame:

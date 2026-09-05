@@ -477,3 +477,15 @@ def test_signal_coverage_rejects_unregistered_columns() -> None:
     frame = pd.DataFrame({"qid": ["q1"], "a_signal_that_does_not_exist": [1.0]})
     with pytest.raises(AssertionError, match="without a registry entry"):
         _assert_signal_coverage(frame, ["a_signal_that_does_not_exist"])
+
+
+def test_wilson_interval_covers_and_shrinks() -> None:
+    from unc_bench.analysis.metrics import wilson_interval
+
+    low, high = wilson_interval(0, 10)
+    assert low == 0.0
+    assert 0.2 < high < 0.35
+    low, high = wilson_interval(5, 10)
+    assert low < 0.5 < high
+    low, high = wilson_interval(0, 0)
+    assert math.isnan(low) and math.isnan(high)

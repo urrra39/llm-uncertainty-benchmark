@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
+from typing import Literal
 
 from unc_bench.config import NLISpec
 from unc_bench.normalize import (
@@ -321,11 +322,23 @@ def clustering_disagreement(
     return canonical(greedy) != canonical(exhaustive)
 
 
+def _cluster(
+    answers: list[str],
+    model: EntailmentModel,
+    spec: NLISpec,
+    clusterer: Literal["greedy", "exhaustive"],
+) -> list[list[int]]:
+    if clusterer == "exhaustive":
+        return cluster_answers_exhaustive(answers, model, spec)
+    return cluster_answers(answers, model, spec)
+
+
 def compute_family_b(
     greedy_answer: str,
     sample_answers: Sequence[str],
     model: EntailmentModel,
     spec: NLISpec,
+    clusterer: Literal["greedy", "exhaustive"] = "greedy",
 ) -> dict[str, float]:
     """Every family-B signal, in raw units.
 
@@ -348,7 +361,7 @@ def compute_family_b(
     disagreements = sum(1 for a in sample_answers if normalize_answer(a) != greedy_norm)
     distinct = count_distinct(answer_set)
 
-    clusters = cluster_answers(answer_set, model, spec)
+    clusters = _cluster(answer_set, model, spec, clusterer)
     entropy = cluster_entropy(clusters)
     # Normalizing by ln(set size) puts the value on [0, 1] so an N=2 and an N=5
     # run are comparable. A set of one has ln(1) = 0 in the denominator and no
@@ -370,6 +383,7 @@ def compute_family_b_samples_only(
     sample_answers: Sequence[str],
     model: EntailmentModel,
     spec: NLISpec,
+    clusterer: Literal["greedy", "exhaustive"] = "greedy",
 ) -> dict[str, float]:
     """The six family-B statistics over the stochastic samples alone.
 
@@ -395,7 +409,7 @@ def compute_family_b_samples_only(
     disagreements = sum(1 for text in normalized if text != plurality)
     distinct = count_distinct(sample_answers)
 
-    clusters = cluster_answers(list(sample_answers), model, spec)
+    clusters = _cluster(list(sample_answers), model, spec, clusterer)
     entropy = cluster_entropy(clusters)
     max_entropy = math.log(len(sample_answers)) if len(sample_answers) > 1 else 0.0
     normalized_entropy = entropy / max_entropy if max_entropy > 0.0 else nan

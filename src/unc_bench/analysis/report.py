@@ -185,7 +185,17 @@ def build_results(cfg: Config) -> dict[str, Any]:
         try:
             stored = json.loads(family_b_meta_path.read_text(encoding="utf-8"))
             if isinstance(stored, dict):
-                family_b_clustering = {"available": True, **stored}
+                from unc_bench.analysis.metrics import wilson_interval
+
+                audited = int(stored.get("n_rows_audited", 0))
+                disagreed = int(stored.get("greedy_vs_exhaustive_disagreements", 0))
+                low, high = wilson_interval(disagreed, audited)
+                family_b_clustering = {
+                    "available": True,
+                    **stored,
+                    "disagreement_rate": (disagreed / audited) if audited else None,
+                    "disagreement_wilson_95": [low, high],
+                }
         except (OSError, json.JSONDecodeError):
             pass
 

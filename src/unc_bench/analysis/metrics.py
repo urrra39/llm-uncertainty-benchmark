@@ -711,6 +711,30 @@ def paired_bootstrap_auroc_diff(
     return (delta, low, high, p, n_paired)
 
 
+def wilson_interval(k: int, n: int, *, level: float = 0.95) -> tuple[float, float]:
+    """Wilson score interval for a binomial proportion.
+
+    Closed form, no dependencies: with z the two-sided normal quantile,
+    centre = (p + z^2/2n) / (1 + z^2/n) and half-width =
+    z*sqrt(p(1-p)/n + z^2/4n^2) / (1 + z^2/n). Used for audit rates
+    (clustering disagreements) where n is small and the Wald interval would
+    collapse. Returns (NaN, NaN) for n == 0.
+    """
+    import math
+    from statistics import NormalDist
+
+    if n <= 0:
+        return (float("nan"), float("nan"))
+    if not 0.0 < level < 1.0:
+        raise ValueError(f"wilson_interval needs 0 < level < 1, got {level}")
+    z = NormalDist().inv_cdf(1.0 - (1.0 - level) / 2.0)
+    p = k / n
+    denom = 1.0 + z * z / n
+    centre = (p + z * z / (2.0 * n)) / denom
+    half = z * math.sqrt(p * (1.0 - p) / n + z * z / (4.0 * n * n)) / denom
+    return (max(0.0, centre - half), min(1.0, centre + half))
+
+
 def holm_bonferroni(p_values: Sequence[float]) -> list[float]:
     """Holm step-down adjustment. Returns adjusted p-values in input order.
 

@@ -386,3 +386,21 @@ def test_clustering_audit_flags_order_dependent_rows() -> None:
     )
     agreeing = ScriptedEntailmentModel({}, default=0.0)
     assert clustering_disagreement("Rome", ["Rome", "Rome"], agreeing, SPEC) is False
+
+
+def test_primary_clusterer_param_selects_the_partition() -> None:
+    """Same rows, different clusterer: greedy splits the chain, exhaustive closes it."""
+    scores = {
+        ("ax", "bx"): 0.9,
+        ("bx", "ax"): 0.9,
+        ("bx", "cx"): 0.9,
+        ("cx", "bx"): 0.9,
+        ("ax", "cx"): 0.1,
+        ("cx", "ax"): 0.1,
+    }
+    greedy = compute_family_b("ax", ["bx", "cx"], ScriptedEntailmentModel(scores), SPEC)
+    closed = compute_family_b(
+        "ax", ["bx", "cx"], ScriptedEntailmentModel(scores), SPEC, clusterer="exhaustive"
+    )
+    assert greedy[SEMANTIC_ENTROPY.name] == pytest.approx(0.6365141682948129)
+    assert closed[SEMANTIC_ENTROPY.name] == pytest.approx(0.0)

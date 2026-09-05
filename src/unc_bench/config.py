@@ -157,6 +157,16 @@ class NLISpec(Frozen):
     batch_size: int = Field(default=16, ge=1, le=256)
     # Set from config.id2label at load time; asserted, never assumed.
     entailment_label: str = "entailment"
+    #: Which clusterer produces the family-B signals. Transitive closure is
+    #: the correct partition; greedy single-pass assignment against
+    #: first-member representatives is order-dependent. Greedy stays available
+    #: for comparison and for reproducing historical numbers.
+    primary_clusterer: Literal["exhaustive", "greedy"] = "exhaustive"
+    #: Fraction of rows receiving both clusterers for the audit. Deterministic
+    #: per qid, so reruns audit the same rows.
+    audit_fraction: Probability = 0.2
+    #: Audit every row instead of the fraction. For validation runs.
+    force_full_audit: bool = False
 
 
 class SignalsSpec(Frozen):

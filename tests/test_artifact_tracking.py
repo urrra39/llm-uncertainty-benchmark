@@ -155,3 +155,16 @@ def test_export_artifacts_script_exists_and_is_documented() -> None:
     assert "export-artifacts:" in makefile
     assert "scripts/export_artifacts.sh" in makefile
     assert "check-artifact-size:" in makefile
+
+
+@needs_git
+def test_audit_fraction_selection_is_deterministic() -> None:
+    """Seeded per-qid audit selection must not depend on run order."""
+    from unc_bench.config import Config
+    from unc_bench.stages.score_signals import _audit_row
+
+    cfg = Config.load(REPO / "configs" / "run2.yaml")
+    first = [f"qid-{i}" for i in range(50)]
+    assert [_audit_row(q, cfg) for q in first] == [_audit_row(q, cfg) for q in first]
+    assert any(_audit_row(q, cfg) for q in first)
+    assert not all(_audit_row(q, cfg) for q in first)
