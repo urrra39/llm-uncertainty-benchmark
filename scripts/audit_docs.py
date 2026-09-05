@@ -381,7 +381,7 @@ def check_misc(results: dict[str, Any], problems: list[str]) -> None:
             problems.append(f"Spearman {left} vs {right}: {value}")
 
 
-def check_cross_document(problems: list[str]) -> None:
+def check_cross_document(results: dict[str, Any], problems: list[str]) -> None:
     """Claims the documents make about each other and about the repository."""
     texts = {path: path.read_text(encoding="utf-8") for path in DOCS}
 
@@ -431,6 +431,24 @@ def check_cross_document(problems: list[str]) -> None:
     for gate in ("labeling_protocol_validated", "human_label_coverage"):
         if gate not in defects_text:
             problems.append(f"docs/OPEN_DEFECTS.md does not name the {gate} gate")
+
+    # The withdrawal bound is arithmetic over committed artifacts, not prose:
+    # alias-decided echo rows in the observed 100 plus all 20 unobserved rows.
+    echo_path = REPO_ROOT / "data" / "echo_contamination_report.json"
+    if echo_path.exists():
+        echo = json.loads(echo_path.read_text(encoding="utf-8"))
+        bound = int(echo["n_echo_decided_by_subject_in_alias_list"]) + (
+            int(results["views"]["primary"]["n"]) - int(echo["n_rows"])
+        )
+        for doc in ("README.md", "docs/DECISIONS.md", "AUDIT_RESPONSE.md"):
+            text = (REPO_ROOT / doc).read_text(encoding="utf-8")
+            if str(bound) not in text:
+                problems.append(
+                    f"{doc} does not state the {bound}-row withdrawal bound "
+                    "derived from the echo report"
+                )
+    else:
+        problems.append("data/echo_contamination_report.json is absent")
     # The session-7 status block claimed three files did not exist.
     for claim in (
         "`configs/run3_gpu.yaml` does not exist.",
@@ -587,7 +605,7 @@ def main() -> int:
     check_ablation(results, problems)
     check_calibration(results, problems)
     check_misc(results, problems)
-    check_cross_document(problems)
+    check_cross_document(results, problems)
 
     if not problems:
         print("no discrepancies found across the four documents and results.json")

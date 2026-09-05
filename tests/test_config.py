@@ -21,7 +21,9 @@ def _raw(name: str) -> dict[str, Any]:
     return loaded
 
 
-@pytest.mark.parametrize("name", ["default.yaml", "pilot.yaml", "run2.yaml", "run3_gpu.yaml"])
+@pytest.mark.parametrize(
+    "name", ["default.yaml", "pilot.yaml", "run2.yaml", "run3_gpu.yaml", "run2b_clean.yaml"]
+)
 def test_shipped_configs_validate(name: str) -> None:
     cfg = Config.load(CONFIG_DIR / name)
     assert cfg.greedy.temperature == 0.0
@@ -152,3 +154,26 @@ def test_prompt_instructs_shortest_span_and_unknown() -> None:
     prompts = Config.load(CONFIG_DIR / "default.yaml").prompts
     assert "shortest" in prompts.system.lower()
     assert prompts.abstain_token in prompts.system
+
+
+def test_run2b_is_run2_with_decontaminated_construction() -> None:
+    """E1: run #2b differs from run #2 only where decontamination requires."""
+    run2 = Config.load(CONFIG_DIR / "run2.yaml")
+    run2b = Config.load(CONFIG_DIR / "run2b_clean.yaml")
+    assert run2b.run_name == "run2b_clean"
+    assert run2b.model_under_test == run2.model_under_test
+    assert run2b.greedy == run2.greedy
+    assert run2b.sampling == run2.sampling
+    assert run2b.few_shot == run2.few_shot
+    assert run2b.prompts == run2.prompts
+    assert run2b.judges == run2.judges
+    assert run2b.split == run2.split
+    assert run2b.dataset_seed == run2.dataset_seed
+    # The deliberate differences: balanced split, no inverse relation,
+    # leakage filter on, own artifacts.
+    assert (run2b.dataset_mix.popqa, run2b.dataset_mix.triviaqa) == (60, 60)
+    assert "capital of" not in (run2b.difficulty.popqa_relations or ())
+    assert run2b.difficulty.drop_gold_in_question is True
+    assert run2b.paths.artifacts_dir != run2.paths.artifacts_dir
+    assert run2b.paths.results_json != run2.paths.results_json
+    assert run2b.paths.figures_dir != run2.paths.figures_dir

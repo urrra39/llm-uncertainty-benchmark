@@ -203,9 +203,7 @@ def protocol_validated_gate(coverage: float | None) -> Gate:
     produced under untested instructions. Same record-don't-raise convention.
     """
     ok = coverage is not None and math.isfinite(coverage) and coverage >= MIN_PROTOCOL_COVERAGE
-    observed = (
-        f"{PROTOCOL_CSV} absent" if coverage is None else f"coverage {coverage:.3f}"
-    )
+    observed = f"{PROTOCOL_CSV} absent" if coverage is None else f"coverage {coverage:.3f}"
     return Gate(
         name="labeling_protocol_validated",
         passed=ok,

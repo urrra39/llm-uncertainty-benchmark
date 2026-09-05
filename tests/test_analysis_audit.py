@@ -386,3 +386,23 @@ def test_human_agreement_subcommand_reports_a_missing_file(
     missing = tmp_path / "nope.csv"
     assert main(["human-agreement", "--config", "configs/run2.yaml", "--csv", str(missing)]) == 2
     assert "no validation CSV" in capsys.readouterr().err
+
+
+def test_readme_header_matches_generated_block() -> None:
+    """F3: the README status block must equal the generator output verbatim."""
+    import subprocess
+    import sys
+
+    repo = Path(__file__).resolve().parents[1]
+    generated = subprocess.run(
+        [sys.executable, "scripts/render_readme_header.py"],
+        capture_output=True,
+        text=True,
+        cwd=repo,
+        check=False,
+    )
+    assert generated.returncode == 0
+    readme = (repo / "README.md").read_text(encoding="utf-8")
+    for line in generated.stdout.strip().splitlines():
+        if line.strip():
+            assert line.strip() in readme

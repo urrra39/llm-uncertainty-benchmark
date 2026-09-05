@@ -96,3 +96,15 @@ evidence is.
   description is a GitHub setting. Suggested replacement: "n=120 null result:
   no uncertainty signal established above chance on PopQA; stratified table
   inside." Owner action required.
+
+---
+
+# Round 4: closing the audit gap (in progress)
+
+## Withdrawal bound
+
+Worst case from committed artifacts: 14 alias-decided echo rows observed in
+100 plus all 20 unobserved rows, so up to **34 of 120 labels (28%)** could
+flip. That bound exceeds every interval in the run and withdraws the ranking
+(see README "Run #2 and why its ranking is withdrawn"). Item-by-item
+dispositions for round 4 follow as each part lands.

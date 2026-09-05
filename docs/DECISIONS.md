@@ -543,6 +543,14 @@ raised from 60 to 100 so the second judge covers every judged row.
 > contradiction — only a session boundary the original note failed to mark.
 > The "60" worth distrusting was the compliance-selected denominator, which is
 > what the D11 code assertion now guards.
+>
+> Follow-up (audit round 4): demonstrated from committed artifacts as far as
+> they go — run #1's tag (`run1-n100`) stores κ=1.0 on n=71 and configs with
+> `cross_validation_n` 30/100, while run #2's `results.json` stores n=66 with
+> the D11 denominator assertion. The transient "60" (second judge asked for
+> 60) appears in no committed config and is therefore UNRESOLVED by
+> artifacts; it survives only in this prose. That is stated here rather than
+> smoothed over, because an asserted reconciliation is what this repo never does.
 
 Result: **κ = 1.000 on n=71**, observed agreement 1.000, expected 0.919, 0 parse
 failures on either judge, 0 rows on the fuzzy fallback. Two existing tests

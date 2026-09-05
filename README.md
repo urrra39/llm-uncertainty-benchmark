@@ -6,6 +6,11 @@
 > the invalidated run, on the same footing as run #1. The primary result is
 > run #2b's, once it has run.
 
+> Status, generated from `results.json` (`scripts/render_readme_header.py`):
+> Primary run: run2_easy_mix (n=120, 63 incorrect / 57 correct).
+> ALL THREE VALIDITY GATES PASS as recorded in this file (t_random 0.508 [0.404, 0.611]).
+> Label quality: 0/100 human-labelled — the correctness of the label set is unmeasured.
+
 Twenty-one uncertainty signals from three families — token logprobs (1× cost),
 self-consistency over 5 samples (6× cost), and self-verification / P(True)
 (2× cost) — ranked by how well each predicts that Qwen2.5-0.5B-Instruct got a

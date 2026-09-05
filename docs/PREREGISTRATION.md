@@ -86,3 +86,55 @@ neither clears chance, in which case the finding is "no signal established",
 not "the cheaper one wins". A ranking inversion across model scale (0.5B run
 #2 vs 3B run #3 on comparable questions) would be reported as the headline,
 not buried: it directly answers LIMITATIONS item 2.
+
+---
+
+# Pre-registration: run #2b (n=120, balanced 60/60, Qwen2.5-0.5B-Instruct CPU)
+
+Committed BEFORE run #2b is executed. `configs/run2b_clean.yaml` differs from
+`configs/run2.yaml` only in dataset construction (no `capital of`, leakage
+rows dropped, near-duplicates deduped, 60/60 split) plus the infrastructural
+improvements that postdate run #2 (per-question sample seeds, exhaustive
+primary clusterer with audit, cluster bootstrap, distinct-signal Holm,
+signal coverage, token prices). Decoding, prompts, sampling counts, NLI model
+and all seeds are identical.
+
+## Power, stated first
+
+Hanley–McNeil analytic interval at 30/30, AUROC 0.60: [0.456, 0.744],
+half-width 0.145 (computed, not guessed). A true 0.60 does NOT separate from
+0.50 at 60 rows per subset. Run #2b is therefore powered to detect only large
+effects and is primarily a **validity** run: its job is to show that
+decontamination changes the labels in the predicted direction, not to rank
+18 (+6 samples-only) signals.
+
+## Primary metric and subset
+
+AUROC for INCORRECT with stratified percentile bootstrap intervals, on PopQA
+alone (n=60) and on the stratified pooled mean. The pooled raw AUROC is
+reported for continuity and must not be quoted as a finding (finding 4).
+
+## The falsifiable prediction (E4)
+
+The contamination hypothesis predicts that on clean labels, the signals that
+sat at or below chance in run #2's confident stratum move UP:
+`c_verbal_confidence` (0.484 pooled) and `a_mean_logprob` (0.514 on PopQA).
+The mechanism being removed — near-random labels concentrated exactly where
+the signals say "fine" — can only have pushed those numbers down.
+
+Falsification: if they do not move up, the contamination hypothesis is wrong
+or incomplete, and the README headline becomes that — not a rescued ranking.
+Confound, stated in advance: run #2b labels are heuristic (exact match +
+containment; no judge credentials in this environment), while run #2's were
+judged. Containment itself scores echo-shaped answers correct when the subject
+sits inside an alias, so part of any movement may be labeler change rather
+than decontamination. The comparison is valid only as a direction check, and
+is labelled as such everywhere it appears.
+
+## Gates and stopping
+
+Same five gates (random-baseline CI, ≥30 per class per subset where
+applicable, abstention < 0.10, protocol ≥ 0.50, run coverage ≥ 0.80). The
+POST-run human gate will fail until `data/human_validation_sample_run2b.csv`
+is labelled — expected, recorded, not a surprise. One execution at the
+committed config; no re-filtering after labels.

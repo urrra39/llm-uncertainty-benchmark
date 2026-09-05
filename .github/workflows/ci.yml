@@ -49,6 +49,13 @@ jobs:
         env:
           UNC_BENCH_OFFLINE: "1"
 
+      # The four documents restate results.json in prose; prose drifts. This
+      # re-derives every quoted figure and fails on any disagreement.
+      - name: audit docs against results.json
+        run: uv run python scripts/audit_docs.py
+        env:
+          UNC_BENCH_OFFLINE: "1"
+
       - name: pytest
         run: uv run pytest -q
         env:
