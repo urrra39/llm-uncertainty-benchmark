@@ -1,0 +1,16 @@
+{
+  "family_b": {
+    "elapsed_s": 25.658967499999562,
+    "failures": 0.0,
+    "items": 120.0,
+    "seconds_per_item": 0.213824729166663
+  },
+  "generate": {
+    "cache_hits": 0.0,
+    "cache_misses": 840.0,
+    "elapsed_s": 735.1067772090028,
+    "failures": 0.0,
+    "items": 120.0,
+    "seconds_per_item": 6.125889810075023
+  }
+}

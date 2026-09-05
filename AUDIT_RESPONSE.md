@@ -108,3 +108,57 @@ Worst case from committed artifacts: 14 alias-decided echo rows observed in
 flip. That bound exceeds every interval in the run and withdraws the ranking
 (see README "Run #2 and why its ranking is withdrawn"). Item-by-item
 dispositions for round 4 follow as each part lands.
+
+---
+
+# Round 4: closing the audit gap + run #2b (executed)
+
+## Withdrawal bound
+
+Worst case from committed artifacts: 14 alias-decided echo rows observed in
+100 plus all 20 unobserved rows, so up to **34 of 120 labels (28%)** could
+flip. That bound exceeds every interval in the run and withdraws the ranking
+(see README "Run #2 and why its ranking is withdrawn"). Item-by-item
+dispositions for round 4 follow as each part lands.
+
+## Dispositions
+
+- **A1–A3.** Done (see round-3 entries for the machinery). New: README scope
+  captions on every ranking table; `signal_coverage` block with a registry
+  check that raises on unregistered columns (fixed one live bug: meta columns
+  tripped the first version); sensitivity bound computed, ranking withdrawn
+  in run-#1 style.
+- **B1–B2.** Done: POST-run `human_label_coverage` (0.80) + PRE-run
+  `labeling_protocol_validated` (0.50) as distinct gates; numbered ordering in
+  the pre-registration; OPEN_DEFECTS regenerated; audit pins both names in
+  all three documents.
+- **C1–C3.** Done: PopQA pool widened to 2074 unique (6.91x) at quantile 0.5
+  with the tail tradeoff recorded; relations selected from
+  `data/gold_quality_report.json` (`place of birth` cut, `genre` in);
+  `sampling_margin` in results + build warning below 2x. C3 refused with
+  evidence (git log -S shows 0.25 since introduction; equality pinned).
+- **D1–D2.** Done: sampled audit (seeded 20%, full-audit flag, Wilson
+  interval, primary clusterer configurable defaulting to exhaustive);
+  token prices from the generations artifact with family C null + reason;
+  figure prefers tokens with call fallback; NLI cost re-measurement lands
+  with run #2b's real timings (family B 0.21 s/item here).
+- **E1–E6.** Done: `configs/run2b_clean.yaml` (60/60, verified distinct from
+  run #2 only where decontamination requires + new-code defaults);
+  pre-registered with measured power (half-width 0.145 — validity run, not a
+  ranking study) and the falsifiable E4 prediction; executed on CPU here
+  (6.1 s/question); `results_run2b.json` + 6 figures + tracked per-row
+  artifacts committed; `data/human_validation_sample_run2b.csv` shipped
+  49/51 with `human_label` empty.
+- **E4 verdict.** `a_mean_logprob` PopQA 0.514 → 0.740 clearing chance:
+  confirmed. `c_verbal_confidence` 0.395 → 0.504: direction confirmed,
+  magnitude not — still chance. `t_question_length` 0.684 pooled → 0.499
+  PopQA: provenance confirmed. `t_random` significantly worse than the leader
+  on clean data: the estimator stands vindicated. Reported as directional
+  confirmation because the labeler changed (judged → heuristic) alongside
+  decontamination; a clean causal attribution needs judged labels.
+- **F1–F3.** Done with one marked-unresolved: 71 (run #1 tag) and 66 (run #2
+  file + D11 assertion) demonstrated; transient 60 in no committed config,
+  marked unresolved in the D26 note. Audit cross-checks the withdrawal bound,
+  gate names, recovered-κ status and reconciliation note; audit_docs runs in
+  CI; README header generated from the primary results file (now run #2b's,
+  honestly showing VALIDITY FAILED on the two human gates).

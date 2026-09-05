@@ -1,0 +1,10 @@
+{
+  "n_primary": 0,
+  "n_secondary": 0,
+  "n_sent_to_both": 0,
+  "note": "per-row judge verdicts for this run; the kappa in results.json is recomputable from the rows where both judges replied",
+  "primary_model": "gpt-5-mini",
+  "rows": {},
+  "secondary_model": "claude-haiku-4-5",
+  "secondary_seed": 4242
+}

@@ -1,7 +1,11 @@
 # Limitations
 
-Written against run #2 (n=120, `configs/run2.yaml`). Run #1 is discarded; see
-"Run #1 and why it was discarded" in the README.
+Written against run #2 (n=120, `configs/run2.yaml`) and run #2b (n=120,
+`configs/run2b_clean.yaml`). Run #1 is discarded; run #2's ranking is
+withdrawn (see README); run #2b is primary but its human gates fail, so its
+ranking is a measurement, not yet a publishable finding. Items 1–14 describe
+run #2; items 15–17 the contamination found after it; items 18+ the limits of
+run #2b itself.
 
 1. **n=120 is small.** AUROC confidence intervals are roughly ±0.09 wide. The
    top six signals are statistically indistinguishable from each other. The
@@ -174,3 +178,17 @@ Written against run #2 (n=120, `configs/run2.yaml`). Run #1 is discarded; see
     cluster, which is order-dependent in principle; no audit of greedy versus
     exhaustive assignment is stored, so the "agree on every case observed" claim
     cannot be rechecked from committed artifacts.
+
+18. **Run #2b labels are heuristic, not judged.** No judge credentials exist
+    offline, so 47 rows settled by exact match and 73 by fuzzy containment,
+    with no kappa. Containment has its own echo-shaped bias (a subject inside
+    an alias scores correct), so the E4 comparison across labelers is a
+    direction check only. The human gates fail until
+    `data/human_validation_sample_run2b.csv` is labelled.
+19. **Run #2b is still small and still imbalanced.** 60 rows per subset with
+    base rates of 38% (PopQA) and 80% (TriviaQA) incorrect; the analytic
+    half-width at 30/30 is 0.145, so only large effects separate. It is a
+    validity run by design (see its pre-registration), not a ranking study.
+20. **Run #2b's N-ablation does not saturate at N=3.** AUROC climbs 0.641 /
+    0.700 / 0.742 / 0.765 at N=1/2/3/5; N=1 is significantly below N=5 but
+    N=3 vs N=5 is indistinguishable. "Use N=3" survives as cost advice.

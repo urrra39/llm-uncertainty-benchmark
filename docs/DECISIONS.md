@@ -1415,3 +1415,43 @@ throughout; everything new targets run #3 or the infrastructure around it.
   The two runs still needed are named in `docs/PREREGISTRATION.md`, and the
   repo description (a GitHub setting, not a file) still leads with the pooled
   claim the analysis disowns — the owner must rewrite it by hand.
+
+## Round-4 session (audit gap + run #2b)
+
+The audit correctly identified the worst inconsistency in the tree: 12
+registered signals against a 21-signal `results.json`. Fixed structurally
+(`signal_coverage` block + registry check) rather than cosmetically, and the
+run below closes the divergence with 27/27 scored.
+
+- **R8. Run #2's ranking is withdrawn, with a bound, not a footnote.**
+  Sensitivity from committed artifacts only: 14 alias-decided rows observed +
+  20 unobserved rows worst-cased = 34/120 (28%) flippable labels, past what
+  ±0.09 intervals absorb. Withdrawn on run #1's footing, tables kept as
+  record, numbers untouched.
+- **R9. The pilot-gate accusation is refused with evidence.** `error_rate_low`
+  is 0.25 in every shipped config and in git history since introduction;
+  `pilot_gate.py` documents 25–65%. The claimed 0.35 never existed. An audit
+  check pins cross-config equality instead.
+- **R10. Run #3's relations come from measurement, with one cut the audit did
+  not ask for.** `place of birth` scores granularity-span 0.620 and is out;
+  `genre` (single-alias 0.074) is in; `religion`/`occupation` were suspected
+  and cleared. Quantile 0.9→0.5 buys 6.91x margin; the tail tradeoff belongs
+  to the pilot gate, not the filter. Run #2b keeps 0.9: different model,
+  different n, 3.20x margin for 60 draws.
+- **R11. Two calibration results, both kept.** The paired bootstrap holds
+  type-I near nominal (B1 refusal stands); run #2b's clean data additionally
+  shows `t_random` significantly worse than the leader (−0.276, p=0.0076),
+  which is what a powered run looks like under the same test.
+- **R12. The 66/60 split verdict: 71 and 66 demonstrated, transient 60
+  unresolved.** Run #1's tag stores κ=1.0/n=71; run #2 stores n=66 with the
+  D11 assertion; no committed config ever said 60. Marked as such in the D26
+  note rather than reconciled by assertion.
+- **R13. Run #2b executed on CPU here (this session's measurement).**
+  Generation 6.1 s/question (12.3 min for 120), family B 0.21 s/item,
+  labels 71 incorrect / 49 correct heuristic (no judges: GSK_API_KEY unset,
+  recorded as heuristic_fallback_rows with no kappa rather than failing the
+  run). Base rates 38%/80% incorrect per subset. The E4 prediction held for
+  `a_mean_logprob` (0.514→0.740, clears chance) and directionally for
+  `c_verbal_confidence` (0.395→0.504, still chance) — reported as a
+  directional confirmation under changed labelers, not as a clean causal
+  attribution, because the labeler changed too.

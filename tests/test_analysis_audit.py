@@ -403,6 +403,7 @@ def test_readme_header_matches_generated_block() -> None:
     )
     assert generated.returncode == 0
     readme = (repo / "README.md").read_text(encoding="utf-8")
+    assert "run2b_clean" in generated.stdout
     for line in generated.stdout.strip().splitlines():
         if line.strip():
             assert line.strip() in readme

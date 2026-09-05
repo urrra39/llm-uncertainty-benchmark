@@ -1,0 +1,1175 @@
+{
+  "agreement_with_main_family_b_pass": {
+    "checked": true,
+    "level": 5,
+    "matches": false,
+    "max_abs_auroc_difference": 0.0265881000287439,
+    "per_signal": {
+      "b_disagreement_rate": 0.0,
+      "b_distinct_count": 0.0,
+      "b_distinct_fraction": 0.0,
+      "b_mean_pairwise_f1": 0.0,
+      "b_semantic_entropy": 0.0265881000287439,
+      "b_semantic_entropy_normalized": 0.0265881000287439
+    }
+  },
+  "by_n": {
+    "1": {
+      "n_samples": 1,
+      "signals": {
+        "b_disagreement_rate": {
+          "ci_high": 0.7173038229376257,
+          "ci_low": 0.5574877838459328,
+          "ci_width": 0.15981603909169295,
+          "n": 120,
+          "point": 0.6405576315033056,
+          "resamples": 10000
+        },
+        "b_disagreement_rate_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_distinct_count": {
+          "ci_high": 0.7173038229376257,
+          "ci_low": 0.5574877838459328,
+          "ci_width": 0.15981603909169295,
+          "n": 120,
+          "point": 0.6405576315033056,
+          "resamples": 10000
+        },
+        "b_distinct_count_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_distinct_fraction": {
+          "ci_high": 0.7173038229376257,
+          "ci_low": 0.5574877838459328,
+          "ci_width": 0.15981603909169295,
+          "n": 120,
+          "point": 0.6405576315033056,
+          "resamples": 10000
+        },
+        "b_distinct_fraction_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_mean_pairwise_f1": {
+          "ci_high": 0.7129994251221614,
+          "ci_low": 0.548720896809428,
+          "ci_width": 0.16427852831273337,
+          "n": 120,
+          "point": 0.6345214141994826,
+          "resamples": 10000
+        },
+        "b_mean_pairwise_f1_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_semantic_entropy": {
+          "ci_high": 0.6891348088531187,
+          "ci_low": 0.5363610232825524,
+          "ci_width": 0.1527737855705663,
+          "n": 120,
+          "point": 0.6155504455303248,
+          "resamples": 10000
+        },
+        "b_semantic_entropy_normalized": {
+          "ci_high": 0.6891348088531187,
+          "ci_low": 0.5363610232825524,
+          "ci_width": 0.1527737855705663,
+          "n": 120,
+          "point": 0.6155504455303248,
+          "resamples": 10000
+        },
+        "b_semantic_entropy_normalized_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_semantic_entropy_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        }
+      }
+    },
+    "2": {
+      "n_samples": 2,
+      "signals": {
+        "b_disagreement_rate": {
+          "ci_high": 0.7759413624604772,
+          "ci_low": 0.6040492957746479,
+          "ci_width": 0.17189206668582924,
+          "n": 120,
+          "point": 0.6934463926415637,
+          "resamples": 10000
+        },
+        "b_disagreement_rate_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_distinct_count": {
+          "ci_high": 0.7806841046277666,
+          "ci_low": 0.613391060649612,
+          "ci_width": 0.1672930439781546,
+          "n": 120,
+          "point": 0.7004886461626905,
+          "resamples": 10000
+        },
+        "b_distinct_count_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_distinct_fraction": {
+          "ci_high": 0.7806841046277666,
+          "ci_low": 0.613391060649612,
+          "ci_width": 0.1672930439781546,
+          "n": 120,
+          "point": 0.7004886461626905,
+          "resamples": 10000
+        },
+        "b_distinct_fraction_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_mean_pairwise_f1": {
+          "ci_high": 0.7687589824662259,
+          "ci_low": 0.5898210692727796,
+          "ci_width": 0.17893791319344632,
+          "n": 120,
+          "point": 0.6832423110089106,
+          "resamples": 10000
+        },
+        "b_mean_pairwise_f1_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_semantic_entropy": {
+          "ci_high": 0.7571212992239148,
+          "ci_low": 0.5906833860304685,
+          "ci_width": 0.16643791319344625,
+          "n": 120,
+          "point": 0.6772060937050877,
+          "resamples": 10000
+        },
+        "b_semantic_entropy_normalized": {
+          "ci_high": 0.7571212992239148,
+          "ci_low": 0.5906833860304685,
+          "ci_width": 0.16643791319344625,
+          "n": 120,
+          "point": 0.6772060937050877,
+          "resamples": 10000
+        },
+        "b_semantic_entropy_normalized_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_semantic_entropy_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        }
+      }
+    },
+    "3": {
+      "n_samples": 3,
+      "signals": {
+        "b_disagreement_rate": {
+          "ci_high": 0.8148929290025869,
+          "ci_low": 0.6401228801379707,
+          "ci_width": 0.17477004886461622,
+          "n": 120,
+          "point": 0.7316757688991089,
+          "resamples": 10000
+        },
+        "b_disagreement_rate_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_distinct_count": {
+          "ci_high": 0.8212165852256396,
+          "ci_low": 0.6547858580051739,
+          "ci_width": 0.1664307272204657,
+          "n": 120,
+          "point": 0.741879850531762,
+          "resamples": 10000
+        },
+        "b_distinct_count_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_distinct_fraction": {
+          "ci_high": 0.8212165852256396,
+          "ci_low": 0.6547858580051739,
+          "ci_width": 0.1664307272204657,
+          "n": 120,
+          "point": 0.741879850531762,
+          "resamples": 10000
+        },
+        "b_distinct_fraction_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_mean_pairwise_f1": {
+          "ci_high": 0.8111526300661109,
+          "ci_low": 0.6326530612244898,
+          "ci_width": 0.1784995688416211,
+          "n": 120,
+          "point": 0.7263581488933601,
+          "resamples": 10000
+        },
+        "b_mean_pairwise_f1_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_semantic_entropy": {
+          "ci_high": 0.8094279965507329,
+          "ci_low": 0.6405576315033056,
+          "ci_width": 0.16887036504742736,
+          "n": 120,
+          "point": 0.7305260132221902,
+          "resamples": 10000
+        },
+        "b_semantic_entropy_normalized": {
+          "ci_high": 0.8094279965507329,
+          "ci_low": 0.6405576315033056,
+          "ci_width": 0.16887036504742736,
+          "n": 120,
+          "point": 0.7305260132221902,
+          "resamples": 10000
+        },
+        "b_semantic_entropy_normalized_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_semantic_entropy_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        }
+      }
+    },
+    "5": {
+      "n_samples": 5,
+      "signals": {
+        "b_disagreement_rate": {
+          "ci_high": 0.8528312733544122,
+          "ci_low": 0.6944488358723772,
+          "ci_width": 0.15838243748203507,
+          "n": 120,
+          "point": 0.7782408738143145,
+          "resamples": 10000
+        },
+        "b_disagreement_rate_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_distinct_count": {
+          "ci_high": 0.8423397528025295,
+          "ci_low": 0.679214573153205,
+          "ci_width": 0.1631251796493245,
+          "n": 120,
+          "point": 0.7647312446105202,
+          "resamples": 10000
+        },
+        "b_distinct_count_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_distinct_fraction": {
+          "ci_high": 0.8423397528025295,
+          "ci_low": 0.679214573153205,
+          "ci_width": 0.1631251796493245,
+          "n": 120,
+          "point": 0.7647312446105202,
+          "resamples": 10000
+        },
+        "b_distinct_fraction_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_mean_pairwise_f1": {
+          "ci_high": 0.8312805403851681,
+          "ci_low": 0.6570853693590112,
+          "ci_width": 0.1741951710261569,
+          "n": 120,
+          "point": 0.7486346651336591,
+          "resamples": 10000
+        },
+        "b_mean_pairwise_f1_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_semantic_entropy": {
+          "ci_high": 0.8352974992814027,
+          "ci_low": 0.6672894509916643,
+          "ci_width": 0.16800804828973848,
+          "n": 120,
+          "point": 0.7559643575740155,
+          "resamples": 10000
+        },
+        "b_semantic_entropy_normalized": {
+          "ci_high": 0.8352974992814027,
+          "ci_low": 0.6672894509916643,
+          "ci_width": 0.16800804828973848,
+          "n": 120,
+          "point": 0.7559643575740155,
+          "resamples": 10000
+        },
+        "b_semantic_entropy_normalized_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        },
+        "b_semantic_entropy_samples_only": {
+          "ci_high": NaN,
+          "ci_low": NaN,
+          "ci_width": NaN,
+          "n": 0,
+          "point": NaN,
+          "resamples": 0
+        }
+      }
+    }
+  },
+  "level_differences": {
+    "available": true,
+    "comparisons": [
+      {
+        "ci_high": -0.07602400114975573,
+        "ci_low": -0.19948620293187702,
+        "delta_vs_reference": -0.13768324231100892,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.00019998000199980003,
+        "p_value_holm": 0.005999400059994001,
+        "reference_level": 5,
+        "signal": "b_disagreement_rate",
+        "significant_holm": true
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_disagreement_rate_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.05518827249209546,
+        "ci_low": -0.1930188272492095,
+        "delta_vs_reference": -0.12417361310721464,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.0005999400059994001,
+        "p_value_holm": 0.016198380161983803,
+        "reference_level": 5,
+        "signal": "b_distinct_count",
+        "significant_holm": true
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_distinct_count_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.05518827249209546,
+        "ci_low": -0.1930188272492095,
+        "delta_vs_reference": -0.12417361310721464,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.0005999400059994001,
+        "p_value_holm": 0.016198380161983803,
+        "reference_level": 5,
+        "signal": "b_distinct_fraction",
+        "significant_holm": true
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_distinct_fraction_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.04598663409025584,
+        "ci_low": -0.18267102615694164,
+        "delta_vs_reference": -0.11411325093417646,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.0017998200179982,
+        "p_value_holm": 0.043195680431956804,
+        "reference_level": 5,
+        "signal": "b_mean_pairwise_f1",
+        "significant_holm": true
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_mean_pairwise_f1_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.07257832710549006,
+        "ci_low": -0.20810577752227655,
+        "delta_vs_reference": -0.1404139120436907,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.00019998000199980003,
+        "p_value_holm": 0.005999400059994001,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy",
+        "significant_holm": true
+      },
+      {
+        "ci_high": -0.07257832710549006,
+        "ci_low": -0.20810577752227655,
+        "delta_vs_reference": -0.1404139120436907,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.00019998000199980003,
+        "p_value_holm": 0.005999400059994001,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy_normalized",
+        "significant_holm": true
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy_normalized_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.03952285139407874,
+        "ci_low": -0.13236562230526006,
+        "delta_vs_reference": -0.08479448117275079,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.0007999200079992001,
+        "p_value_holm": 0.019998000199980003,
+        "reference_level": 5,
+        "signal": "b_disagreement_rate",
+        "significant_holm": true
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_disagreement_rate_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.014799511353837294,
+        "ci_low": -0.11469172175912623,
+        "delta_vs_reference": -0.06424259844782976,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.0091990800919908,
+        "p_value_holm": 0.1655834416558344,
+        "reference_level": 5,
+        "signal": "b_distinct_count",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_distinct_count_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.014799511353837294,
+        "ci_low": -0.11469172175912623,
+        "delta_vs_reference": -0.06424259844782976,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.0091990800919908,
+        "p_value_holm": 0.1655834416558344,
+        "reference_level": 5,
+        "signal": "b_distinct_fraction",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_distinct_fraction_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.014371945961483275,
+        "ci_low": -0.11627263581488935,
+        "delta_vs_reference": -0.06539235412474842,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.012998700129987,
+        "p_value_holm": 0.207979202079792,
+        "reference_level": 5,
+        "signal": "b_mean_pairwise_f1",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_mean_pairwise_f1_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.026156941649899457,
+        "ci_low": -0.13265306122448983,
+        "delta_vs_reference": -0.07875826386892781,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.0023997600239976003,
+        "p_value_holm": 0.055194480551944806,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.026156941649899457,
+        "ci_low": -0.13265306122448983,
+        "delta_vs_reference": -0.07875826386892781,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.0023997600239976003,
+        "p_value_holm": 0.055194480551944806,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy_normalized",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy_normalized_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.012643719459614858,
+        "ci_low": -0.08321356711698769,
+        "delta_vs_reference": -0.0465651049152056,
+        "level": 3,
+        "n_paired": 120,
+        "p_value": 0.004999500049995001,
+        "p_value_holm": 0.10498950104989502,
+        "reference_level": 5,
+        "signal": "b_disagreement_rate",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 3,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_disagreement_rate_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": 0.009198045415349299,
+        "ci_low": -0.05748778384593278,
+        "delta_vs_reference": -0.022851394078758247,
+        "level": 3,
+        "n_paired": 120,
+        "p_value": 0.16318368163183683,
+        "p_value_holm": 0.6983301669833016,
+        "reference_level": 5,
+        "signal": "b_distinct_count",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 3,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_distinct_count_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": 0.009198045415349299,
+        "ci_low": -0.05748778384593278,
+        "delta_vs_reference": -0.022851394078758247,
+        "level": 3,
+        "n_paired": 120,
+        "p_value": 0.16318368163183683,
+        "p_value_holm": 0.6983301669833016,
+        "reference_level": 5,
+        "signal": "b_distinct_fraction",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 3,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_distinct_fraction_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": 0.009198045415349188,
+        "ci_low": -0.05748778384593278,
+        "delta_vs_reference": -0.022276516240298916,
+        "level": 3,
+        "n_paired": 120,
+        "p_value": 0.17218278172182783,
+        "p_value_holm": 0.6983301669833016,
+        "reference_level": 5,
+        "signal": "b_mean_pairwise_f1",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 3,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_mean_pairwise_f1_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": 0.006611095142282308,
+        "ci_low": -0.06036217303822933,
+        "delta_vs_reference": -0.025438344351825237,
+        "level": 3,
+        "n_paired": 120,
+        "p_value": 0.12618738126187382,
+        "p_value_holm": 0.6983301669833016,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy",
+        "significant_holm": false
+      },
+      {
+        "ci_high": 0.006611095142282308,
+        "ci_low": -0.06036217303822933,
+        "delta_vs_reference": -0.025438344351825237,
+        "level": 3,
+        "n_paired": 120,
+        "p_value": 0.12618738126187382,
+        "p_value_holm": 0.6983301669833016,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy_normalized",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 3,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy_normalized_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 3,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 5,
+        "signal": "b_semantic_entropy_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.0011497556769186623,
+        "ci_low": -0.10577752227651627,
+        "delta_vs_reference": -0.052888761138258134,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.043795620437956206,
+        "p_value_holm": 0.32556744325567444,
+        "reference_level": 2,
+        "signal": "b_disagreement_rate",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 2,
+        "signal": "b_disagreement_rate_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.005173900546133978,
+        "ci_low": -0.11627263581488935,
+        "delta_vs_reference": -0.059931014659384885,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.031796820317968204,
+        "p_value_holm": 0.32556744325567444,
+        "reference_level": 2,
+        "signal": "b_distinct_count",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 2,
+        "signal": "b_distinct_count_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.005173900546133978,
+        "ci_low": -0.11627263581488935,
+        "delta_vs_reference": -0.059931014659384885,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.031796820317968204,
+        "p_value_holm": 0.32556744325567444,
+        "reference_level": 2,
+        "signal": "b_distinct_fraction",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 2,
+        "signal": "b_distinct_fraction_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": 0.0116412762288014,
+        "ci_low": -0.10980526013222193,
+        "delta_vs_reference": -0.04872089680942804,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.11638836116388361,
+        "p_value_holm": 0.6983301669833016,
+        "reference_level": 2,
+        "signal": "b_mean_pairwise_f1",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 2,
+        "signal": "b_mean_pairwise_f1_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.010922678930727181,
+        "ci_low": -0.11454800229951136,
+        "delta_vs_reference": -0.06165564817476288,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.0173982601739826,
+        "p_value_holm": 0.260973902609739,
+        "reference_level": 2,
+        "signal": "b_semantic_entropy",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.010922678930727181,
+        "ci_low": -0.11454800229951136,
+        "delta_vs_reference": -0.06165564817476288,
+        "level": 1,
+        "n_paired": 120,
+        "p_value": 0.0173982601739826,
+        "p_value_holm": 0.260973902609739,
+        "reference_level": 2,
+        "signal": "b_semantic_entropy_normalized",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 2,
+        "signal": "b_semantic_entropy_normalized_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 1,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 2,
+        "signal": "b_semantic_entropy_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.005317620005748866,
+        "ci_low": -0.07502155791894216,
+        "delta_vs_reference": -0.03822937625754519,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.0221977802219778,
+        "p_value_holm": 0.2885711428857114,
+        "reference_level": 3,
+        "signal": "b_disagreement_rate",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 3,
+        "signal": "b_disagreement_rate_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.004167864328830095,
+        "ci_low": -0.08063020983041104,
+        "delta_vs_reference": -0.04139120436907151,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.029597040295970403,
+        "p_value_holm": 0.32556744325567444,
+        "reference_level": 3,
+        "signal": "b_distinct_count",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 3,
+        "signal": "b_distinct_count_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.004167864328830095,
+        "ci_low": -0.08063020983041104,
+        "delta_vs_reference": -0.04139120436907151,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.029597040295970403,
+        "p_value_holm": 0.32556744325567444,
+        "reference_level": 3,
+        "signal": "b_distinct_fraction",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 3,
+        "signal": "b_distinct_fraction_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.004455303248059869,
+        "ci_low": -0.08364472549583213,
+        "delta_vs_reference": -0.043115837884449504,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.0263973602639736,
+        "p_value_holm": 0.3167683231676832,
+        "reference_level": 3,
+        "signal": "b_mean_pairwise_f1",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 3,
+        "signal": "b_mean_pairwise_f1_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.01422822650186839,
+        "ci_low": -0.09542972118424842,
+        "delta_vs_reference": -0.053319919517102576,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.0081991800819918,
+        "p_value_holm": 0.16398360163983602,
+        "reference_level": 3,
+        "signal": "b_semantic_entropy",
+        "significant_holm": false
+      },
+      {
+        "ci_high": -0.01422822650186839,
+        "ci_low": -0.09542972118424842,
+        "delta_vs_reference": -0.053319919517102576,
+        "level": 2,
+        "n_paired": 120,
+        "p_value": 0.0081991800819918,
+        "p_value_holm": 0.16398360163983602,
+        "reference_level": 3,
+        "signal": "b_semantic_entropy_normalized",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 3,
+        "signal": "b_semantic_entropy_normalized_samples_only",
+        "significant_holm": false
+      },
+      {
+        "ci_high": NaN,
+        "ci_low": NaN,
+        "delta_vs_reference": NaN,
+        "level": 2,
+        "n_paired": 0,
+        "p_value": NaN,
+        "p_value_holm": NaN,
+        "reference_level": 3,
+        "signal": "b_semantic_entropy_samples_only",
+        "significant_holm": false
+      }
+    ],
+    "holm_note": "Holm across every (signal, level-pair) comparison in this block; per-level intervals cannot test levels against each other because the levels are nested subsets of the same samples",
+    "reference_level": 5,
+    "test": "paired stratified bootstrap on the AUROC difference"
+  },
+  "levels": [
+    1,
+    2,
+    3,
+    5
+  ],
+  "n_correct": 49,
+  "n_incorrect": 71,
+  "n_rows": 120,
+  "note": "the first N of the same five samples are reused at every level, so the differences between levels are due to sample count and not to drawing a different sample set",
+  "run_name": "run2b_clean",
+  "signals": [
+    "b_disagreement_rate",
+    "b_distinct_count",
+    "b_distinct_fraction",
+    "b_mean_pairwise_f1",
+    "b_semantic_entropy",
+    "b_semantic_entropy_normalized",
+    "b_disagreement_rate_samples_only",
+    "b_distinct_count_samples_only",
+    "b_distinct_fraction_samples_only",
+    "b_mean_pairwise_f1_samples_only",
+    "b_semantic_entropy_samples_only",
+    "b_semantic_entropy_normalized_samples_only"
+  ]
+}

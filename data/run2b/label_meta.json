@@ -1,0 +1,16 @@
+{
+  "counts": {
+    "correct": 49,
+    "incorrect": 71
+  },
+  "heuristic_fallback_rows": 73,
+  "judge_parse_failures": 0,
+  "kappa": {
+    "available": false,
+    "reason": "no second-judge overlap"
+  },
+  "sources": {
+    "exact_match": 47,
+    "heuristic_fuzzy": 73
+  }
+}

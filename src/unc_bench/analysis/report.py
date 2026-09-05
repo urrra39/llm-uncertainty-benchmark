@@ -398,6 +398,24 @@ def _pre_platt_calibration(
     return {"ece": cal.ece, "calibration": cal.as_dict(), "is_probability_valued": True}
 
 
+#: Columns of the merged analysis frame that are bookkeeping, not signals.
+#: Anything else in the frame must be a registered signal (checked) or the
+#: run fails loudly rather than scoring an unoriented column.
+_META_COLUMNS = frozenset(
+    {
+        "qid",
+        "label",
+        "source",
+        "judge_raw",
+        "judge_primary_verdict",
+        "judge_secondary_verdict",
+        "dataset",
+        "question",
+        "greedy_answer",
+    }
+)
+
+
 def _assert_signal_coverage(frame: pd.DataFrame, names: list[str]) -> dict[str, Any]:
     """The registry and the scored table must agree about scope, loudly.
 
@@ -409,7 +427,7 @@ def _assert_signal_coverage(frame: pd.DataFrame, names: list[str]) -> dict[str, 
     second is data and is returned.
     """
     registered = signal_names()
-    signal_columns = [c for c in frame.columns if c != "qid"]
+    signal_columns = [c for c in frame.columns if c not in _META_COLUMNS]
     unregistered = [c for c in signal_columns if c not in registered]
     if unregistered:
         raise AssertionError(f"scored signals without a registry entry: {unregistered}")
