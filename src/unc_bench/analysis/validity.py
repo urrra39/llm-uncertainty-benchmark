@@ -43,6 +43,12 @@ MIN_PER_CLASS = 30
 #: Ceiling on the abstention rate, as a fraction of scored rows.
 MAX_ABSTENTION_RATE = 0.10
 
+#: Floor on the fraction of validation rows carrying a human label. Labels are
+#: the ground the AUROC table stands on; a machine-only label set is unmeasured
+#: correctness no matter how high the judge-versus-judge kappa reads. 0.80 is a
+#: judgement call and is stated as one.
+MIN_HUMAN_LABEL_COVERAGE = 0.80
+
 
 @dataclass(frozen=True, slots=True)
 class Gate:
@@ -153,7 +159,38 @@ def abstention_gate(n_abstentions: int, n_scored: int) -> Gate:
     )
 
 
-def evaluate_gates(view: dict[str, Any], *, n_abstentions: int, n_scored: int) -> dict[str, Any]:
+def human_label_gate(coverage: float | None) -> Gate:
+    """Human-label coverage of the validation sample must clear the floor.
+
+    `coverage` is labelled validation rows over validation rows (None when the
+    file is absent or unreadable). Records failure rather than raising, per the
+    module convention: the missing human labels are a visible gate failure, not
+    a paragraph in LIMITATIONS. Today this gate fails honestly at 0.0.
+    """
+    ok = coverage is not None and math.isfinite(coverage) and coverage >= MIN_HUMAN_LABEL_COVERAGE
+    observed = "validation file absent" if coverage is None else f"coverage {coverage:.3f}"
+    return Gate(
+        name="human_label_coverage",
+        passed=ok,
+        observed=observed,
+        requirement=f">= {MIN_HUMAN_LABEL_COVERAGE:.2f} of validation rows labelled",
+        detail=(
+            "human labels bound the machine label error, which bounds what any "
+            "AUROC against those labels can mean"
+            if ok
+            else "no human has verified any label, so the label set's correctness "
+            "is unmeasured; fill data/human_validation_sample.csv (docs/HUMAN_LABELING.md)"
+        ),
+    )
+
+
+def evaluate_gates(
+    view: dict[str, Any],
+    *,
+    n_abstentions: int,
+    n_scored: int,
+    human_label_coverage: float | None = None,
+) -> dict[str, Any]:
     """Run every gate and summarize. Never raises.
 
     `all_passed` is what the README branches on. When it is false the results
@@ -163,6 +200,7 @@ def evaluate_gates(view: dict[str, Any], *, n_abstentions: int, n_scored: int) -
         random_baseline_gate(view),
         class_balance_gate(view),
         abstention_gate(n_abstentions, n_scored),
+        human_label_gate(human_label_coverage),
     ]
     failed = [g.name for g in gates if not g.passed]
     return {

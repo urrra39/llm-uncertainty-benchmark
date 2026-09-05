@@ -17,6 +17,7 @@ import json
 import math
 import platform
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -145,12 +146,18 @@ def build_results(cfg: Config) -> dict[str, Any]:
         "method": "normalized gold alias as contiguous token subsequence of the question",
     }
 
+    # Label quality from the human validation sample. Never breaks analysis:
+    # a missing or empty human column is the shipped state, reported as
+    # coverage 0.0 with a reason rather than as a number.
+    label_quality = _label_quality(path=cfg.paths.human_validation_csv)
+
     # D15: the gates are evaluated on the primary view, which is the one the
     # README quotes. A failure is recorded, not raised: the failure is the result.
     gates = evaluate_gates(
         per_view["primary"],
         n_abstentions=n_abstain,
         n_scored=int(len(scored)),
+        human_label_coverage=label_quality.get("coverage"),
     )
     # D7: cost per signal, using this run's own measured timings.
     costs = cost_table(per_view["primary"]["signals"], timings, cfg)
@@ -200,6 +207,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
             "kappa": label_meta.get("kappa", {"available": False, "reason": "label stage not run"}),
             "judge_parse_failures": label_meta.get("judge_parse_failures"),
             "heuristic_fallback_rows": label_meta.get("heuristic_fallback_rows"),
+            "label_quality": label_quality,
         },
         "analysis_config": {
             "bootstrap_resamples": cfg.analysis.bootstrap_resamples,
@@ -240,6 +248,54 @@ def build_results(cfg: Config) -> dict[str, Any]:
 #: computed on them before any recalibration. Everything else (logprobs,
 #: entropies, counts, lengths) has no pre-Platt ECE that means anything.
 PROBABILITY_VALUED = ("c_p_true_plain", "c_p_true_with_samples", "c_verbal_confidence")
+
+
+def _label_quality(path: Path) -> dict[str, Any]:
+    """Human-label coverage and agreement summary for `results.json`.
+
+    Reads the validation CSV through the same scorer the CLI uses, so the
+    numbers here and in `unc-bench human-agreement` cannot disagree. Any
+    failure — absent file, empty column, unreadable rows — yields coverage
+    None with a reason rather than raising: the analysis stage must never fail
+    because a human has not labelled yet.
+    """
+    try:
+        from unc_bench.analysis.human_agreement import build_report
+    except ImportError as exc:
+        return {
+            "human_labels_present": False,
+            "coverage": None,
+            "reason": f"human-agreement module unavailable: {exc}",
+        }
+    try:
+        validation = build_report(path)
+    except (OSError, KeyError, ValueError, UnicodeDecodeError) as exc:
+        return {
+            "human_labels_present": False,
+            "coverage": None,
+            "reason": f"validation file unreadable: {exc}",
+        }
+    if validation.n_rows == 0 or validation.n_labelled == 0:
+        return {
+            "human_labels_present": False,
+            "coverage": 0.0 if validation.n_rows else None,
+            "n_rows": validation.n_rows,
+            "n_labelled": 0,
+            "reason": "no human labels present",
+        }
+    machine = next((a for a in validation.agreements if a.machine_column == "machine_label"), None)
+    return {
+        "human_labels_present": True,
+        "coverage": validation.n_labelled / validation.n_rows,
+        "n_rows": validation.n_rows,
+        "n_labelled": validation.n_labelled,
+        "machine_agreement_rate": (
+            machine.n_agree / machine.n_compared if machine and machine.n_compared else None
+        ),
+        "machine_kappa": machine.kappa if machine else None,
+        "machine_kappa_ci": [machine.kappa_ci_low, machine.kappa_ci_high] if machine else None,
+        "oracle_ceiling": validation.oracle_ceiling,
+    }
 
 
 def _pre_platt_calibration(

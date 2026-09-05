@@ -352,3 +352,33 @@ def test_an_empty_file_reports_nothing_rather_than_raising(tmp_path: Path) -> No
     report = build_report(path)
     assert report.n_rows == 0
     assert report.agreements == ()
+
+
+def test_oracle_ceiling_is_one_without_noise_and_half_at_coin_flip() -> None:
+    from unc_bench.analysis.human_agreement import oracle_auroc_ceiling
+
+    assert oracle_auroc_ceiling(0.0, 0.5) == 1.0
+    assert oracle_auroc_ceiling(0.5, 0.5) == 0.5
+    # Hand-derived: e=0.1, balanced classes -> 0.81 + 0.5*(0.09 + 0.09) = 0.90.
+    assert oracle_auroc_ceiling(0.1, 0.5) == 0.9
+    assert math.isnan(oracle_auroc_ceiling(1.5, 0.5))
+
+
+def test_kappa_ci_is_point_at_perfect_agreement() -> None:
+    from unc_bench.analysis.human_agreement import kappa_bootstrap_ci
+
+    low, high = kappa_bootstrap_ci(
+        ["correct"] * 10 + ["incorrect"] * 10, ["correct"] * 10 + ["incorrect"] * 10
+    )
+    assert (low, high) == (1.0, 1.0)
+
+
+def test_gate_fails_honestly_without_human_labels() -> None:
+    from unc_bench.analysis.validity import MIN_HUMAN_LABEL_COVERAGE, human_label_gate
+
+    failed = human_label_gate(0.0)
+    assert failed.name == "human_label_coverage"
+    assert failed.passed is False
+    assert "0.000" in failed.observed
+    assert human_label_gate(None).passed is False
+    assert human_label_gate(MIN_HUMAN_LABEL_COVERAGE).passed is True

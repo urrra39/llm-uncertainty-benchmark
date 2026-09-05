@@ -33,6 +33,7 @@ import pandas as pd
 from unc_bench.config import Config
 from unc_bench.labeling import (
     JUDGE_PROMPT,
+    MIN_MINORITY_FOR_TRUST,
     JudgeOutcome,
     TextJudge,
     build_judge,
@@ -318,6 +319,7 @@ def run(cfg: Config) -> int:
                 [primary_verdicts[q] for q in paired],
                 [secondary_verdicts[q] for q in paired],
                 threshold=cfg.judges.kappa_trust_threshold,
+                min_minority=MIN_MINORITY_FOR_TRUST,
             )
             kappa_payload = {
                 "available": True,
@@ -327,6 +329,8 @@ def run(cfg: Config) -> int:
                 "expected_agreement": result.expected_agreement,
                 "categories": list(result.categories),
                 "trustworthy": result.trustworthy,
+                "minority_count": result.minority_count,
+                "min_minority_for_trust": MIN_MINORITY_FOR_TRUST,
                 "n_sent_to_both_judges": len(sent_to_both),
                 "n_dropped_for_parse_failure": len(parse_dropped),
                 "denominator_matches_rows_sent": len(paired) == len(sent_to_both),

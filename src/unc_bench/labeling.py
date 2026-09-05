@@ -251,9 +251,29 @@ class KappaResult:
     expected_agreement: float
     categories: tuple[str, ...]
     trustworthy: bool
+    #: Pooled minority-category assignments across both raters. A κ computed
+    #: over 53 rows with 4 minority assignments moves ~0.4 on a single flip,
+    #: so callers that quote κ set `min_minority` to refuse such numbers.
+    minority_count: int = 0
 
 
-def cohens_kappa(a: Sequence[str], b: Sequence[str], *, threshold: float = 0.7) -> KappaResult:
+#: Floor for `min_minority` wherever a κ is quoted. Below 10 pooled minority
+#: assignments a single row flip moves κ by more than ~0.1, which is the
+#: recovered-κ trap of data/judge_verdicts_recovered.json (53 rows, zero
+#: disagreements). A documented judgement call, stated as one.
+MIN_MINORITY_FOR_TRUST = 10
+
+
+def _minority_count(a: Sequence[str], b: Sequence[str]) -> int:
+    totals: dict[str, int] = {}
+    for label in (*a, *b):
+        totals[label] = totals.get(label, 0) + 1
+    return min(totals.values()) if totals else 0
+
+
+def cohens_kappa(
+    a: Sequence[str], b: Sequence[str], *, threshold: float = 0.7, min_minority: int = 0
+) -> KappaResult:
     """Cohen's kappa between two label sequences.
 
     The degenerate case is handled explicitly. If both judges assign every item
@@ -276,6 +296,7 @@ def cohens_kappa(a: Sequence[str], b: Sequence[str], *, threshold: float = 0.7) 
         p_a = sum(1 for x in a if x == category) / n
         p_b = sum(1 for y in b if y == category) / n
         expected += p_a * p_b
+    minority = _minority_count(a, b)
 
     if expected >= 1.0:
         return KappaResult(
@@ -285,6 +306,7 @@ def cohens_kappa(a: Sequence[str], b: Sequence[str], *, threshold: float = 0.7) 
             expected_agreement=expected,
             categories=categories,
             trustworthy=False,
+            minority_count=minority,
         )
     kappa = (observed - expected) / (1.0 - expected)
     return KappaResult(
@@ -293,7 +315,8 @@ def cohens_kappa(a: Sequence[str], b: Sequence[str], *, threshold: float = 0.7) 
         observed_agreement=observed,
         expected_agreement=expected,
         categories=categories,
-        trustworthy=kappa >= threshold,
+        trustworthy=bool(kappa >= threshold and minority >= min_minority),
+        minority_count=minority,
     )
 
 
