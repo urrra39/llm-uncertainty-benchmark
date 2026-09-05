@@ -4,10 +4,10 @@ Run #3 has not been executed. These tests do not check any result; they check
 that the config a future GPU run will load says the four things the run depends
 on, so a later edit cannot quietly change one of them:
 
-- generation batch size is 4: the D27 padding defect was closed by bucketing
-  every chunk into equal-length forward passes (docs/DECISIONS.md, session 9),
-  so the width trades memory and occupancy only, and 4 is the conservative T4
-  width the config records;
+- generation batch size is 1: defect D27 is open (the CPU/bfloat16
+  bit-identity measurement does not transfer to CUDA/fp16, and per-forward
+  reseeding moves sampled tokens), so family A is only valid unbatched until
+  the batch-invariance harness passes on the target device;
 - the model is loaded unquantized, for the same reason one level up;
 - the dataset split is 300 PopQA / 300 TriviaQA, which is what run #2's 90/30
   imbalance cost it;
@@ -49,24 +49,21 @@ def test_run3_config_loads(cfg: Config) -> None:
     assert cfg.dataset_mix.total == 600
 
 
-def test_run3_generation_batch_size_is_the_recorded_t4_width(cfg: Config) -> None:
+def test_run3_generation_batch_size_is_one_while_d27_is_open(cfg: Config) -> None:
     # D27: padding a ragged batch perturbs per-token logprobs by up to 2.52e-02
-    # against the unbatched values, while a uniform-length batch is bit-identical.
-    # Session 9 closed the defect by bucketing every chunk into equal-length
-    # forward passes, so the width can no longer move family A's logprobs; what
-    # it moves is memory, and 4 is the conservative T4 width the config records
-    # with an out-of-memory fallback named next to it.
-    assert cfg.model_under_test.generation_batch_size == 4
+    # against the unbatched values on CPU/bfloat16, and that measurement does
+    # not transfer to CUDA/fp16. Length-bucketing plus per-prompt seeds narrow
+    # the exposure but do not close it, so the run stays at width 1 until the
+    # batch-invariance harness passes on the T4 in fp16.
+    assert cfg.model_under_test.generation_batch_size == 1
 
 
-def test_run3_config_text_points_at_d27_and_its_closure(cfg: Config) -> None:
+def test_run3_config_text_points_at_d27_and_its_status(cfg: Config) -> None:
     # The number above is only safe while the reason for it is written next to
-    # it, including the defect that once pinned it at 1 and the closure that
-    # unpinned it — otherwise a reader cannot tell policy from accident.
+    # it — the defect, what was measured where, and what would unpin it.
     text = (CONFIG_DIR / RUN3).read_text(encoding="utf-8")
     assert "D27" in text
-    assert "session 9" in text
-    assert "UNMEASURED" in text
+    assert "nondeterminism" in text
     assert "generation_batch_size" in text
 
 

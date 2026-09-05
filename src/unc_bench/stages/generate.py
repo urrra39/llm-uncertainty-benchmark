@@ -163,9 +163,11 @@ def _one_question(
     )[0]
     greedy_answer = clean_model_answer(greedy.text, abstain_token=cfg.prompts.abstain_token)
 
-    # One call per seed. A single n=N call would share one seed across the whole
-    # batch, so the "independent samples" would not be independently seeded and
-    # the ablation over sample count would not be reproducible per sample.
+    # One call per seed, each seed derived from (base, qid, index). A single
+    # n=N call would share one seed across the whole batch, so the "independent
+    # samples" would not be independently seeded and the ablation over sample
+    # count would not be reproducible per sample. Per-question seeds additionally
+    # keep sampled tokens invariant to batch width and row order (C2).
     samples: list[Generation] = []
     for index in range(cfg.sampling.n_samples):
         samples.extend(
@@ -173,7 +175,7 @@ def _one_question(
                 prompt,
                 temperature=cfg.sampling.temperature,
                 top_p=cfg.sampling.top_p,
-                seed=cfg.sampling.seed_for(index),
+                seed=cfg.sampling.seed_for_question(index, question.qid),
                 max_new_tokens=cfg.model_under_test.max_new_tokens,
                 top_logprobs=0,
                 n=1,

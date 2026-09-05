@@ -92,6 +92,13 @@ def test_sampling_seeds_are_distinct() -> None:
     assert len(set(seeds)) == spec.n_samples
 
 
+def test_question_seeds_depend_on_qid_and_index() -> None:
+    spec = SamplingSpec()
+    assert spec.seed_for_question(0, "popqa-1") == spec.seed_for_question(0, "popqa-1")
+    assert spec.seed_for_question(0, "popqa-1") != spec.seed_for_question(0, "popqa-2")
+    assert spec.seed_for_question(0, "popqa-1") != spec.seed_for_question(1, "popqa-1")
+
+
 def test_judge_may_not_be_the_model_under_test() -> None:
     raw = _raw("default.yaml")
     raw["judges"]["primary"]["name"] = raw["model_under_test"]["name"]

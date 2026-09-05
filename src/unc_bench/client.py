@@ -423,24 +423,32 @@ class LocalTransformersClient:
         max_new_tokens: int,
         top_logprobs: int = 0,
         n: int = 1,
+        seeds: Sequence[int] | None = None,
     ) -> list[list[Generation]]:
         """Several prompts, one result list per prompt, never a padded batch.
 
         D27 (docs/DECISIONS.md, session 7) measured that padding a ragged batch
         perturbs per-token logprobs by up to 2.52e-02 against the unbatched
         values — the values signal family A is computed from — while a
-        uniform-length batch is bit-identical (0.00e+00). Each chunk is therefore
-        split by `bucket_indices_by_length` into equal-length groups and each
-        group gets its own forward pass: no pad token is ever inserted into a
-        generation batch, so any `generation_batch_size` is bit-identical to
-        batch size 1 for family A, and the width trades only memory and
-        occupancy, never correctness.
+        uniform-length batch is bit-identical (0.00e+00) on the measured
+        configuration (CPU, bfloat16). Each chunk is therefore split by
+        `bucket_indices_by_length` into equal-length groups and each group gets
+        its own forward pass: no pad token is ever inserted into a generation
+        batch. The bit-identity half of that claim is measured on CPU/bfloat16
+        only and is NOT established for CUDA/fp16, where batched GEMM selects
+        kernels by batch dimension; see the reopened D27.
 
         `prompts` longer than `generation_batch_size` is split into consecutive
-        chunks of that size first, so the cap remains a per-forward-pass cap. The
-        seed is set before each forward pass, so a pass's output is a function of
-        the seed and its own inputs alone, not of how many passes preceded it.
-        Greedy passes — the pipeline's only calls today — consume no randomness.
+        chunks of that size first, so the cap remains a per-forward-pass cap.
+
+        `seeds`, when given (one per prompt), makes sampled tokens independent
+        of batching: prompts sharing a forward pass must share a seed, so each
+        bucket is sub-split by seed and every sub-group gets its own forward
+        seeded individually. With per-question seeds (C2) the sampled output is
+        a function of the row and the index alone — identical across widths
+        1/2/4, which `test_sampled_outputs_match_across_widths` pins. When
+        `seeds` is None the single `seed` applies to every forward, exactly the
+        historical behaviour. Greedy passes consume no randomness either way.
 
         Returned latency is the chunk's forwards' wall clock divided by the
         number of sequences in it. That is an amortized per-sequence figure, not
@@ -451,67 +459,113 @@ class LocalTransformersClient:
         torch = self._torch
         if not prompts:
             return []
+        if seeds is not None and len(seeds) != len(prompts):
+            raise ValueError(
+                f"generate_batch needs one seed per prompt: got {len(seeds)} seeds "
+                f"for {len(prompts)} prompts"
+            )
         do_sample = temperature > 0.0
         width = max(1, self._spec.generation_batch_size)
         results: list[list[Generation]] = [[] for _ in prompts]
 
         for start in range(0, len(prompts), width):
             chunk = prompts[start : start + width]
+            chunk_seeds = (
+                [seed] * len(chunk) if seeds is None else list(seeds[start : start + width])
+            )
             lengths = self._true_lengths(chunk)
 
             for bucket in bucket_indices_by_length(lengths, width):
-                bucket_prompts = [chunk[i] for i in bucket]
-                enc, true_lengths = self._encode_batch(bucket_prompts)
-                padded_len = int(enc["input_ids"].shape[1])
-
-                torch.manual_seed(seed)
-                started = time.perf_counter()
-                with torch.no_grad():
-                    out = self._model.generate(
-                        **enc,
-                        max_new_tokens=max_new_tokens,
+                # Prompts sharing a forward must share a seed; sub-split the
+                # bucket so a forward never mixes streams.
+                by_seed: dict[int, list[int]] = {}
+                for index in bucket:
+                    by_seed.setdefault(chunk_seeds[index], []).append(index)
+                for group_seed, members in by_seed.items():
+                    self._forward(
+                        torch,
+                        chunk=chunk,
+                        members=members,
+                        start=start,
+                        group_seed=group_seed,
+                        temperature=temperature,
+                        top_p=top_p,
                         do_sample=do_sample,
-                        temperature=temperature if do_sample else None,
-                        top_p=top_p if do_sample else None,
-                        num_return_sequences=n,
-                        return_dict_in_generate=True,
-                        output_scores=True,
-                        pad_token_id=self._tokenizer.pad_token_id,
+                        max_new_tokens=max_new_tokens,
+                        top_logprobs=top_logprobs,
+                        n=n,
+                        results=results,
                     )
-                elapsed = time.perf_counter() - started
-                per_sequence = elapsed / max(len(bucket) * n, 1)
-
-                # `num_return_sequences=n` lays the output out prompt-major: rows
-                # [0..n) belong to bucket prompt 0, [n..2n) to bucket prompt 1.
-                # Indexed rather than assumed, because getting this wrong would
-                # attribute one question's samples to another and nothing
-                # downstream would notice.
-                for position, index in enumerate(bucket):
-                    per_prompt: list[Generation] = []
-                    for repeat in range(n):
-                        row = position * n + repeat
-                        text, per_token = self._score_row(
-                            out, row, generated_from=padded_len, top_logprobs=top_logprobs
-                        )
-                        per_prompt.append(
-                            Generation(
-                                text=text,
-                                answer_token_logprobs=per_token,
-                                is_greedy=not do_sample,
-                                seed=seed,
-                                temperature=0.0 if not do_sample else temperature,
-                                prompt_tokens=true_lengths[position],
-                                completion_tokens=len(per_token),
-                                latency_s=per_sequence,
-                            )
-                        )
-                    results[start + index] = per_prompt
 
         if any(not filled for filled in results):
             # Unreachable if bucket_indices_by_length partitions correctly; kept
             # because the alternative on a bug is silently returning short rows.
             raise RuntimeError("internal batching error: a prompt never reached a forward pass")
         return results
+
+    def _forward(
+        self,
+        torch: Any,
+        *,
+        chunk: list[str],
+        members: list[int],
+        start: int,
+        group_seed: int,
+        temperature: float,
+        top_p: float,
+        do_sample: bool,
+        max_new_tokens: int,
+        top_logprobs: int,
+        n: int,
+        results: list[list[Generation]],
+    ) -> None:
+        """One unpadded forward pass over a same-length, same-seed group."""
+        bucket_prompts = [chunk[i] for i in members]
+        enc, true_lengths = self._encode_batch(bucket_prompts)
+        padded_len = int(enc["input_ids"].shape[1])
+
+        torch.manual_seed(group_seed)
+        started = time.perf_counter()
+        with torch.no_grad():
+            out = self._model.generate(
+                **enc,
+                max_new_tokens=max_new_tokens,
+                do_sample=do_sample,
+                temperature=temperature if do_sample else None,
+                top_p=top_p if do_sample else None,
+                num_return_sequences=n,
+                return_dict_in_generate=True,
+                output_scores=True,
+                pad_token_id=self._tokenizer.pad_token_id,
+            )
+        elapsed = time.perf_counter() - started
+        per_sequence = elapsed / max(len(members) * n, 1)
+
+        # `num_return_sequences=n` lays the output out prompt-major: rows
+        # [0..n) belong to group prompt 0, [n..2n) to group prompt 1.
+        # Indexed rather than assumed, because getting this wrong would
+        # attribute one question's samples to another and nothing
+        # downstream would notice.
+        for position, index in enumerate(members):
+            per_prompt: list[Generation] = []
+            for repeat in range(n):
+                row = position * n + repeat
+                text, per_token = self._score_row(
+                    out, row, generated_from=padded_len, top_logprobs=top_logprobs
+                )
+                per_prompt.append(
+                    Generation(
+                        text=text,
+                        answer_token_logprobs=per_token,
+                        is_greedy=not do_sample,
+                        seed=group_seed,
+                        temperature=0.0 if not do_sample else temperature,
+                        prompt_tokens=true_lengths[position],
+                        completion_tokens=len(per_token),
+                        latency_s=per_sequence,
+                    )
+                )
+            results[start + index] = per_prompt
 
     def next_token_logprobs(self, prompt: str, *, seed: int = 0) -> dict[str, float]:
         """Full-vocabulary next-token logprobs, keyed by decoded token text.

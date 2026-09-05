@@ -60,11 +60,15 @@ class ModelSpec(Frozen):
     #: `n=5` call would share one seed across the batch and the N-ablation needs
     #: each sample independently seeded (docs/DECISIONS.md D24).
     #:
-    #: D27 (docs/DECISIONS.md, session 7) measured that a padded ragged batch
-    #: perturbs per-token logprobs by up to 2.52e-02, so the cap used to be safe
-    #: only at 1. Session 9 closed it: `generate_batch` buckets every chunk into
-    #: equal-length forward passes, so any value is bit-identical to 1 for
-    #: signal family A and a raised cap trades only memory and occupancy.
+    #: D27 (docs/DECISIONS.md, sessions 7-9) measured that a padded ragged batch
+    #: perturbs per-token logprobs by up to 2.52e-02 on CPU/bfloat16, so the cap
+    #: was safe only at 1. Length-bucketing avoids padding but the defect is
+    #: REOPENED, not closed: the CPU/bfloat16 bit-identity measurement does not
+    #: transfer to CUDA/fp16, and per-forward reseeding moves sampled tokens.
+    #: `generate_batch` sub-splits buckets by seed (C2) so a future width trades
+    #: memory and occupancy for greedy logprobs on measured hardware only, once
+    #: the batch-invariance harness passes there. Until then every shipped
+    #: config keeps this at 1.
     generation_batch_size: int = Field(default=1, ge=1, le=256)
 
     @model_validator(mode="after")
@@ -125,6 +129,23 @@ class SamplingSpec(Frozen):
     def seed_for(self, sample_index: int) -> int:
         """Distinct, reproducible seed per sample."""
         return self.seed_base + sample_index
+
+    def seed_for_question(self, sample_index: int, qid: str) -> int:
+        """Seed for one sample of one question, hash-derived from all three inputs.
+
+        `seed_for` hands every question's sample 0 the same seed, which is only
+        safe while each forward pass holds a single prompt: co-bucketed prompts
+        would draw from interleaved positions of one stream, so which tokens get
+        sampled would depend on bucket composition and row order. Deriving from
+        (base, qid, index) — the same SHA-256 construction as the `t_random`
+        baseline, for the same stated reason — makes sampled tokens a function
+        of the row and the index alone, invariant to batch width. The pipeline
+        seeds each generation individually with these values.
+        """
+        import hashlib
+
+        digest = hashlib.sha256(f"{self.seed_base}:{qid}:{sample_index}".encode()).digest()
+        return int.from_bytes(digest[:8], "big")
 
 
 class NLISpec(Frozen):

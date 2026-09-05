@@ -23,6 +23,8 @@ from contextlib import nullcontext
 from types import SimpleNamespace
 from typing import Any, overload
 
+import pytest
+
 from unc_bench.client import LocalTransformersClient, bucket_indices_by_length
 from unc_bench.config import ModelSpec
 
@@ -432,3 +434,65 @@ def test_bucket_order_is_first_seen_and_stable_within() -> None:
 
 def test_bucket_empty_input() -> None:
     assert bucket_indices_by_length([], cap=4) == []
+
+
+# --------------------------------------------------------------------------
+# per-prompt seeds (C2): sampled tokens must not depend on batching
+# --------------------------------------------------------------------------
+
+
+def _sampled(
+    client: LocalTransformersClient, prompts: list[str], seeds: list[int] | None, seed: int = 0
+) -> list[list[Any]]:
+    return client.generate_batch(
+        prompts,
+        temperature=0.7,
+        top_p=0.9,
+        seed=seed,
+        max_new_tokens=2,
+        top_logprobs=0,
+        n=2,
+        seeds=seeds,
+    )
+
+
+def test_sampled_outputs_match_across_widths_with_per_prompt_seeds() -> None:
+    # Distinct seeds per prompt: every prompt gets a singleton forward seeded
+    # individually, so widths 1 and 4 must produce identical texts per prompt.
+    prompts = ["aa", "bb", "cc", "dd"]
+    seeds = [101, 102, 103, 104]
+    narrow, _, _ = _client(batch_size=1)
+    wide, _, _ = _client(batch_size=4)
+    narrow_out = _sampled(narrow, prompts, seeds)
+    wide_out = _sampled(wide, prompts, seeds)
+
+    assert [[g.text for g in per_prompt] for per_prompt in narrow_out] == [
+        [g.text for g in per_prompt] for per_prompt in wide_out
+    ]
+    for per_prompt in wide_out:
+        for generation in per_prompt:
+            assert generation.is_greedy is False
+            assert generation.temperature == 0.7
+
+
+def test_distinct_seeds_split_a_bucket_into_singleton_forwards() -> None:
+    client, model, torch = _client(batch_size=4)
+    _sampled(client, ["aa", "bb", "cc", "dd"], [101, 102, 103, 104])
+
+    assert [len(call["rows"]) for call in model.calls] == [1, 1, 1, 1]
+    assert torch.seeds == [101, 102, 103, 104]
+
+
+def test_shared_seed_keeps_the_single_forward_behaviour() -> None:
+    # seeds=None is the historical path: one seed for every forward.
+    client, model, torch = _client(batch_size=4)
+    _sampled(client, ["aa", "bb", "cc", "dd"], None, seed=7)
+
+    assert len(model.calls) == 1
+    assert torch.seeds == [7]
+
+
+def test_seed_count_mismatch_raises() -> None:
+    client, _, _ = _client(batch_size=4)
+    with pytest.raises(ValueError, match="one seed per prompt"):
+        _sampled(client, ["aa", "bb"], [1])

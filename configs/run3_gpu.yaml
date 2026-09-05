@@ -29,15 +29,18 @@ model_under_test:
   dtype: float16
   device: auto
   max_new_tokens: 24
-  # Defect D27 (docs/DECISIONS.md, session 7) measured that padding a ragged
-  # batch perturbs per-token logprobs by up to 2.52e-02 against the unbatched
-  # values, while a batch of equal-length prompts is bit-identical (0.00e+00).
-  # session 9 closed it: `generate_batch` buckets every chunk into equal-length
-  # forward passes, so this width can never move family A's logprobs — it trades
-  # only memory and occupancy. 4 is a conservative width for a free T4 with the
-  # 3B model in fp16; peak memory at this width is UNMEASURED. Drop back to 1
-  # if the run hits CUDA out-of-memory.
-  generation_batch_size: 4
+  # Open defect D27 (docs/DECISIONS.md, sessions 7-9). Padding a ragged batch
+  # perturbs per-token logprobs by up to 2.52e-02 against the unbatched values,
+  # while a batch of equal-length prompts is bit-identical (0.00e+00) — measured
+  # on CPU/bfloat16 only. That measurement does NOT transfer to CUDA/fp16, where
+  # batched GEMM selects kernels by batch dimension. Length-bucketing avoids
+  # padding but does not close the defect: `torch.manual_seed` is reset per
+  # forward, so co-bucketed prompts draw sampled tokens from interleaved stream
+  # positions, and real prompts mostly form singleton buckets anyway. Leave this
+  # at 1 until the batch-invariance harness (`unc-bench nondeterminism`) passes
+  # on the T4 in fp16. Per-prompt seeds (C2) make sampled tokens width-invariant
+  # once batching returns, but they do not make the logprob question go away.
+  generation_batch_size: 1
 
 # The one generation every signal is computed on.
 greedy:
