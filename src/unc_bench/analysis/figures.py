@@ -397,13 +397,21 @@ def plot_cost_vs_auroc(results: dict[str, Any], out: Path, *, view: str = "prima
         raise NothingToPlotError("results.json carries no cost table")
 
     points: list[tuple[float, float, str, str]] = []
+    token_priced = 0
     for name, entry in cost["signals"].items():
         auroc_value = _num(signals.get(name, {}).get("auroc", {}).get("point"))
-        multiplier = _num(entry.get("cost_multiplier"))
+        multiplier = _num(entry.get("token_multiplier"))
+        if np.isfinite(multiplier):
+            token_priced += 1
+        else:
+            # Run #2 predates token accounting: fall back to call multiples
+            # rather than dropping the figure.
+            multiplier = _num(entry.get("cost_multiplier"))
         if np.isfinite(auroc_value) and np.isfinite(multiplier):
             points.append((multiplier, auroc_value, name, str(entry.get("family", "T"))))
     if not points:
         raise NothingToPlotError("no signal has both a cost and a defined AUROC")
+    unit = "token multiple of one greedy answer" if token_priced else "call multiple"
 
     fig, ax = plt.subplots(figsize=(7.6, 5.0))
     for multiplier, auroc_value, name, family in points:
@@ -447,7 +455,7 @@ def plot_cost_vs_auroc(results: dict[str, Any], out: Path, *, view: str = "prima
         ax.legend(fontsize=8, loc="lower right")
 
     ax.axhline(0.5, color="#555555", linestyle=":", linewidth=1.0)
-    ax.set_xlabel("cost (multiple of one greedy answer)")
+    ax.set_xlabel(f"cost ({unit})")
     ax.set_ylabel("AUROC (positive class = incorrect)")
     ax.set_title(
         "Discrimination against measured cost\n"

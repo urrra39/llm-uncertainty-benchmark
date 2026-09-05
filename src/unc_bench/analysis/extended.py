@@ -642,6 +642,7 @@ def cost_table(
     signals_out: dict[str, Any],
     timings: dict[str, Any],
     cfg: Config,
+    token_means: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Per-signal cost in extra model calls, tokens and wall-clock seconds.
 
@@ -662,6 +663,12 @@ def cost_table(
     (P(True) 1.52x, verbalized confidence 3.17x); this table does not, because
     verification token counts are not stored per row. Read the multiplier as a
     call-count price, not a token price.
+
+    `token_means`, when the generations artifact supplies it
+    ({"greedy": mean total tokens, "sample": mean total tokens per sample}),
+    adds a hardware-independent token price beside the call price: family B at
+    N extra sample-sized generations, family C as null with a reason since
+    verification prompts are not tokenized in the artifacts.
     """
     n_samples = cfg.sampling.n_samples
     generate = timings.get("generate", {})
@@ -699,12 +706,20 @@ def cost_table(
             "extra-model-call multiples; a verification scoring pass counts as "
             "one call regardless of prompt length, so this is not a token price"
         ),
+        "token_unit": (
+            "multiple of mean greedy total tokens; family C is null because "
+            "verification prompts are not tokenized in the artifacts"
+            if token_means
+            else None
+        ),
         "measured_generate_seconds_per_question": per_question_s,
         "measured_family_b_seconds_per_question": b_per_question_s,
         "n_samples": n_samples,
         "families": families,
         "signals": {},
     }
+    greedy_tokens = (token_means or {}).get("greedy", 0.0)
+    sample_tokens = (token_means or {}).get("sample", 0.0)
     for name in signals_out:
         family = get_spec(name).family
         extra = float(families[family]["extra_model_calls"])  # type: ignore[arg-type]
@@ -714,10 +729,23 @@ def cost_table(
             seconds = float(b_per_question_s) + float(per_question_s) * extra
         elif per_question_s is not None:
             seconds = float(per_question_s) * extra
+        extra_tokens: float | None = None
+        token_multiplier: float | None = None
+        if token_means and greedy_tokens > 0:
+            if family == "B":
+                extra_tokens = float(n_samples) * sample_tokens
+            elif family in ("A", "T"):
+                extra_tokens = 0.0
+            # Family C stays null: verification token counts are not stored.
+            token_multiplier = (
+                1.0 + extra_tokens / greedy_tokens if extra_tokens is not None else None
+            )
         out["signals"][name] = {
             "family": family,
             "cost_multiplier": 1.0 + extra,
             "extra_model_calls_per_question": extra,
+            "extra_tokens_per_question": extra_tokens,
+            "token_multiplier": token_multiplier,
             "extra_seconds_per_question": seconds,
             "auroc": signals_out[name]["auroc"]["point"],
         }

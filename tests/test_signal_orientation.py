@@ -63,6 +63,12 @@ RAW_RISES_WITH_CORRECTNESS: dict[str, bool] = {
     "b_distinct_fraction": False,
     "b_semantic_entropy": False,
     "b_semantic_entropy_normalized": False,
+    "b_mean_pairwise_f1_samples_only": True,
+    "b_disagreement_rate_samples_only": False,
+    "b_distinct_count_samples_only": False,
+    "b_distinct_fraction_samples_only": False,
+    "b_semantic_entropy_samples_only": False,
+    "b_semantic_entropy_normalized_samples_only": False,
     # Family C: self-verification. All three are confidence statements.
     "c_p_true_plain": True,
     "c_p_true_with_samples": True,

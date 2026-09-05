@@ -20,6 +20,7 @@ per-signal usable-n rather than silently dropping the column.
 
 from __future__ import annotations
 
+import json
 import math
 from typing import Any
 
@@ -27,7 +28,13 @@ import pandas as pd
 
 from unc_bench.config import Config
 from unc_bench.signals.base import orient_all, signal_names
-from unc_bench.signals.consistency import FAMILY_B_SIGNALS, compute_family_b
+from unc_bench.signals.consistency import (
+    FAMILY_B_SAMPLES_ONLY_SIGNALS,
+    FAMILY_B_SIGNALS,
+    clustering_disagreement,
+    compute_family_b,
+    compute_family_b_samples_only,
+)
 from unc_bench.signals.logprob_signals import compute_family_a
 from unc_bench.signals.trivial import compute_family_t
 from unc_bench.signals.verification import compute_family_c
@@ -130,16 +137,26 @@ def run_b(cfg: Config, *, limit: int | None = None) -> int:
     )
     progress = Progress("family_b", len(records), every=10)
     errors = 0
+    clustering_disagreements = 0
+    clustering_audited = 0
     for record in records:
         qid = str(record["qid"])
         try:
             sample_answers = [str(a) for a in (json_load(str(record["sample_answers"])) or [])]
+            greedy_answer = str(record.get("greedy_answer") or "")
             raw = compute_family_b(
-                str(record.get("greedy_answer") or ""),
+                greedy_answer,
                 sample_answers,
                 model,
                 cfg.nli,
             )
+            raw.update(compute_family_b_samples_only(sample_answers, model, cfg.nli))
+            try:
+                clustering_audited += 1
+                if clustering_disagreement(greedy_answer, sample_answers, model, cfg.nli):
+                    clustering_disagreements += 1
+            except Exception as audit_exc:
+                print(f"[score_signals] family B audit {qid} failed: {audit_exc}", flush=True)
             out: dict[str, Any] = {"qid": qid}
             out.update(orient_all(raw))
             rows.append(out)
@@ -154,6 +171,18 @@ def run_b(cfg: Config, *, limit: int | None = None) -> int:
     timing = progress.summary()
     timing["failures"] = float(errors)
     merge_timings(paths.timings, "family_b", timing)
+    clustering_meta = {
+        "n_rows_audited": clustering_audited,
+        "greedy_vs_exhaustive_disagreements": clustering_disagreements,
+        "note": (
+            "rows where greedy single-pass assignment and transitive-closure "
+            "clustering partition the answer set differently; on disagreement "
+            "the exhaustive partition is primary"
+        ),
+    }
+    meta_path = cfg.paths.artifacts_dir / "family_b_meta.json"
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
+    meta_path.write_text(json.dumps(clustering_meta, indent=2, sort_keys=True), encoding="utf-8")
     print(
         f"[score_signals] family B: {len(rows)} rows -> {paths.signals_b} "
         f"({timing['seconds_per_item']:.2f} s/item, {errors} failures)",
@@ -179,7 +208,7 @@ def merged_signals(cfg: Config) -> pd.DataFrame:
         merged = actc.copy()
     else:
         merged = actc.merge(b_frame, on="qid", how="left", validate="one_to_one")
-    for spec in FAMILY_B_SIGNALS:
+    for spec in (*FAMILY_B_SIGNALS, *FAMILY_B_SAMPLES_ONLY_SIGNALS):
         if spec.name not in merged.columns:
             merged[spec.name] = float("nan")
     # Fixed column order: qid first, then every registered signal in

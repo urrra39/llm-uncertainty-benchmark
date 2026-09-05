@@ -54,6 +54,7 @@ DISTINCT_FRACTION = register(
         family=FAMILY_B,
         orientation=ORIENT_RISK,
         description="distinct count divided by answer-set size",
+        rank_equivalent_to="b_distinct_count",
     )
 )
 MEAN_PAIRWISE_F1 = register(
@@ -78,6 +79,61 @@ SEMANTIC_ENTROPY_NORM = register(
         family=FAMILY_B,
         orientation=ORIENT_RISK,
         description="semantic entropy divided by ln(answer-set size)",
+        rank_equivalent_to="b_semantic_entropy",
+    )
+)
+
+#: Suffix for the samples-only variants below.
+SAMPLES_ONLY_SUFFIX = "_samples_only"
+
+DISAGREEMENT_RATE_SO = register(
+    SignalSpec(
+        name=f"b_disagreement_rate{SAMPLES_ONLY_SUFFIX}",
+        family=FAMILY_B,
+        orientation=ORIENT_RISK,
+        description="fraction of samples differing from the plurality sample answer",
+    )
+)
+DISTINCT_COUNT_SO = register(
+    SignalSpec(
+        name=f"b_distinct_count{SAMPLES_ONLY_SUFFIX}",
+        family=FAMILY_B,
+        orientation=ORIENT_RISK,
+        description="distinct normalized answers among the samples alone",
+    )
+)
+DISTINCT_FRACTION_SO = register(
+    SignalSpec(
+        name=f"b_distinct_fraction{SAMPLES_ONLY_SUFFIX}",
+        family=FAMILY_B,
+        orientation=ORIENT_RISK,
+        description="samples-only distinct count divided by sample count",
+        rank_equivalent_to=f"b_distinct_count{SAMPLES_ONLY_SUFFIX}",
+    )
+)
+MEAN_PAIRWISE_F1_SO = register(
+    SignalSpec(
+        name=f"b_mean_pairwise_f1{SAMPLES_ONLY_SUFFIX}",
+        family=FAMILY_B,
+        orientation=ORIENT_CONFIDENCE,
+        description="mean token F1 over unordered sample pairs, greedy excluded",
+    )
+)
+SEMANTIC_ENTROPY_SO = register(
+    SignalSpec(
+        name=f"b_semantic_entropy{SAMPLES_ONLY_SUFFIX}",
+        family=FAMILY_B,
+        orientation=ORIENT_RISK,
+        description="Shannon entropy over bidirectional-entailment clusters of the samples alone",
+    )
+)
+SEMANTIC_ENTROPY_NORM_SO = register(
+    SignalSpec(
+        name=f"b_semantic_entropy_normalized{SAMPLES_ONLY_SUFFIX}",
+        family=FAMILY_B,
+        orientation=ORIENT_RISK,
+        description="samples-only semantic entropy divided by ln(sample count)",
+        rank_equivalent_to=f"b_semantic_entropy{SAMPLES_ONLY_SUFFIX}",
     )
 )
 
@@ -88,6 +144,21 @@ FAMILY_B_SIGNALS: tuple[SignalSpec, ...] = (
     MEAN_PAIRWISE_F1,
     SEMANTIC_ENTROPY,
     SEMANTIC_ENTROPY_NORM,
+)
+
+#: The samples-only variant family: the same six statistics over the stochastic
+#: samples alone, without the greedy answer. This is the variant comparable to
+#: published semantic-entropy work, which estimates one output distribution at
+#: one temperature; the greedy-included set above additionally scores the answer
+#: under evaluation and is reported beside it so the mixing bias is measured
+#: rather than described (LIMITATIONS item 15).
+FAMILY_B_SAMPLES_ONLY_SIGNALS: tuple[SignalSpec, ...] = (
+    DISAGREEMENT_RATE_SO,
+    DISTINCT_COUNT_SO,
+    DISTINCT_FRACTION_SO,
+    MEAN_PAIRWISE_F1_SO,
+    SEMANTIC_ENTROPY_SO,
+    SEMANTIC_ENTROPY_NORM_SO,
 )
 
 
@@ -168,6 +239,88 @@ def cluster_entropy(clusters: Sequence[Sequence[int]]) -> float:
     return out
 
 
+def cluster_answers_exhaustive(
+    answers: Sequence[str],
+    model: EntailmentModel,
+    spec: NLISpec,
+) -> list[list[int]]:
+    """Transitive closure over the bidirectional-entailment graph.
+
+    Every unordered pair is scored in both directions; an edge joins two
+    answers only when both directions clear the threshold, and clusters are
+    the connected components. This is the audit for `cluster_answers`' greedy
+    single-pass assignment against first-member representatives, which is
+    order-dependent in principle: where the two disagree, the exhaustive
+    partition is primary. Exact normalized duplicates (and empties) merge
+    without consulting the model, for the same reason as in the greedy pass —
+    an MNLI checkpoint does not reliably entail a string against itself.
+    """
+    normalized = [normalize_answer(a) for a in answers]
+    parent = list(range(len(normalized)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i: int, j: int) -> None:
+        parent[find(i)] = find(j)
+
+    for index, text in enumerate(normalized):
+        for other in range(index):
+            if normalized[other] == text:
+                union(index, other)
+    pairs: list[tuple[str, str]] = []
+    pair_index: list[tuple[int, int]] = []
+    for i in range(len(normalized)):
+        for j in range(i + 1, len(normalized)):
+            if find(i) == find(j):
+                continue
+            pairs.append((normalized[i], normalized[j]))
+            pair_index.append((i, j))
+            pairs.append((normalized[j], normalized[i]))
+            pair_index.append((j, i))
+    if pairs:
+        probs = model.entailment_probs(pairs)
+        for step in range(0, len(pairs), 2):
+            i, j = pair_index[step]
+            if find(i) == find(j):
+                continue
+            if (
+                probs[step] >= spec.entailment_threshold
+                and probs[step + 1] >= spec.entailment_threshold
+            ):
+                union(i, j)
+
+    grouped: dict[int, list[int]] = {}
+    for index in range(len(normalized)):
+        grouped.setdefault(find(index), []).append(index)
+    return [sorted(members) for members in grouped.values()]
+
+
+def clustering_disagreement(
+    greedy_answer: str,
+    sample_answers: Sequence[str],
+    model: EntailmentModel,
+    spec: NLISpec,
+) -> bool:
+    """Whether greedy and exhaustive clustering partition one answer set differently.
+
+    The audit for the greedy pass's order dependence, run per row. Partitions
+    compare as sets of index sets, so representative choice and cluster order
+    cannot produce a false disagreement.
+    """
+    answer_set = [greedy_answer, *sample_answers]
+    greedy = cluster_answers(answer_set, model, spec)
+    exhaustive = cluster_answers_exhaustive(answer_set, model, spec)
+
+    def canonical(part: list[list[int]]) -> set[frozenset[int]]:
+        return {frozenset(c) for c in part}
+
+    return canonical(greedy) != canonical(exhaustive)
+
+
 def compute_family_b(
     greedy_answer: str,
     sample_answers: Sequence[str],
@@ -210,4 +363,48 @@ def compute_family_b(
         MEAN_PAIRWISE_F1.name: mean_pairwise_token_f1(answer_set),
         SEMANTIC_ENTROPY.name: entropy,
         SEMANTIC_ENTROPY_NORM.name: normalized_entropy,
+    }
+
+
+def compute_family_b_samples_only(
+    sample_answers: Sequence[str],
+    model: EntailmentModel,
+    spec: NLISpec,
+) -> dict[str, float]:
+    """The six family-B statistics over the stochastic samples alone.
+
+    The greedy answer (T=0) is excluded: published semantic-entropy work
+    estimates one output distribution at one temperature, and the greedy draw
+    is a mode-seeking point mass from a different distribution. `greedy` is
+    still the answer being scored downstream; these columns describe the
+    distribution it was drawn alongside. `disagreement_rate` is read against
+    the plurality sample answer (first-seen wins ties) since there is no
+    greedy reference in this variant. Missing samples are NaN, as ever.
+    """
+    nan = float("nan")
+    if not sample_answers:
+        return {s.name: nan for s in FAMILY_B_SAMPLES_ONLY_SIGNALS}
+
+    normalized = [normalize_answer(a) for a in sample_answers]
+    counts: dict[str, int] = {}
+    plurality = normalized[0]
+    for text in normalized:
+        counts[text] = counts.get(text, 0) + 1
+        if counts[text] > counts[plurality]:
+            plurality = text
+    disagreements = sum(1 for text in normalized if text != plurality)
+    distinct = count_distinct(sample_answers)
+
+    clusters = cluster_answers(list(sample_answers), model, spec)
+    entropy = cluster_entropy(clusters)
+    max_entropy = math.log(len(sample_answers)) if len(sample_answers) > 1 else 0.0
+    normalized_entropy = entropy / max_entropy if max_entropy > 0.0 else nan
+
+    return {
+        DISAGREEMENT_RATE_SO.name: disagreements / len(sample_answers),
+        DISTINCT_COUNT_SO.name: float(distinct),
+        DISTINCT_FRACTION_SO.name: distinct / len(sample_answers),
+        MEAN_PAIRWISE_F1_SO.name: mean_pairwise_token_f1(list(sample_answers)),
+        SEMANTIC_ENTROPY_SO.name: entropy,
+        SEMANTIC_ENTROPY_NORM_SO.name: normalized_entropy,
     }

@@ -430,3 +430,26 @@ def test_broken_equivalence_raises_loudly() -> None:
     }
     with pytest.raises(AssertionError, match="rank_equivalent_to"):
         resolve_distinct_ranking(["a_mean_logprob", "a_perplexity", "t_random"], columns)
+
+
+def test_token_price_is_null_without_token_means() -> None:
+    from unc_bench.analysis.extended import cost_table
+    from unc_bench.config import Config
+    from unc_bench.signals import consistency, logprob_signals, verification
+
+    assert consistency.DISTINCT_COUNT.name == "b_distinct_count"
+    assert logprob_signals.MEAN_LOGPROB.name == "a_mean_logprob"
+    assert verification.P_TRUE_PLAIN.name == "c_p_true_plain"
+
+    cfg = Config.load("configs/run2.yaml")
+    signals_out = {
+        "a_mean_logprob": {"auroc": {"point": 0.6}},
+        "b_distinct_count": {"auroc": {"point": 0.7}},
+        "c_p_true_plain": {"auroc": {"point": 0.65}},
+    }
+    table = cost_table(signals_out, {}, cfg)
+    assert table["signals"]["b_distinct_count"]["token_multiplier"] is None
+    priced = cost_table(signals_out, {}, cfg, {"greedy": 100.0, "sample": 100.0})
+    assert priced["signals"]["b_distinct_count"]["token_multiplier"] == 6.0
+    assert priced["signals"]["a_mean_logprob"]["token_multiplier"] == 1.0
+    assert priced["signals"]["c_p_true_plain"]["token_multiplier"] is None

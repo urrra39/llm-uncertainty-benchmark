@@ -256,7 +256,11 @@ def test_no_samples_gives_nan_not_zero() -> None:
 
 
 def test_every_family_b_signal_is_registered_in_family_b() -> None:
-    assert set(signal_names(FAMILY_B)) == {s.name for s in FAMILY_B_SIGNALS}
+    from unc_bench.signals.consistency import FAMILY_B_SAMPLES_ONLY_SIGNALS
+
+    assert set(signal_names(FAMILY_B)) == {
+        s.name for s in (*FAMILY_B_SIGNALS, *FAMILY_B_SAMPLES_ONLY_SIGNALS)
+    }
 
 
 def test_oriented_family_b_values_all_increase_with_wrongness() -> None:
@@ -268,3 +272,117 @@ def test_oriented_family_b_values_all_increase_with_wrongness() -> None:
         assert (
             consistent[name] < scattered[name]
         ), f"{name} is oriented backwards: {consistent[name]} !< {scattered[name]}"
+
+
+def test_samples_only_excludes_the_greedy_answer() -> None:
+    """Five distinct samples plus a distinct greedy answer: samples-only sees
+    five singletons (ln5), while the greedy-included set sees six (ln6)."""
+    from unc_bench.signals.consistency import (
+        DISTINCT_COUNT_SO,
+        SEMANTIC_ENTROPY_SO,
+        compute_family_b_samples_only,
+    )
+
+    out = compute_family_b_samples_only(
+        ["Cairo", "Lima", "Oslo", "Bern", "Kiev"], _agreeing_model(), SPEC
+    )
+    assert out[SEMANTIC_ENTROPY_SO.name] == pytest.approx(math.log(5))
+    assert out[DISTINCT_COUNT_SO.name] == pytest.approx(5.0)
+
+
+def test_samples_only_disagreement_is_against_the_plurality() -> None:
+    from unc_bench.signals.consistency import (
+        DISAGREEMENT_RATE_SO,
+        FAMILY_B_SAMPLES_ONLY_SIGNALS,
+        MEAN_PAIRWISE_F1_SO,
+        compute_family_b_samples_only,
+    )
+
+    out = compute_family_b_samples_only(
+        ["Rome", "Rome", "Rome", "Cairo", "Lima"], _agreeing_model(), SPEC
+    )
+    assert out[DISAGREEMENT_RATE_SO.name] == pytest.approx(2 / 5)
+    assert set(out) == {s.name for s in FAMILY_B_SAMPLES_ONLY_SIGNALS}
+    assert out[MEAN_PAIRWISE_F1_SO.name] > 0.0
+
+
+def test_samples_only_unanimous_is_maximally_consistent() -> None:
+    from unc_bench.signals.consistency import (
+        DISAGREEMENT_RATE_SO,
+        DISTINCT_COUNT_SO,
+        SEMANTIC_ENTROPY_SO,
+        compute_family_b_samples_only,
+    )
+
+    out = compute_family_b_samples_only(["Rome"] * 5, _agreeing_model(), SPEC)
+    assert out[DISAGREEMENT_RATE_SO.name] == pytest.approx(0.0)
+    assert out[DISTINCT_COUNT_SO.name] == pytest.approx(1.0)
+    assert out[SEMANTIC_ENTROPY_SO.name] == pytest.approx(0.0)
+
+
+def test_samples_only_empty_is_nan_not_zero() -> None:
+    from unc_bench.signals.consistency import (
+        FAMILY_B_SAMPLES_ONLY_SIGNALS,
+        compute_family_b_samples_only,
+    )
+
+    out = compute_family_b_samples_only([], _agreeing_model(), SPEC)
+    assert set(out) == {s.name for s in FAMILY_B_SAMPLES_ONLY_SIGNALS}
+    for name, value in out.items():
+        assert math.isnan(value), f"{name} returned {value!r} with no samples"
+
+
+def test_exhaustive_clustering_closes_transitive_chains() -> None:
+    """A entails B and B entails C, but A does not directly entail C.
+
+    Greedy assignment checks C against A's cluster representative only and
+    leaves C alone; the transitive closure merges all three. This is the case
+    the greedy order-dependence audit exists to catch."""
+    from unc_bench.signals.consistency import cluster_answers_exhaustive
+
+    scores = {
+        ("ax", "bx"): 0.9,
+        ("bx", "ax"): 0.9,
+        ("bx", "cx"): 0.9,
+        ("cx", "bx"): 0.9,
+        ("ax", "cx"): 0.1,
+        ("cx", "ax"): 0.1,
+    }
+    model = ScriptedEntailmentModel(scores, default=0.0)
+    assert _sizes(cluster_answers(["ax", "bx", "cx"], model, SPEC)) == [2, 1]
+    assert _sizes(cluster_answers_exhaustive(["ax", "bx", "cx"], model, SPEC)) == [3]
+
+
+def test_exhaustive_agrees_with_greedy_on_unambiguous_sets() -> None:
+    from unc_bench.signals.consistency import cluster_answers_exhaustive
+
+    model = ScriptedEntailmentModel({}, default=0.0)
+    answers = ["Rome", "Rome", "Cairo", "Lima"]
+    assert _sizes(cluster_answers(answers, model, SPEC)) == [2, 1, 1]
+    assert _sizes(cluster_answers_exhaustive(answers, model, SPEC)) == [2, 1, 1]
+
+
+def test_exhaustive_merges_duplicates_without_model_calls() -> None:
+    from unc_bench.signals.consistency import cluster_answers_exhaustive
+
+    model = ScriptedEntailmentModel({}, default=0.0)
+    assert _sizes(cluster_answers_exhaustive(["x", "x", "x"], model, SPEC)) == [3]
+    assert model.calls == []
+
+
+def test_clustering_audit_flags_order_dependent_rows() -> None:
+    from unc_bench.signals.consistency import clustering_disagreement
+
+    scores = {
+        ("ax", "bx"): 0.9,
+        ("bx", "ax"): 0.9,
+        ("bx", "cx"): 0.9,
+        ("cx", "bx"): 0.9,
+        ("ax", "cx"): 0.1,
+        ("cx", "ax"): 0.1,
+    }
+    assert (
+        clustering_disagreement("ax", ["bx", "cx"], ScriptedEntailmentModel(scores), SPEC) is True
+    )
+    agreeing = ScriptedEntailmentModel({}, default=0.0)
+    assert clustering_disagreement("Rome", ["Rome", "Rome"], agreeing, SPEC) is False

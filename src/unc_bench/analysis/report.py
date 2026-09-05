@@ -45,7 +45,7 @@ from unc_bench.analysis.metrics import (
 from unc_bench.analysis.validity import assert_frozen_analysis_set, evaluate_gates
 from unc_bench.config import Config
 from unc_bench.signals.base import FAMILY_LABELS, get_spec, signal_names
-from unc_bench.stages.common import StagePaths, read_checkpoint
+from unc_bench.stages.common import StagePaths, json_load, read_checkpoint
 from unc_bench.stages.score_signals import merged_signals
 from unc_bench.types import LABEL_ABSTAIN, LABEL_AMBIGUOUS, LABEL_INCORRECT
 
@@ -160,7 +160,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
         human_label_coverage=label_quality.get("coverage"),
     )
     # D7: cost per signal, using this run's own measured timings.
-    costs = cost_table(per_view["primary"]["signals"], timings, cfg)
+    costs = cost_table(per_view["primary"]["signals"], timings, cfg, _token_means(generations))
 
     # D6: the N-ablation is produced by its own stage because it needs the NLI
     # model. Folded in here when present so results.json stays the single file
@@ -172,6 +172,19 @@ def build_results(cfg: Config) -> dict[str, Any]:
             ablation = json.loads(ablation_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             ablation = None
+
+    family_b_meta_path = cfg.paths.artifacts_dir / "family_b_meta.json"
+    family_b_clustering: dict[str, Any] = {
+        "available": False,
+        "reason": "family B scoring has not run with the clustering audit",
+    }
+    if family_b_meta_path.exists():
+        try:
+            stored = json.loads(family_b_meta_path.read_text(encoding="utf-8"))
+            if isinstance(stored, dict):
+                family_b_clustering = {"available": True, **stored}
+        except (OSError, json.JSONDecodeError):
+            pass
 
     return {
         "run_name": cfg.run_name,
@@ -222,6 +235,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
         "frozen_analysis_set": frozen,
         "cost": costs,
         "ablation": ablation,
+        "family_b_clustering": family_b_clustering,
         "views": per_view,
         "timings": timings,
         "seeds": {
@@ -249,6 +263,40 @@ def build_results(cfg: Config) -> dict[str, Any]:
 #: computed on them before any recalibration. Everything else (logprobs,
 #: entropies, counts, lengths) has no pre-Platt ECE that means anything.
 PROBABILITY_VALUED = ("c_p_true_plain", "c_p_true_with_samples", "c_verbal_confidence")
+
+
+def _token_means(generations: pd.DataFrame | None) -> dict[str, float] | None:
+    """Mean total tokens for greedy and sampled generations, or None.
+
+    Parsed from the stored per-generation token counts. None when the
+    generations artifact is absent (run #2's is lost) or carries no counts —
+    the call-count price then stands alone rather than standing on invented
+    token figures.
+    """
+    if generations is None or "greedy" not in generations.columns:
+        return None
+    greedy_totals: list[float] = []
+    sample_totals: list[float] = []
+    for record in generations.to_dict(orient="records"):
+        try:
+            greedy = json_load(str(record.get("greedy"))) or {}
+            greedy_totals.append(
+                float(greedy.get("prompt_tokens", 0)) + float(greedy.get("completion_tokens", 0))
+            )
+            samples = json_load(str(record.get("samples"))) or []
+            for sample in samples:
+                sample_totals.append(
+                    float(sample.get("prompt_tokens", 0))
+                    + float(sample.get("completion_tokens", 0))
+                )
+        except (TypeError, ValueError):
+            continue
+    if not greedy_totals or not sample_totals:
+        return None
+    return {
+        "greedy": math.fsum(greedy_totals) / len(greedy_totals),
+        "sample": math.fsum(sample_totals) / len(sample_totals),
+    }
 
 
 def _label_quality(path: Path) -> dict[str, Any]:

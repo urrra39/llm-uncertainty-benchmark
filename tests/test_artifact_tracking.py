@@ -32,6 +32,7 @@ TRACKED_ARTIFACTS = (
     "signals_b.parquet",
     "labels.parquet",
     "judge_verdicts.json",
+    "family_b_meta.json",
     "ablation.json",
     "nondeterminism.json",
     "timings.json",
