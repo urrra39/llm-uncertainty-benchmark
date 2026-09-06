@@ -1526,7 +1526,7 @@
       "view": "with_abstentions"
     }
   },
-  "generated_at_utc": "2026-09-05T18:26:57+00:00",
+  "generated_at_utc": "2026-09-06T17:56:58+00:00",
   "is_pilot": false,
   "labels": {
     "counts": {
@@ -1540,9 +1540,11 @@
       "reason": "no second-judge overlap"
     },
     "label_quality": {
-      "coverage": null,
+      "coverage": 0.0,
       "human_labels_present": false,
-      "reason": "validation file unreadable: [Errno 2] No such file or directory: 'data/human_validation_sample_run2b.csv'"
+      "n_labelled": 0,
+      "n_rows": 100,
+      "reason": "no human labels present"
     },
     "n_abstentions": 0,
     "n_ambiguous_dropped": 0,
@@ -1781,6 +1783,7 @@
   "validity_gates": {
     "all_passed": false,
     "failed": [
+      "per_dataset_class_counts",
       "labeling_protocol_validated",
       "human_label_coverage"
     ],
@@ -1807,6 +1810,13 @@
         "requirement": "< 0.10 of scored rows"
       },
       {
+        "detail": "columns failing the floor (do not read as rankings): popqa, triviaqa",
+        "name": "per_dataset_class_counts",
+        "observed": "popqa 23/37; triviaqa 48/12",
+        "passed": false,
+        "requirement": ">= 30 rows in each class of each dataset"
+      },
+      {
         "detail": "the protocol has never been validated: label the prior sample first (docs/HUMAN_LABELING.md), or the new run's human labels rest on untested instructions",
         "name": "labeling_protocol_validated",
         "observed": "coverage 0.000",
@@ -1816,7 +1826,7 @@
       {
         "detail": "no human has verified any label, so the label set's correctness is unmeasured; fill the run's validation CSV (docs/HUMAN_LABELING.md)",
         "name": "human_label_coverage",
-        "observed": "validation file absent",
+        "observed": "coverage 0.000",
         "passed": false,
         "requirement": ">= 0.80 of validation rows labelled"
       }

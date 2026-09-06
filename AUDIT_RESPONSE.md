@@ -162,3 +162,80 @@ dispositions for round 4 follow as each part lands.
   gate names, recovered-κ status and reconciliation note; audit_docs runs in
   CI; README header generated from the primary results file (now run #2b's,
   honestly showing VALIDITY FAILED on the two human gates).
+
+---
+
+# Round 5: documentation integrity + run #2b confound (executed)
+
+## Refused with reason
+
+- **P3.2 as written is stale in two of three clauses.** The 318-unique pool
+  was superseded two rounds ago: run #3 now draws 300 from 2074 unique
+  (6.91x, measured in-config). The pilot-gate 0.35 was refused last round
+  with git evidence and is refused again here rather than re-litigated. What
+  was live — the alias diagnostic for the new relations — is done
+  (`data/gold_quality_report.json` over all 16 relations; `place of birth`
+  cut at granularity-span 0.620, `genre` in at single-alias 0.074).
+- **P3.5's "27 vs 30 registry entries" has no referent.** The registry holds
+  27 signals (21 + 6 samples-only), verified in code; no committed file,
+  document or table ever counts 30 signals. The 30s in the repo are the
+  per-class floor and run #2's TriviaQA n. There is nothing to reconcile.
+- **P1.2's requested defect was not filed, with evidence.** The generous
+  containment branch fired zero times in 120 rows; fuzzy and strict label
+  sets are identical, so the differential length bias is exactly 0.000.
+- **B1's null-centred estimator (round 4) stays refused.** Calibration holds
+  type-I near nominal; run #2b additionally shows the same test rejecting
+  `t_random` at p=0.0076 on clean data.
+
+## Done
+
+- **P0.1–P0.3.** WITHDRAWN_RUN2.md split with status markers; `results.json`
+  renamed (config default is now `results_default.json`); header carries view
+  names + source file with provenance per number; audit fails on unregistered
+  README signals, README AUROCs absent from the primary file (pinned run #2b
+  table), defects missing from OPEN_DEFECTS, and withdrawn numbers outside
+  history. Failing output was produced first (empty registry, stale gate
+  string, stray run #2 intro block) and each fixed.
+- **P1.1.** Decomposition recomputed from the same generations under three
+  rules: rule effect 0.000 [0.0, 0.0]. E4 stands. A first version reported
+  0.481 through a sign bug (correctness stored where incorrectness was
+  read); caught because 1 − 0.740 == 0.260 exactly, and recorded here rather
+  than hidden.
+- **P1.3–P1.4.** Quantile regime recorded per run (run #2b kept 0.9; run #3
+  moved with a note); `comparability_note` assertion live with tests for both
+  configs. Per-dataset class gate live, failing both thin run #2b columns as
+  designed; banner on the table; design arithmetic (79/150) in pre-registration.
+- **P2.** `label-human` loop (no prefill, machine hidden until commit, atomic
+  resume, timing log, ambiguous logged separately) with tests;
+  `--require-judges` aborts instead of silent fallback (unrun: no key);
+  runbook rewrite; no-inter-labeler LIMITATIONS entry. Payoff is automatic on
+  analyze re-run (label_quality + gates already wired).
+- **P3.1.** Downgraded, not raised: ≥23 audited rows needed at the observed
+  rate, 16 drawn — "unmeasured at useful precision", with the arithmetic.
+- **P3.3.** Verified: width pinned at 1 with CPU/bfloat16 scoping in config,
+  harness recording device+dtype, notebook estimate assuming no speedup.
+  No equivalence claim exceeds its hardware.
+- **P3.4.** Exact string for GitHub Settings → General → About (owner must
+  paste; cannot be set from the tree): "Run #2b (n=120, CPU): no uncertainty
+  signal established above chance on 60-row subsets; decontaminated validity
+  run, heuristic labels, humans pending. Withdrawn run #2 inside."
+
+## Reconciliation table (P3.5)
+
+| Count | Authoritative source | Status |
+|---|---|---|
+| 66 judged rows, run #2 | `results_run2_withdrawn.json` labels.kappa.n + D11 assertion | demonstrated |
+| 71 judged rows, run #1 | `run1-n100` tag results.json | demonstrated |
+| 60-row transient request | no committed config | UNRESOLVED, marked in D26 note |
+| 20 echo / 21 inverse rows | `data/echo_contamination_report.json` | demonstrated (20 of 21; exception named) |
+| 27 registry signals | `SignalSpec` registry, counted in code | demonstrated; "30" has no referent |
+| 34/120 withdrawal bound | echo report (14) + 20 unobserved, worst-cased | derived, pinned by audit |
+
+## What is still unmeasured (flatly)
+
+- Human labels: 0/100 on both samples. Everything downstream of correctness
+  (attenuation bound, publishable ranking) waits on a human with a terminal.
+- Judge labels on run #2b rows: no key, no kappa, no second opinion of any kind.
+- Generation bit-reproducibility and batch invariance on the T4 in fp16.
+- Whether the widened run #3 slice lands in the pilot band at 3B scale.
+- Any per-dataset bootstrap interval for run #2 (artifacts lost permanently).

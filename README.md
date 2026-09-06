@@ -8,7 +8,7 @@
 
 > Status, generated from `results_run2b.json` (`scripts/render_readme_header.py`):
 > Primary run: run2b_clean (n=120, 71 incorrect / 49 correct).
-> VALIDITY FAILED: labeling_protocol_validated, human_label_coverage as recorded in this file (t_random 0.523 [0.416, 0.628]).
+> VALIDITY FAILED: per_dataset_class_counts, labeling_protocol_validated, human_label_coverage as recorded in this file (t_random 0.523 [0.416, 0.628]).
 > Label quality: 0/100 human-labelled — the correctness of the label set is unmeasured.
 
 ## Run #2b (primary, pending the human gate)
@@ -23,10 +23,12 @@ scored — the divergence is closed with real numbers.
 Two honest caveats travel with every number below. First, **labels are
 heuristic**: no judge credentials exist in an offline environment, so 47 rows
 settled by exact match and 73 by the fuzzy containment rule, with no kappa.
-Second, **the human gates fail**: `labeling_protocol_validated` and
-`human_label_coverage` both read 0.0, so by the project's own rule the ranking
-is not yet publishable. It is shown here as a measurement with that status
-attached, not as a finding. `data/human_validation_sample_run2b.csv` (100
+Second, **three validity gates fail**: `per_dataset_class_counts` (both
+columns below the ≥30 floor — see the banner on the table),
+`labeling_protocol_validated` and `human_label_coverage` (both 0.0), so by
+the project's own rule the ranking is not yet publishable. It is shown here
+as a measurement with that status attached, not as a finding.
+`data/human_validation_sample_run2b.csv` (100
 rows, 49 correct / 51 incorrect, `human_label` empty) is ready for the hand
 labelling that opens the gates.
 
@@ -83,9 +85,13 @@ TriviaQA 48/12 (80%).
   at N=1/2/3/5, with N=1 significantly below N=5 (−0.124, p_holm = 0.016)
   and N=3 vs N=5 indistinguishable (−0.023, p = 0.698). Run #2's "use N=3"
   survives as cost advice, not as an optimum.
-- **Clustering audit:** 1 disagreement in 16 audited rows (Wilson
-  [0.011, 0.283]); family-B token multiplier measured at 6.01× for 6.0×
-  calls — the call-count price was honest.
+- **Clustering audit: unmeasured at useful precision.** 1 disagreement in 16
+  audited rows (Wilson [0.011, 0.283]) — the interval spans an order of
+  magnitude, so no claim about greedy-vs-exhaustive agreement follows. At the
+  observed rate, half-width < 0.10 needs ≥23 audited rows; the 20% audit
+  fraction yields ~24 per 120-row run in expectation (this run drew 16).
+  Family-B token multiplier measured at 6.01× for 6.0× calls — the call-count
+  price was honest.
 
 Figures (all drawn from `results_run2b.json` alone):
 `figures/run2b/auroc.png`, `figures/run2b/risk_coverage.png`,
