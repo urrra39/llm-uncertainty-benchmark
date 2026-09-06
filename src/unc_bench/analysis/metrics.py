@@ -732,6 +732,14 @@ def wilson_interval(k: int, n: int, *, level: float = 0.95) -> tuple[float, floa
     denom = 1.0 + z * z / n
     centre = (p + z * z / (2.0 * n)) / denom
     half = z * math.sqrt(p * (1.0 - p) / n + z * z / (4.0 * n * n)) / denom
+    # Exact at the boundaries: centre - half is mathematically 0 for k == 0
+    # (and centre + half is 1 for k == n), but floating-point cancellation
+    # leaves last-ulp dust that differs across platforms (ARM vs x86 libm),
+    # which is exactly how CI caught this. Snap, don't approximate.
+    if k <= 0:
+        return (0.0, min(1.0, centre + half))
+    if k >= n:
+        return (max(0.0, centre - half), 1.0)
     return (max(0.0, centre - half), min(1.0, centre + half))
 
 
