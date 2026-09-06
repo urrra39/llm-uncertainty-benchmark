@@ -478,11 +478,53 @@ def test_label_human_loop_writes_verdicts_and_hides_machine_first(tmp_path: Path
 
 
 def test_label_human_rejects_unknown_runs() -> None:
-    from unc_bench.stages.label_human import resolve_csv
+    from unc_bench.stages.label_human import DEFAULT_TARGET, resolve_csv
 
-    assert resolve_csv("run2b").name == "human_validation_sample_run2b.csv"
+    assert resolve_csv("run2b") == DEFAULT_TARGET
+    assert resolve_csv("run2b", "sample").name == "human_validation_sample_run2b.csv"
+    assert resolve_csv("run2b", "fuzzy_decided").name == "fuzzy_decided_rows.csv"
     with pytest.raises(ValueError, match="unknown run"):
         resolve_csv("run9")
+    with pytest.raises(ValueError, match="unknown target"):
+        resolve_csv("run2b", "everything")
+
+
+def test_label_human_ambiguous_leaves_blank_and_logs(tmp_path: Path) -> None:
+    """Ambiguous is accepted at the prompt but stored as a blank cell (the
+    scorer only accepts correct/incorrect), with the qid logged separately —
+    so analysis drops it rather than coercing it."""
+    import io
+    import json as _json
+    from contextlib import redirect_stdout
+
+    from unc_bench.stages.label_human import run_loop
+
+    target = tmp_path / "sample.csv"
+    target.write_text(
+        "qid,dataset,question,gold_answers,model_answer,machine_label,human_label\n"
+        "q1,popqa,What is X?,X|Y,X,correct,\n",
+        encoding="utf-8",
+    )
+    answers = iter(["a"])
+    with redirect_stdout(io.StringIO()):
+        summary = run_loop(target, input_fn=lambda _prompt: next(answers))
+    assert summary["labelled_this_session"] == 0
+    assert summary["skipped_ambiguous_logged"] == 1
+    timing = _json.loads((tmp_path / "sample.timing.json").read_text(encoding="utf-8"))
+    assert timing["explicitly_ambiguous"] == ["q1"]
+    import pandas as pd
+
+    frame = pd.read_csv(target, dtype=str, keep_default_na=False)
+    assert str(frame.loc[0, "human_label"]).strip() == ""
+
+
+def test_fuzzy_decided_file_is_the_default_target_and_unlabelled() -> None:
+    """P0.3's population file ships with human_label empty everywhere."""
+    import pandas as pd
+
+    frame = pd.read_csv("data/fuzzy_decided_rows.csv", dtype=str, keep_default_na=False)
+    assert len(frame) == 73
+    assert (frame["human_label"].str.strip() == "").all()
 
 
 def test_label_require_judges_aborts_without_a_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -502,3 +544,29 @@ def test_label_human_and_require_judges_are_registered() -> None:
     actions = [a for a in parser._actions if a.dest == "command"]
     assert actions and actions[0].choices is not None
     assert {"label-human"} <= set(actions[0].choices)
+
+
+def test_rule_accuracy_matches_hand_computed_values() -> None:
+    """4 rows: rule correct,correct,incorrect,incorrect vs human
+    correct,incorrect,incorrect,correct. tp=1, fp=1, fn=1 -> P=R=0.5."""
+    from unc_bench.analysis.human_agreement import rule_accuracy
+
+    rows = [
+        {"fuzzy_verdict": "correct", "human_label": "correct"},
+        {"fuzzy_verdict": "correct", "human_label": "incorrect"},
+        {"fuzzy_verdict": "incorrect", "human_label": "incorrect"},
+        {"fuzzy_verdict": "incorrect", "human_label": "correct"},
+    ]
+    scored = rule_accuracy(rows, resamples=200, seed=0)
+    assert scored is not None
+    assert scored.n_compared == 4
+    assert scored.precision == 0.5
+    assert scored.recall == 0.5
+    assert scored.precision_ci[0] <= 0.5 <= scored.precision_ci[1]
+
+
+def test_rule_accuracy_returns_none_without_the_rule_column() -> None:
+    from unc_bench.analysis.human_agreement import rule_accuracy
+
+    assert rule_accuracy([{"human_label": "correct"}]) is None
+    assert rule_accuracy([], resamples=10) is None

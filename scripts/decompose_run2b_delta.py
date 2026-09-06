@@ -111,7 +111,66 @@ def _power_block(
     }
 
 
+def _human_arm(
+    frame: object, names: list[str], human_csv: str | None
+) -> dict[str, object]:
+    """E4 rerun with human labels as the reference arm (P4.2).
+
+    Reads a validation CSV with a filled human_label column and recomputes
+    every signal's AUROC under human labels — pooled and per dataset. Without
+    a filled column the block reports uncomputed with the reason, never a
+    number: human labels do not exist yet, and the arm must not run on empty.
+    When it does run, rewrite the E4 bullet from
+    human_reference.per_signal.a_mean_logprob.popqa — and withdraw E4 the way
+    run #2 was withdrawn if the number invalidates it.
+    """
+    import numpy as np
+    import pandas as pd
+
+    from unc_bench.analysis.metrics import auroc
+
+    if not human_csv:
+        return {"computed": False, "reason": "no --human-csv given"}
+    rows = pd.read_csv(human_csv, dtype=str, keep_default_na=False)
+    human = {
+        str(r["qid"]): str(r["human_label"]).strip().lower()
+        for _, r in rows.iterrows()
+        if str(r.get("human_label", "")).strip().lower() in ("correct", "incorrect")
+    }
+    if not human:
+        return {"computed": False, "reason": "human column empty: no labels to score against"}
+    assert isinstance(frame, pd.DataFrame)
+    sub = frame[frame["qid"].astype(str).isin(human)].reset_index(drop=True)
+    y = np.array([human[str(q)] == "incorrect" for q in sub["qid"].astype(str)], dtype=bool)
+    per_signal: dict[str, object] = {}
+    for name in names:
+        scores = sub[name].to_numpy(dtype=np.float64)
+        entry: dict[str, object] = {"auroc_pooled": auroc(scores, y)}
+        for dataset in ("popqa", "triviaqa"):
+            mask = (sub["dataset"].astype(str) == dataset).to_numpy(dtype=bool)
+            entry[dataset] = auroc(scores[mask], y[mask]) if mask.sum() else None
+        per_signal[name] = entry
+    return {
+        "computed": True,
+        "csv": human_csv,
+        "n": int(len(sub)),
+        "n_incorrect": int(y.sum()),
+        "n_correct": int(len(sub) - y.sum()),
+        "per_signal": per_signal,
+    }
+
+
 def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--human-csv",
+        default=None,
+        help="validation CSV with a filled human_label column; adds the L_human "
+        "reference arm (P4.2). Without it the human block reports uncomputed.",
+    )
+    args = parser.parse_args()
     sys.path.insert(0, str(REPO_ROOT / "src"))
     import numpy as np
     import pandas as pd
@@ -241,7 +300,7 @@ def main() -> int:
     exact_correct = np.array([not exact_labels[q] for q in exact_pop], dtype=float)
     rho_exact = _spearman(exact_len, exact_correct)
 
-    report = {
+    report: dict[str, Any] = {
         "rows": len(frame),
         "rules": {
             "L_exact": "normalized exact match only; misses excluded",
@@ -269,6 +328,7 @@ def main() -> int:
             ),
             "n_exact_rows": len(exact_pop),
         },
+        "human_reference": _human_arm(frame, names, args.human_csv),
     }
 
     def _clean(value: object) -> object:

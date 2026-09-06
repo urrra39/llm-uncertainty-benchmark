@@ -45,6 +45,92 @@ MACHINE_COLUMNS = (
 
 
 @dataclass(frozen=True, slots=True)
+class RuleAccuracy:
+    """The fuzzy rule scored against human verdicts on the rows it decided."""
+
+    rule_column: str
+    n_compared: int
+    precision: float
+    recall: float
+    precision_ci: tuple[float, float]
+    recall_ci: tuple[float, float]
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "rule_column": self.rule_column,
+            "n_compared": self.n_compared,
+            "precision": self.precision,
+            "recall": self.recall,
+            "precision_ci_95": list(self.precision_ci),
+            "recall_ci_95": list(self.recall_ci),
+        }
+
+
+def rule_accuracy(
+    rows: list[dict[str, str]],
+    rule_column: str = "fuzzy_verdict",
+    *,
+    resamples: int = 2000,
+    seed: int = 20260202,
+) -> RuleAccuracy | None:
+    """Precision and recall of a rule column against the human column.
+
+    Returns None when the file has no such column (e.g. the 100-row sample,
+    which carries judge verdicts instead of a rule verdict). Precision here
+    answers "when the rule says correct, is it?", recall "of the human-correct
+    rows, how many did the rule call correct?". Intervals are paired
+    bootstraps over rows. This is the E4 rule-out the fuzzy-vs-strict
+    contrast could not deliver: with human labels as reference, a low
+    precision directly bounds how much of E4's move the rule explains.
+    """
+    import numpy as np
+    import numpy.typing as npt
+
+    if not rows or rule_column not in rows[0]:
+        return None
+    paired = [
+        (r[rule_column].strip().lower(), r.get(HUMAN_COLUMN, "").strip().lower()) for r in rows
+    ]
+    paired = [(m, h) for m, h in paired if m in HUMAN_LABELS and h in HUMAN_LABELS]
+    if not paired:
+        nan = float("nan")
+        return RuleAccuracy(rule_column, 0, nan, nan, (nan, nan), (nan, nan))
+    machine_pos = np.array([m == "correct" for m, _ in paired])
+    human_pos = np.array([h == "correct" for _, h in paired])
+
+    def _pr(sel: npt.NDArray[np.bool_] | npt.NDArray[np.int64]) -> tuple[float, float]:
+        tp = int((machine_pos & human_pos)[sel].sum())
+        fp = int((machine_pos & ~human_pos)[sel].sum())
+        fn = int((~machine_pos & human_pos)[sel].sum())
+        precision = tp / (tp + fp) if tp + fp else float("nan")
+        recall = tp / (tp + fn) if tp + fn else float("nan")
+        return precision, recall
+
+    precision, recall = _pr(np.ones(len(paired), dtype=np.bool_))
+    rng = np.random.default_rng(seed)
+    boot_p: list[float] = []
+    boot_r: list[float] = []
+    for _ in range(resamples):
+        take = rng.integers(0, len(paired), size=len(paired))
+        bp, br = _pr(take)
+        if bp == bp:
+            boot_p.append(bp)
+        if br == br:
+            boot_r.append(br)
+    ci_p = _ci(boot_p)
+    ci_r = _ci(boot_r)
+    return RuleAccuracy(rule_column, len(paired), precision, recall, ci_p, ci_r)
+
+
+def _ci(draws: list[float]) -> tuple[float, float]:
+    import numpy as np
+
+    if not draws:
+        return (float("nan"), float("nan"))
+    return (float(np.quantile(draws, 0.025)), float(np.quantile(draws, 0.975)))
+
+
+@dataclass(frozen=True, slots=True)
 class Agreement:
     """One machine column scored against the human column."""
 

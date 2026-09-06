@@ -21,6 +21,10 @@
     "run2b_L_fuzzy": 0.7403055229142186,
     "run2b_L_strict": 0.7403055229142186
   },
+  "human_reference": {
+    "computed": false,
+    "reason": "no --human-csv given"
+  },
   "length_bias_popqa": {
     "L_exact_note": "L_exact rows are all correct by construction (misses excluded), so the correlation is undefined (NaN); L_strict is the informative contrast on identical rows",
     "n_exact_rows": 36,

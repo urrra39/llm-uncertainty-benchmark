@@ -15,6 +15,7 @@ from __future__ import annotations
 import csv
 import json
 import sys
+from contextlib import suppress
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -59,10 +60,8 @@ def render(results_path: str | None = None, csv_path: str | None = None) -> str:
     random_entry = view["signals"]["t_random"]["auroc"]
     source = target.name
     csv_display = csv_file.as_posix()
-    try:
+    with suppress(ValueError):
         csv_display = str(csv_file.relative_to(REPO_ROOT))
-    except ValueError:
-        pass
     return "\n".join(
         [
             f"Primary run: {payload['run_name']} (n={view['n']}, "

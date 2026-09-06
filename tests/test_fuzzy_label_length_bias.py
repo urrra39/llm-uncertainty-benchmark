@@ -79,3 +79,50 @@ def test_length_bias_is_identical_under_both_rules() -> None:
     # L_exact rows are all correct by construction, so its correlation is
     # undefined rather than zero — pinned as null, not as a number.
     assert bias["spearman_length_vs_correct_L_exact"] is None
+
+
+def test_human_reference_arm_runs_on_a_filled_file(tmp_path: Path) -> None:
+    """P4.2's E4 rerun path, exercised on synthetic labels in tmp — never on
+    a committed file, and never writing a human verdict anywhere persistent.
+    Uses real run #2b qids so the arm scores actual rows; the committed
+    sensitivity report is backed up and restored around the run."""
+    import subprocess
+    import sys
+
+    import pandas as pd
+
+    report_path = REPO / "data" / "label_rule_sensitivity.json"
+    backup = report_path.read_text(encoding="utf-8")
+    generations = pd.read_parquet(REPO / "data" / "run2b" / "generations.parquet")
+    qids = generations["qid"].astype(str).tolist()[:10]
+    filled = tmp_path / "filled.csv"
+    with filled.open("w", encoding="utf-8") as fh:
+        fh.write("qid,human_label\n")
+        for i, qid in enumerate(qids):
+            fh.write(f"{qid},{'correct' if i % 2 == 0 else 'incorrect'}\n")
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "scripts/decompose_run2b_delta.py",
+                "--human-csv",
+                str(filled),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=REPO,
+            check=False,
+        )
+        assert proc.returncode == 0, proc.stderr
+        import json as _json
+
+        report = _json.loads(report_path.read_text(encoding="utf-8"))
+        human = report["human_reference"]
+        assert human["computed"] is True
+        assert human["n"] == 10
+        assert human["n_incorrect"] == 5
+        assert set(human["per_signal"]) == set(
+            report["per_signal"]
+        ), "human arm must cover every signal"
+    finally:
+        report_path.write_text(backup, encoding="utf-8")

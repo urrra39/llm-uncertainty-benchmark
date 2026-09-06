@@ -70,6 +70,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="run2b",
         help="run name (run2, run2b) or a direct .csv path",
     )
+    label_human.add_argument(
+        "--target",
+        default="fuzzy_decided",
+        help="fuzzy_decided (rows the rule decided; default), sample, or a .csv path",
+    )
 
     analyze = subparsers.add_parser("analyze", help="stage 5: write the run's results file")
     _add_config(analyze)
@@ -189,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
     if command == "label-human":
         from unc_bench.stages.label_human import resolve_csv, run_loop
 
-        run_loop(resolve_csv(args.run))
+        run_loop(resolve_csv(args.run, args.target))
         return 0
 
     if command == "analyze":

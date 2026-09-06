@@ -1,8 +1,7 @@
 # Human labelling runbook: `unc-bench label-human --run run2b`
 
-The command walks `data/human_validation_sample_run2b.csv` row by row in a
-terminal. One word per row, nothing pre-filled, resumable, with per-row
-timing. No model is called.
+The command walks rows in a terminal. One word per row, nothing pre-filled,
+resumable, with per-row timing. No model is called.
 
 ## Exact command
 
@@ -10,7 +9,11 @@ timing. No model is called.
 uv run unc-bench label-human --run run2b
 ```
 
-`--run run2` targets run #2's sample instead; any other value must be a direct
+That targets `data/fuzzy_decided_rows.csv` (73 rows) — the rows where the
+label risk actually lives: they decided 61% of run #2b's labels under a rule
+no human has checked, while the 47 exact-match rows are a deterministic
+string comparison that needs no human. `--run run2b --target sample` walks
+the 100-row validation sample instead; any other value must be a direct
 `.csv` path. Quitting (`q`) saves and exits 0 — rerunning resumes past
 labelled rows without prompting.
 
@@ -25,17 +28,20 @@ verdict: it appears only after you commit yours, so you cannot anchor on it.
 - `c` correct, `i` incorrect — written to `human_label` immediately.
 - `a` ambiguous — stores a blank cell and logs the qid separately. Use it
   exactly when the gold list is wrong/incomplete or the question is
-  ambiguous. Blank rows are excluded from agreement, never counted as
-  disagreements. Do not invent a third label.
+  ambiguous. In analysis, ambiguous rows are DROPPED (excluded from every
+  AUROC and every agreement denominator), never coerced to either verdict:
+  a forced label on an unjudgeable row is label noise by construction.
 - `s` skip — leaves the row for later (it will be asked again on rerun).
 - `q` quit — saves everything first.
 
 ## Duration
 
-100 rows at a measured median of ~20 seconds per row is roughly 35 minutes.
-The timing log beside the CSV (`.timing.json`) records the real median; if
-your median differs, budget from it, not from this paragraph. Partial passes
-are fine: unlabelled rows are counted and skipped.
+73 fuzzy-decided rows at a measured median of ~20 seconds per row is roughly
+25 minutes. The timing log beside the CSV (`.timing.json`) records the real
+median; if your median differs, budget from it, not from this paragraph.
+Partial passes are fine: unlabelled rows are counted and skipped. The full
+100-row sample costs proportionally more and adds mostly exact-match rows of
+no labelling value — do the fuzzy file first.
 
 ## Adjudication rules
 

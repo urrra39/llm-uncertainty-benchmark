@@ -34,11 +34,27 @@ RUN_CSVS = {
     "run2b": Path("data/human_validation_sample_run2b.csv"),
 }
 
+#: Default labelling target: the rows where the label risk actually lives.
+#: The 73 fuzzy-decided rows decided 61% of run #2b's labels under a rule no
+#: human has checked, so they outrank the 47 exact-match rows (a deterministic
+#: string comparison needs no human) in labelling value per minute.
+DEFAULT_TARGET = Path("data/fuzzy_decided_rows.csv")
+
 VALID_VERDICTS = ("correct", "incorrect")
 
 
-def resolve_csv(run: str) -> Path:
-    """A --run name or a direct CSV path. Raises rather than guessing."""
+def resolve_csv(run: str, target: str = "fuzzy_decided") -> Path:
+    """Resolve the labelling target. `--run` picks the run, `--target` picks
+    the population: `fuzzy_decided` (default: the rows the fuzzy rule
+    decided) or `sample` (the run's validation CSV). Anything else is a
+    direct .csv path. Raises rather than guessing."""
+    if target == "fuzzy_decided" and run == "run2b":
+        return DEFAULT_TARGET
+    if target not in ("sample", "fuzzy_decided"):
+        candidate = Path(target)
+        if candidate.suffix == ".csv":
+            return candidate
+        raise ValueError(f"unknown target {target!r}: use fuzzy_decided, sample or a .csv path")
     if run in RUN_CSVS:
         return RUN_CSVS[run]
     candidate = Path(run)
