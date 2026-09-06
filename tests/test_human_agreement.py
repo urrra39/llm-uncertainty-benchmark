@@ -442,3 +442,63 @@ def test_per_dataset_gate_passes_balanced_columns() -> None:
         }
     }
     assert per_dataset_class_counts(view).passed is True
+
+
+def test_label_human_loop_writes_verdicts_and_hides_machine_first(tmp_path: Path) -> None:
+    """The loop never pre-fills, hides the machine label until commit, and
+    resumes past labelled rows without prompting."""
+    import io
+    from contextlib import redirect_stdout
+
+    from unc_bench.stages.label_human import run_loop
+
+    target = tmp_path / "sample.csv"
+    target.write_text(
+        "qid,dataset,question,gold_answers,model_answer,machine_label,human_label\n"
+        "q1,popqa,What is X?,X|Y,X,correct,\n"
+        "q2,popqa,What is Z?,Z,W,incorrect,done-before\n",
+        encoding="utf-8",
+    )
+    answers = iter(["c"])
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        summary = run_loop(target, input_fn=lambda _prompt: next(answers))
+    out = buffer.getvalue()
+    assert summary["labelled_this_session"] == 1
+    # The machine label for q1 appears only after the verdict is committed:
+    # everything before the "recorded" line must not name it.
+    shown, _, _ = out.partition("recorded correct")
+    assert "machine said correct" not in shown
+    assert "machine said correct" in out
+    assert (tmp_path / "sample.timing.json").exists()
+    # Resume: the labelled row is skipped without prompting.
+    with redirect_stdout(io.StringIO()):
+        rerun = run_loop(target, input_fn=lambda _prompt: (_ for _ in ()).throw(AssertionError))
+    assert rerun["labelled_this_session"] == 0
+
+
+def test_label_human_rejects_unknown_runs() -> None:
+    from unc_bench.stages.label_human import resolve_csv
+
+    assert resolve_csv("run2b").name == "human_validation_sample_run2b.csv"
+    with pytest.raises(ValueError, match="unknown run"):
+        resolve_csv("run9")
+
+
+def test_label_require_judges_aborts_without_a_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unc_bench.config import Config
+    from unc_bench.stages import label as label_stage
+
+    monkeypatch.delenv("GSK_API_KEY", raising=False)
+    cfg = Config.load("configs/run2b_clean.yaml")
+    with pytest.raises(RuntimeError, match="--require-judges"):
+        label_stage.run(cfg, require_judges=True)
+
+
+def test_label_human_and_require_judges_are_registered() -> None:
+    from unc_bench.cli import build_parser
+
+    parser = build_parser()
+    actions = [a for a in parser._actions if a.dest == "command"]
+    assert actions and actions[0].choices is not None
+    assert {"label-human"} <= set(actions[0].choices)

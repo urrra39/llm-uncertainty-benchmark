@@ -192,3 +192,12 @@ run #2b itself.
 20. **Run #2b's N-ablation does not saturate at N=3.** AUROC climbs 0.641 /
     0.700 / 0.742 / 0.765 at N=1/2/3/5; N=1 is significantly below N=5 but
     N=3 vs N=5 is indistinguishable. "Use N=3" survives as cost advice.
+
+21. **Run #2b has no inter-labeler agreement statistic of any kind.** Its
+    labels come from one deterministic rule (exact match, else containment),
+    so there is no second opinion to agree or disagree with — no kappa, no
+    disagreement rate, nothing. Do not read the run #2 judge-versus-judge κ of
+    0.849 as covering run #2b; it does not. The remedy is either the human
+    column (agreement against the machine) or a credentialed rerun with
+    `unc-bench label --require-judges`, which aborts instead of silently
+    falling back when no judge is reachable. Both are unrun and say so.

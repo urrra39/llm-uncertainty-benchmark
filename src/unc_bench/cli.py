@@ -56,6 +56,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     label = subparsers.add_parser("label", help="stage 4: exact match, judges, kappa")
     _add_config(label)
+    label.add_argument(
+        "--require-judges",
+        action="store_true",
+        help="abort instead of the heuristic fallback when no judge is reachable",
+    )
+
+    label_human = subparsers.add_parser(
+        "label-human", help="terminal labelling loop for a human (see docs/HUMAN_LABELING.md)"
+    )
+    label_human.add_argument(
+        "--run",
+        default="run2b",
+        help="run name (run2, run2b) or a direct .csv path",
+    )
 
     analyze = subparsers.add_parser("analyze", help="stage 5: write the run's results file")
     _add_config(analyze)
@@ -169,7 +183,13 @@ def main(argv: list[str] | None = None) -> int:
     if command == "label":
         from unc_bench.stages import label as label_stage
 
-        label_stage.run(cfg)
+        label_stage.run(cfg, require_judges=args.require_judges)
+        return 0
+
+    if command == "label-human":
+        from unc_bench.stages.label_human import resolve_csv, run_loop
+
+        run_loop(resolve_csv(args.run))
         return 0
 
     if command == "analyze":

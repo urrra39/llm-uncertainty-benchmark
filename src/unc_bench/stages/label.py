@@ -190,8 +190,16 @@ def _write_judge_verdicts(
     return path
 
 
-def run(cfg: Config) -> int:
-    """Label every generated answer. Returns the number of labeled rows."""
+def run(cfg: Config, *, require_judges: bool = False) -> int:
+    """Label every generated answer. Returns the number of labeled rows.
+
+    With `require_judges`, a missing judge credential aborts instead of
+    falling back to the heuristic rule: the fallback is silent data surgery,
+    and a run that needs judge labels must fail loudly rather than ship
+    heuristic ones under a judge's name. Unrun here (no key in this
+    environment); the flag exists for the credentialed rerun that produces a
+    real kappa on run #2b rows.
+    """
     paths = StagePaths.of(cfg)
     generations = read_checkpoint(paths.generations)
     if generations is None:
@@ -230,6 +238,10 @@ def run(cfg: Config) -> int:
     try:
         primary = build_judge(cfg)
     except Exception as exc:
+        if require_judges:
+            raise RuntimeError(
+                f"--require-judges was given but the primary judge is unavailable: {exc}"
+            ) from exc
         print(f"[label] primary judge unavailable ({exc}); falling back to fuzzy", flush=True)
 
     primary_verdicts: dict[str, str] = {}
