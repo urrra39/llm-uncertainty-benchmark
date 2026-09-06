@@ -409,3 +409,36 @@ def test_protocol_gate_passes_below_the_publishability_bar() -> None:
     assert protocol_validated_gate(0.0).passed is False
     assert protocol_validated_gate(None).passed is False
     assert protocol_validated_gate(MIN_PROTOCOL_COVERAGE).passed is True
+
+
+def test_per_dataset_gate_fails_the_thin_column() -> None:
+    from unc_bench.analysis.validity import per_dataset_class_counts
+
+    view = {
+        "per_dataset": {
+            "datasets": {
+                "popqa": {"n_incorrect": 23, "n_correct": 37},
+                "triviaqa": {"n_incorrect": 48, "n_correct": 12},
+            }
+        }
+    }
+    gate = per_dataset_class_counts(view)
+    assert gate.name == "per_dataset_class_counts"
+    assert gate.passed is False
+    # Both columns fail here (23 and 12); the detail must name the failures.
+    assert "triviaqa" in gate.detail
+    assert "popqa" in gate.detail
+
+
+def test_per_dataset_gate_passes_balanced_columns() -> None:
+    from unc_bench.analysis.validity import per_dataset_class_counts
+
+    view = {
+        "per_dataset": {
+            "datasets": {
+                "popqa": {"n_incorrect": 150, "n_correct": 150},
+                "triviaqa": {"n_incorrect": 150, "n_correct": 150},
+            }
+        }
+    }
+    assert per_dataset_class_counts(view).passed is True

@@ -1,5 +1,16 @@
 run_name: run3_gpu_balanced
 
+# Baseline: run #2. Quantile moved 0.9 -> 0.5 to buy the 3x sampling margin
+# (2074 unique for 300 draws); relations rebuilt from gold-list evidence;
+# model 0.5B -> 3B; split 90/30 -> 300/300. Cross-run AUROC comparisons mix
+# regime, scale and balance changes and are directional at best.
+baseline_config: configs/run2.yaml
+comparability_note: >-
+  Quantile 0.9 -> 0.5 (longer popularity tail for pool size), relations
+  rebuilt from data/gold_quality_report.json, model 0.5B -> 3B CPU -> fp16
+  T4, split rebalanced. The pilot gate, not this note, decides whether the
+  base rate landed usable.
+
 # Run #3. Same study as run #2, on a GPU, at n=600 with a balanced split.
 #
 # Everything not commented below is inherited verbatim from configs/run2.yaml so

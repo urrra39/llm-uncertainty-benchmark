@@ -37,6 +37,11 @@ TriviaQA 48/12 (80%).
 
 ### Run #2b per-dataset AUROC (60/60, real bootstrap intervals)
 
+> Column power: PopQA's minority class is 23, TriviaQA's is 12 — both below
+> the project's own ≥30 floor (`per_dataset_class_counts` fails; run #2b's
+> committed gates record it). The TriviaQA column must not be read as a
+> ranking. The next run must target ≥30 per class *within* each dataset.
+
 | signal | PopQA (23/37) | TriviaQA (48/12) | stratified |
 |---|---|---|---|
 | `b_disagreement_rate` | 0.768 [0.646, 0.882] | 0.727 [0.592, 0.847] | 0.747 |
@@ -55,7 +60,12 @@ TriviaQA 48/12 (80%).
 
 - **`a_mean_logprob` on PopQA: 0.514 → 0.740, clearing chance
   [0.609, 0.861].** Predicted up; confirmed strongly. The confident stratum
-  was noise in run #2 and signal here.
+  was noise in run #2 and signal here. Rule-out completed:
+  `data/label_rule_sensitivity.json` recomputes every signal under exact-only,
+  shipped-fuzzy and strict-direction labels from the same generations — the
+  fuzzy-vs-strict rule effect on this signal is **0.000 [0.0, 0.0]** (the
+  generous containment branch fired zero times in 120 rows), so the move is
+  not a labeling artifact.
 - **`c_verbal_confidence` on PopQA: 0.395 → 0.504.** Predicted up; confirmed
   in direction only — it sits at chance, not above it. The hypothesis is
   right about the mechanism and overclaims nothing about this signal.
@@ -76,6 +86,11 @@ TriviaQA 48/12 (80%).
 - **Clustering audit:** 1 disagreement in 16 audited rows (Wilson
   [0.011, 0.283]); family-B token multiplier measured at 6.01× for 6.0×
   calls — the call-count price was honest.
+
+Figures (all drawn from `results_run2b.json` alone):
+`figures/run2b/auroc.png`, `figures/run2b/risk_coverage.png`,
+`figures/run2b/reliability.png`, `figures/run2b/correlation.png`,
+`figures/run2b/n_ablation.png`, `figures/run2b/cost_vs_auroc.png`.
 
 ## History of withdrawn runs
 

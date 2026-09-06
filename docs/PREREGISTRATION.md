@@ -78,6 +78,18 @@ a balanced 300-row subset; run #2's 36/54 PopQA split could not (half-width
 0.120). This is an approximation (it assumes no ties); the run reports
 bootstrap intervals and this number only sizes the study.
 
+## Per-dataset class counts: the required n (added after run #2b)
+
+Run #2b measured PopQA 38% incorrect and TriviaQA 80% incorrect. The
+`per_dataset_class_counts` gate demands ≥30 per class *within* each dataset,
+so with those base rates the next run needs PopQA n ≥ 30/0.38 = 79 and
+TriviaQA n ≥ 30/0.20 = 150 — unequal dataset sizes, or stratified sampling to
+a balanced class mix within equal sizes. Equal-n splits at unequal base rates
+relocate run #1's failure mode. Conditionally: IF run #3's base rates
+resemble run #2b's, 300/300 gives expected minority rows of 114 and 60, both
+clear of the floor — but base rates move with model scale and the new
+relations, so the pilot gate (25–65%), not this paragraph, is the enforcement.
+
 ## What falsifies the hypothesis
 
 "Self-consistency beats logprobs" is falsified if, on PopQA, the best family-B

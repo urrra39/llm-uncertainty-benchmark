@@ -1,5 +1,16 @@
 run_name: run2b_clean
 
+# Baseline: run #2. Quantile unchanged (0.9); relations narrowed 5 -> 4 by
+# removing `capital of`, split rebalanced 90/30 -> 60/60, leakage rows dropped,
+# near-duplicates deduped, labels heuristic (no judges). Run #2 vs #2b
+# comparisons therefore mix contamination, labeling rule and (minor) relation
+# filtering: directional at best, stated everywhere such a comparison appears.
+baseline_config: configs/run2.yaml
+comparability_note: >-
+  Same quantile (0.9) and model as run #2; differs in relations (minus
+  capital of), split (60/60 vs 90/30), leakage/dedup filters, per-question
+  sample seeds, and heuristic-vs-judged labels. Directional comparisons only.
+
 # Run #2b: run #2's exact configuration on the hardware at hand, differing
 # ONLY in dataset construction. Same model, decoding, prompts, sampling, NLI
 # and n=120. What changed: `capital of` removed (echo contamination, Part A1),

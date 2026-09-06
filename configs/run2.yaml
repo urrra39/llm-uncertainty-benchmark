@@ -104,7 +104,7 @@ paths:
   cache_dir: data/cache
   artifacts_dir: data/run2
   figures_dir: figures
-  results_json: results.json
+  results_json: results_run2_withdrawn.json
   human_validation_csv: data/human_validation_sample.csv
 
 # Frozen prompts. These strings are part of the cache key, so editing them

@@ -219,6 +219,46 @@ def protocol_validated_gate(coverage: float | None) -> Gate:
     )
 
 
+def per_dataset_class_counts(view: dict[str, Any]) -> Gate:
+    """Every dataset's minority class must clear MIN_PER_CLASS.
+
+    The overall class-balance gate passes while a per-dataset column fails it
+    — run #2b is 71/49 overall with TriviaQA at 48/12 — which relocates run
+    #1's failure mode instead of removing it. A column below the floor must
+    not be read as a ranking; this gate says so in the file rather than in
+    prose beside it.
+    """
+    datasets = (view.get("per_dataset") or {}).get("datasets") or {}
+    if not datasets:
+        return Gate(
+            name="per_dataset_class_counts",
+            passed=False,
+            observed="no per-dataset breakdown",
+            requirement=f">= {MIN_PER_CLASS} rows in each class of each dataset",
+            detail="the per-dataset columns cannot be checked without the breakdown",
+        )
+    failing = sorted(
+        name
+        for name, block in datasets.items()
+        if min(int(block.get("n_incorrect", 0)), int(block.get("n_correct", 0))) < MIN_PER_CLASS
+    )
+    observed = "; ".join(
+        f"{name} {block.get('n_incorrect')}/{block.get('n_correct')}"
+        for name, block in sorted(datasets.items())
+    )
+    return Gate(
+        name="per_dataset_class_counts",
+        passed=not failing,
+        observed=observed,
+        requirement=f">= {MIN_PER_CLASS} rows in each class of each dataset",
+        detail=(
+            "every per-dataset column is powered on its own"
+            if not failing
+            else f"columns failing the floor (do not read as rankings): {', '.join(failing)}"
+        ),
+    )
+
+
 def evaluate_gates(
     view: dict[str, Any],
     *,
@@ -236,6 +276,7 @@ def evaluate_gates(
         random_baseline_gate(view),
         class_balance_gate(view),
         abstention_gate(n_abstentions, n_scored),
+        per_dataset_class_counts(view),
         protocol_validated_gate(protocol_coverage),
         human_label_gate(human_label_coverage),
     ]

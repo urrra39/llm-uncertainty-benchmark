@@ -1,0 +1,595 @@
+{
+  "e4_decomposition_a_mean_logprob_popqa": {
+    "n_dropped_nonfinite": 0,
+    "rule_effect_95ci": [
+      0.0,
+      0.0
+    ],
+    "rule_effect_fuzzy_minus_strict": 0.0,
+    "run2_judged": 0.514,
+    "run2b_L_fuzzy": 0.7403055229142186,
+    "run2b_L_strict": 0.7403055229142186
+  },
+  "length_bias_popqa": {
+    "L_exact_note": "L_exact rows are all correct by construction (misses excluded), so the correlation is undefined (NaN); L_strict is the informative contrast on identical rows",
+    "n_exact_rows": 36,
+    "spearman_length_vs_correct_L_exact": null,
+    "spearman_length_vs_correct_L_fuzzy": -0.25759659586767913,
+    "spearman_length_vs_correct_L_strict": -0.25759659586767913
+  },
+  "per_signal": {
+    "a_first_token_logprob": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.6694452428858868,
+        "n": 120,
+        "popqa": 0.5945945945945946,
+        "triviaqa": 0.5173611111111112
+      },
+      "L_strict": {
+        "auroc_pooled": 0.6694452428858868,
+        "n": 120,
+        "popqa": 0.5945945945945946,
+        "triviaqa": 0.5173611111111112
+      }
+    },
+    "a_first_token_margin": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.6044840471399827,
+        "n": 120,
+        "popqa": 0.5922444183313749,
+        "triviaqa": 0.3819444444444444
+      },
+      "L_strict": {
+        "auroc_pooled": 0.6044840471399827,
+        "n": 120,
+        "popqa": 0.5922444183313749,
+        "triviaqa": 0.3819444444444444
+      }
+    },
+    "a_length_normalized_logprob": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7916067835584938,
+        "n": 120,
+        "popqa": 0.8108108108108109,
+        "triviaqa": 0.65625
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7916067835584938,
+        "n": 120,
+        "popqa": 0.8108108108108109,
+        "triviaqa": 0.65625
+      }
+    },
+    "a_max_top5_entropy": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.740155217016384,
+        "n": 120,
+        "popqa": 0.7602820211515864,
+        "triviaqa": 0.5659722222222222
+      },
+      "L_strict": {
+        "auroc_pooled": 0.740155217016384,
+        "n": 120,
+        "popqa": 0.7602820211515864,
+        "triviaqa": 0.5659722222222222
+      }
+    },
+    "a_mean_logprob": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7045127910319057,
+        "n": 120,
+        "popqa": 0.7403055229142186,
+        "triviaqa": 0.4895833333333333
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7045127910319057,
+        "n": 120,
+        "popqa": 0.7403055229142186,
+        "triviaqa": 0.4895833333333333
+      }
+    },
+    "a_mean_top5_entropy": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.6671457315320495,
+        "n": 120,
+        "popqa": 0.7215041128084606,
+        "triviaqa": 0.4357638888888889
+      },
+      "L_strict": {
+        "auroc_pooled": 0.6671457315320495,
+        "n": 120,
+        "popqa": 0.7215041128084606,
+        "triviaqa": 0.4357638888888889
+      }
+    },
+    "a_min_logprob": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7597010635240011,
+        "n": 120,
+        "popqa": 0.7649823736780259,
+        "triviaqa": 0.6076388888888888
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7597010635240011,
+        "n": 120,
+        "popqa": 0.7649823736780259,
+        "triviaqa": 0.6076388888888888
+      }
+    },
+    "a_perplexity": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7045127910319057,
+        "n": 120,
+        "popqa": 0.7403055229142186,
+        "triviaqa": 0.4895833333333333
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7045127910319057,
+        "n": 120,
+        "popqa": 0.7403055229142186,
+        "triviaqa": 0.4895833333333333
+      }
+    },
+    "a_total_logprob": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7993676343776948,
+        "n": 120,
+        "popqa": 0.8249118683901293,
+        "triviaqa": 0.65625
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7993676343776948,
+        "n": 120,
+        "popqa": 0.8249118683901293,
+        "triviaqa": 0.65625
+      }
+    },
+    "b_disagreement_rate": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7782408738143145,
+        "n": 120,
+        "popqa": 0.7679200940070505,
+        "triviaqa": 0.7265625
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7782408738143145,
+        "n": 120,
+        "popqa": 0.7679200940070505,
+        "triviaqa": 0.7265625
+      }
+    },
+    "b_disagreement_rate_samples_only": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.752083932164415,
+        "n": 120,
+        "popqa": 0.7291421856639247,
+        "triviaqa": 0.6727430555555556
+      },
+      "L_strict": {
+        "auroc_pooled": 0.752083932164415,
+        "n": 120,
+        "popqa": 0.7291421856639247,
+        "triviaqa": 0.6727430555555556
+      }
+    },
+    "b_distinct_count": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7647312446105202,
+        "n": 120,
+        "popqa": 0.7420681551116334,
+        "triviaqa": 0.7118055555555556
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7647312446105202,
+        "n": 120,
+        "popqa": 0.7420681551116334,
+        "triviaqa": 0.7118055555555556
+      }
+    },
+    "b_distinct_count_samples_only": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.752083932164415,
+        "n": 120,
+        "popqa": 0.7238542890716804,
+        "triviaqa": 0.6744791666666666
+      },
+      "L_strict": {
+        "auroc_pooled": 0.752083932164415,
+        "n": 120,
+        "popqa": 0.7238542890716804,
+        "triviaqa": 0.6744791666666666
+      }
+    },
+    "b_distinct_fraction": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7647312446105202,
+        "n": 120,
+        "popqa": 0.7420681551116334,
+        "triviaqa": 0.7118055555555556
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7647312446105202,
+        "n": 120,
+        "popqa": 0.7420681551116334,
+        "triviaqa": 0.7118055555555556
+      }
+    },
+    "b_distinct_fraction_samples_only": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.752083932164415,
+        "n": 120,
+        "popqa": 0.7238542890716804,
+        "triviaqa": 0.6744791666666666
+      },
+      "L_strict": {
+        "auroc_pooled": 0.752083932164415,
+        "n": 120,
+        "popqa": 0.7238542890716804,
+        "triviaqa": 0.6744791666666666
+      }
+    },
+    "b_mean_pairwise_f1": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7486346651336591,
+        "n": 120,
+        "popqa": 0.7508813160987075,
+        "triviaqa": 0.6657986111111112
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7486346651336591,
+        "n": 120,
+        "popqa": 0.7508813160987075,
+        "triviaqa": 0.6657986111111112
+      }
+    },
+    "b_mean_pairwise_f1_samples_only": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7359873526875539,
+        "n": 120,
+        "popqa": 0.7262044653349001,
+        "triviaqa": 0.6458333333333334
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7359873526875539,
+        "n": 120,
+        "popqa": 0.7262044653349001,
+        "triviaqa": 0.6458333333333334
+      }
+    },
+    "b_semantic_entropy": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7293762575452716,
+        "n": 120,
+        "popqa": 0.6556991774383079,
+        "triviaqa": 0.6961805555555556
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7293762575452716,
+        "n": 120,
+        "popqa": 0.6556991774383079,
+        "triviaqa": 0.6961805555555556
+      }
+    },
+    "b_semantic_entropy_normalized": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7293762575452716,
+        "n": 120,
+        "popqa": 0.6556991774383079,
+        "triviaqa": 0.6961805555555556
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7293762575452716,
+        "n": 120,
+        "popqa": 0.6556991774383079,
+        "triviaqa": 0.6961805555555556
+      }
+    },
+    "b_semantic_entropy_normalized_samples_only": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7211842483472262,
+        "n": 120,
+        "popqa": 0.6380728554641598,
+        "triviaqa": 0.6640625
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7211842483472262,
+        "n": 120,
+        "popqa": 0.6380728554641598,
+        "triviaqa": 0.6640625
+      }
+    },
+    "b_semantic_entropy_samples_only": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7211842483472262,
+        "n": 120,
+        "popqa": 0.6380728554641598,
+        "triviaqa": 0.6640625
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7211842483472262,
+        "n": 120,
+        "popqa": 0.6380728554641598,
+        "triviaqa": 0.6640625
+      }
+    },
+    "c_p_true_plain": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.6624029893647599,
+        "n": 120,
+        "popqa": 0.7949471210340776,
+        "triviaqa": 0.5277777777777778
+      },
+      "L_strict": {
+        "auroc_pooled": 0.6624029893647599,
+        "n": 120,
+        "popqa": 0.7949471210340776,
+        "triviaqa": 0.5277777777777778
+      }
+    },
+    "c_p_true_with_samples": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7184535786145444,
+        "n": 120,
+        "popqa": 0.7356051703877791,
+        "triviaqa": 0.5642361111111112
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7184535786145444,
+        "n": 120,
+        "popqa": 0.7356051703877791,
+        "triviaqa": 0.5642361111111112
+      }
+    },
+    "c_verbal_confidence": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.5656797930439782,
+        "n": 120,
+        "popqa": 0.5035252643948296,
+        "triviaqa": 0.546875
+      },
+      "L_strict": {
+        "auroc_pooled": 0.5656797930439782,
+        "n": 120,
+        "popqa": 0.5035252643948296,
+        "triviaqa": 0.546875
+      }
+    },
+    "t_answer_length": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.6810865191146881,
+        "n": 120,
+        "popqa": 0.6028202115158637,
+        "triviaqa": 0.6501736111111112
+      },
+      "L_strict": {
+        "auroc_pooled": 0.6810865191146881,
+        "n": 120,
+        "popqa": 0.6028202115158637,
+        "triviaqa": 0.6501736111111112
+      }
+    },
+    "t_question_length": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.7194596148318483,
+        "n": 120,
+        "popqa": 0.4988249118683901,
+        "triviaqa": 0.5529513888888888
+      },
+      "L_strict": {
+        "auroc_pooled": 0.7194596148318483,
+        "n": 120,
+        "popqa": 0.4988249118683901,
+        "triviaqa": 0.5529513888888888
+      }
+    },
+    "t_random": {
+      "L_exact": {
+        "auroc_pooled": null,
+        "n": 47,
+        "note": "non-matching rows excluded, so n differs; not directly comparable",
+        "popqa": null,
+        "triviaqa": null
+      },
+      "L_fuzzy": {
+        "auroc_pooled": 0.5231388329979879,
+        "n": 120,
+        "popqa": 0.44535840188014103,
+        "triviaqa": 0.5711805555555556
+      },
+      "L_strict": {
+        "auroc_pooled": 0.5231388329979879,
+        "n": 120,
+        "popqa": 0.44535840188014103,
+        "triviaqa": 0.5711805555555556
+      }
+    }
+  },
+  "rows": 120,
+  "rules": {
+    "L_exact": "normalized exact match only; misses excluded",
+    "L_fuzzy": "shipped run #2b labels (exact + either-way containment, gap 2)",
+    "L_strict": "exact + shortening-direction containment only (gap cap kept)"
+  }
+}

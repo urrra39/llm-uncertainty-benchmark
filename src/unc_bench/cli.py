@@ -63,7 +63,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-figures", action="store_true", help="skip figure rendering after the report"
     )
 
-    figures = subparsers.add_parser("figures", help="redraw figures from the run's results file alone")
+    figures = subparsers.add_parser(
+        "figures", help="redraw figures from the run's results file alone"
+    )
     _add_config(figures)
     figures.add_argument("--view", default="primary", choices=("primary", "with_abstentions"))
 

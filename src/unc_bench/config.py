@@ -373,6 +373,13 @@ class Config(Frozen):
     """Top-level config. One YAML file, fully validated."""
 
     run_name: str
+    #: Path to the run this one declares comparability with, if any. When set
+    #: and the PopQA popularity quantile differs from the baseline's, a
+    #: `comparability_note` is required: quantile moves change the difficulty
+    #: regime, and run #2 vs #2b comparisons already mix three changes
+    #: (contamination, labeling rule, regime).
+    baseline_config: str | None = None
+    comparability_note: str | None = None
     model_under_test: ModelSpec
     greedy: GreedySpec
     sampling: SamplingSpec
@@ -398,6 +405,26 @@ class Config(Frozen):
             raise ValueError(f"primary judge must differ from model under test ({subject})")
         if self.judges.secondary.name == subject:
             raise ValueError(f"secondary judge must differ from model under test ({subject})")
+        return self
+
+    @model_validator(mode="after")
+    def _quantile_moves_require_a_note(self) -> Config:
+        if self.baseline_config is None:
+            return self
+        baseline = Config.load(self.baseline_config)
+        if (
+            baseline.difficulty.popqa_popularity_quantile
+            != self.difficulty.popqa_popularity_quantile
+            and not (self.comparability_note or "").strip()
+        ):
+            raise ValueError(
+                f"popqa_popularity_quantile moved "
+                f"{baseline.difficulty.popqa_popularity_quantile} -> "
+                f"{self.difficulty.popqa_popularity_quantile} against baseline "
+                f"{self.baseline_config} without a comparability_note: quantile "
+                "moves change the difficulty regime, so cross-run comparisons "
+                "need the difference stated where the config is read"
+            )
         return self
 
     @classmethod

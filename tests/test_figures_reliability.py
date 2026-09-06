@@ -232,8 +232,10 @@ def test_no_stale_calibration_figure_is_committed() -> None:
 
 
 def _readme_figure_references() -> set[str]:
-    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
-    return set(re.findall(r"figures/[A-Za-z0-9_.-]+\.png", readme))
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "README.md").read_text(encoding="utf-8")
+    text += (root / "docs" / "WITHDRAWN_RUN2.md").read_text(encoding="utf-8")
+    return set(re.findall(r"figures/[A-Za-z0-9_./-]+\.png", text))
 
 
 def test_every_figure_referenced_by_the_readme_exists() -> None:

@@ -430,9 +430,9 @@ Release instead of committing the parquets.
 Two things to do by hand afterwards, because neither should be automated:
 
 1. **Compare the two runs rather than overwriting run #2.**
-   `unc-bench compare-runs results.json results_run3.json --left-label run2
+   `unc-bench compare-runs results_run2_withdrawn.json results_run3.json --left-label run2
    --right-label run3` prints both AUROC tables side by side with both sets of
-   intervals. Run #2's `results.json` is frozen and must not be edited.
+   intervals. Run #2's `results_run2_withdrawn.json` is frozen and must not be edited.
 2. **Read the validity gate line before quoting any number.** If a gate failed,
    the run is a record of a failure and the ranking is not publishable. That is a
    result too, and it should be written up as one.

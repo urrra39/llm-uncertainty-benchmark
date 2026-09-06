@@ -177,3 +177,21 @@ def test_run2b_is_run2_with_decontaminated_construction() -> None:
     assert run2b.paths.artifacts_dir != run2.paths.artifacts_dir
     assert run2b.paths.results_json != run2.paths.results_json
     assert run2b.paths.figures_dir != run2.paths.figures_dir
+
+
+def test_quantile_move_without_a_note_fails_loudly(tmp_path: Path) -> None:
+    base = Config.load(CONFIG_DIR / "run2.yaml")
+    assert base.difficulty.popqa_popularity_quantile == 0.9
+    raw = _raw("run3_gpu.yaml")
+    assert raw["baseline_config"] == "configs/run2.yaml"
+    assert raw["difficulty"]["popqa_popularity_quantile"] == 0.5
+    assert (raw.get("comparability_note") or "").strip()
+    broken = copy.deepcopy(raw)
+    broken["comparability_note"] = "  "
+    with pytest.raises(ValidationError, match="comparability_note"):
+        Config.model_validate(broken)
+
+
+def test_run2b_declares_its_baseline() -> None:
+    cfg = Config.load(CONFIG_DIR / "run2b_clean.yaml")
+    assert cfg.baseline_config == "configs/run2.yaml"
