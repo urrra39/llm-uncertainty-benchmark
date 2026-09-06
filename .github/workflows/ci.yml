@@ -20,7 +20,9 @@ jobs:
       - name: install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.5.11"
+          # Must stay >= the uv that writes uv.lock (lockfile revision 3).
+          # 0.5.11 predates the format and syncs a wrong subset silently.
+          version: "0.12.9"
           enable-cache: true
 
       - name: pin python 3.11
