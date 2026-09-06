@@ -256,9 +256,7 @@ def main() -> int:
             "rule_effect_fuzzy_minus_strict": rule_effect,
             "rule_effect_95ci": rule_effect_ci,
             "n_dropped_nonfinite": len(diffs) - len(finite),
-            "power": _power_block(
-                qids_all, shipped_map, strict_incorrect, exact_labels
-            ),
+            "power": _power_block(qids_all, shipped_map, strict_incorrect, exact_labels),
         },
         "length_bias_popqa": {
             "spearman_length_vs_correct_L_fuzzy": rho_fuzzy,

@@ -712,6 +712,17 @@ def check_readme_scope(problems: list[str]) -> None:
     # structurally below instead. A bare fingerprint outside history fails;
     # the same number explicitly attributed to run #2 in prose ("in run #2",
     # "withdrawn") is a historical comparison, not a quoted ranking.
+    # Stale-scope phrasing fails too: the split moved every table, so
+    # references to tables "below"/"beside" and futures that already happened
+    # are dangling.
+    for stale in (
+        "once it has run",
+        "beside the tables",
+        "The tables stay as the record",
+        "The ranking below is publishable",
+    ):
+        if stale in readme:
+            problems.append(f"README.md contains stale scope phrasing: {stale!r}")
     history_at = readme.find("## History of withdrawn runs")
     primary_text = readme[:history_at] if history_at >= 0 else readme
     for fingerprint in ("0.704", "0.684", "0.746", "63 incorrect / 57 correct"):
@@ -732,9 +743,7 @@ def check_readme_scope(problems: list[str]) -> None:
     # while the numbers stay.
     for match in _re.finditer(r"0\.\d{3}\s*→\s*0\.\d{3}", primary_text):
         if "withdrawn" not in primary_text[max(0, match.start() - 120) : match.end() + 40]:
-            problems.append(
-                f"delta {match.group(0)!r} lacks a withdrawn-baseline marker"
-            )
+            problems.append(f"delta {match.group(0)!r} lacks a withdrawn-baseline marker")
 
 
 def main() -> int:

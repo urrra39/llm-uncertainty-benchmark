@@ -57,15 +57,25 @@ def render(results_path: str | None = None, csv_path: str | None = None) -> str:
                 if (row.get("human_label") or "").strip():
                     labelled += 1
     random_entry = view["signals"]["t_random"]["auroc"]
+    source = target.name
+    csv_display = csv_file.as_posix()
+    try:
+        csv_display = str(csv_file.relative_to(REPO_ROOT))
+    except ValueError:
+        pass
     return "\n".join(
         [
             f"Primary run: {payload['run_name']} (n={view['n']}, "
-            f"{view['n_incorrect']} incorrect / {view['n_correct']} correct).",
+            f"{view['n_incorrect']} incorrect / {view['n_correct']} correct) "
+            f"[{source}#run_name, views.primary.n, views.primary.n_incorrect, "
+            "views.primary.n_correct].",
             "",
-            f"{gate_state} as recorded in this file "
-            f"(t_random {random_entry['point']:.3f} "
+            f"{gate_state} as recorded in {source}#validity_gates "
+            f"(t_random pooled, {source}#views.primary.signals.t_random: "
+            f"{random_entry['point']:.3f} "
             f"[{random_entry['ci_low']:.3f}, {random_entry['ci_high']:.3f}]).",
-            f"Label quality: {labelled}/{total} human-labelled — "
+            f"Label quality: {labelled}/{total} human-labelled "
+            f"({csv_display} ROW:human_label) — "
             "the correctness of the label set is unmeasured.",
         ]
     )

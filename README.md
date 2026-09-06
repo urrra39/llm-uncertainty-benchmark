@@ -1,15 +1,15 @@
 # Which cheap uncertainty signal best predicts an LLM's factual errors?
 
-> **Run #2's ranking below is withdrawn.** Up to 34 of its 120 labels (28%)
-> could flip under the echo-contamination bound beside the tables, which
-> exceeds what any interval here can absorb. The tables stay as the record of
-> the invalidated run, on the same footing as run #1. The primary result is
-> run #2b's, once it has run.
+> **Run #2's ranking is withdrawn** to [docs/WITHDRAWN_RUN2.md](docs/WITHDRAWN_RUN2.md):
+> up to 34 of its 120 labels (28%) could flip under the echo-contamination
+> bound, past what any interval absorbs. Nothing withdrawn is quoted as a
+> finding anywhere below. The primary result is run #2b's, shown as a
+> measurement pending its human gates (see status block).
 
 > Status, generated from `results_run2b.json` (`scripts/render_readme_header.py`):
-> Primary run: run2b_clean (n=120, 71 incorrect / 49 correct).
-> VALIDITY FAILED: per_dataset_class_counts, labeling_protocol_validated, human_label_coverage as recorded in this file (t_random 0.523 [0.416, 0.628]).
-> Label quality: 0/100 human-labelled — the correctness of the label set is unmeasured.
+> Primary run: run2b_clean (n=120, 71 incorrect / 49 correct) [results_run2b.json#run_name, views.primary.n, views.primary.n_incorrect, views.primary.n_correct].
+> VALIDITY FAILED: per_dataset_class_counts, labeling_protocol_validated, human_label_coverage as recorded in results_run2b.json#validity_gates (t_random pooled, results_run2b.json#views.primary.signals.t_random: 0.523 [0.416, 0.628]).
+> Label quality: 0/100 human-labelled (data/human_validation_sample_run2b.csv ROW:human_label) — the correctness of the label set is unmeasured.
 
 ## Run #2b (primary, pending the human gate)
 
@@ -36,6 +36,18 @@ The three classical gates pass: `t_random` scores 0.445 [0.296, 0.598] on
 PopQA and 0.571 [0.384, 0.752] on TriviaQA (both contain 0.50), classes are
 71/49 overall, abstentions 0. Base rates: PopQA 23/37 incorrect (38%),
 TriviaQA 48/12 (80%).
+
+Full gate roster, generated from `results_run2b.json#validity_gates` (three
+pass, three fail — the ranking is unpublished until all pass):
+
+| gate | status | observed |
+|---|---|---|
+| random_baseline_ci_contains_chance | PASS | AUROC 0.523 [0.416, 0.628] |
+| minimum_rows_per_class | PASS | 71 incorrect, 49 correct |
+| abstention_rate_below_ceiling | PASS | 0/120 = 0.000 |
+| per_dataset_class_counts | FAIL | popqa 23/37; triviaqa 48/12 |
+| labeling_protocol_validated | FAIL | coverage 0.000 |
+| human_label_coverage | FAIL | coverage 0.000 |
 
 ### Run #2b per-dataset AUROC (60/60, real bootstrap intervals)
 
