@@ -168,7 +168,7 @@ def _write_judge_verdicts(
         "n_secondary": len(secondary_verdicts),
         "n_sent_to_both": len(both),
         "note": (
-            "per-row judge verdicts for this run; the kappa in results.json is "
+            "per-row judge verdicts for this run; the kappa in the results file is "
             "recomputable from the rows where both judges replied"
         ),
         "rows": {
