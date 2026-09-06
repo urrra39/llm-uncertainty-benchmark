@@ -68,6 +68,49 @@ def _strict_correct(answer: str, gold_answers: list[str]) -> bool:
     return False
 
 
+def _power_block(
+    qids: list[str],
+    shipped_map: dict[str, str],
+    strict_incorrect: dict[str, bool],
+    exact_labels: dict[str, bool | None],
+) -> dict[str, object]:
+    """Power accounting for the fuzzy-vs-strict contrast (P0.2).
+
+    A reported rule effect is meaningless when the two label sets do not
+    differ, so the differing-row count is measured here and any zero-difference
+    report is emitted with detectable_effect false. This assertion lives in
+    the producer (not the reader) so the zero can never again be quoted as a
+    rule-out: a contrast between a label set and itself has no power by
+    construction, whatever its interval prints as.
+    """
+    differing = sum(1 for q in qids if (shipped_map[q] == "incorrect") != strict_incorrect[q])
+    permissive = sum(
+        1
+        for q in qids
+        if shipped_map[q] == "correct" and exact_labels[q] is None and strict_incorrect[q]
+    )
+    detectable = differing > 0
+    if not detectable:
+        reason = (
+            "fuzzy and strict are the same label set on these rows, so the "
+            "contrast has no power by construction; a [0.0, 0.0] interval here "
+            "is degenerate, not a rule-out"
+        )
+    else:
+        reason = f"{differing} rows differ between the rules; effect is measurable"
+    return {
+        "n_rows_where_fuzzy_differs_from_strict": differing,
+        "n_rows_where_permissive_branch_fired": permissive,
+        "l_exact_class_counts": {
+            "correct": sum(1 for v in exact_labels.values() if v is True),
+            "incorrect": sum(1 for v in exact_labels.values() if v is False),
+            "unlabeled": sum(1 for v in exact_labels.values() if v is None),
+        },
+        "detectable_effect": detectable,
+        "reason": reason,
+    }
+
+
 def main() -> int:
     sys.path.insert(0, str(REPO_ROOT / "src"))
     import numpy as np
@@ -213,6 +256,9 @@ def main() -> int:
             "rule_effect_fuzzy_minus_strict": rule_effect,
             "rule_effect_95ci": rule_effect_ci,
             "n_dropped_nonfinite": len(diffs) - len(finite),
+            "power": _power_block(
+                qids_all, shipped_map, strict_incorrect, exact_labels
+            ),
         },
         "length_bias_popqa": {
             "spearman_length_vs_correct_L_fuzzy": rho_fuzzy,

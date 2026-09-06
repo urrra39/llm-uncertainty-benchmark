@@ -706,10 +706,12 @@ def check_readme_scope(problems: list[str]) -> None:
 
     # Withdrawn-run fingerprints that occur nowhere in the primary run's
     # tables: the pooled leader, the pooled question-length number, the
-    # run #1 random baseline, and run #2's exact class counts. A bare number
-    # outside history fails; the same number explicitly attributed to run #2
-    # in prose ("in run #2", "withdrawn") is a historical comparison, not a
-    # quoted ranking, and is allowed.
+    # run #1 random baseline, and run #2's exact class counts. Point estimates
+    # that also occur as run #2b interval endpoints (e.g. 0.514) are NOT
+    # fingerprinted by value — deltas against withdrawn baselines are checked
+    # structurally below instead. A bare fingerprint outside history fails;
+    # the same number explicitly attributed to run #2 in prose ("in run #2",
+    # "withdrawn") is a historical comparison, not a quoted ranking.
     history_at = readme.find("## History of withdrawn runs")
     primary_text = readme[:history_at] if history_at >= 0 else readme
     for fingerprint in ("0.704", "0.684", "0.746", "63 incorrect / 57 correct"):
@@ -725,6 +727,14 @@ def check_readme_scope(problems: list[str]) -> None:
                 )
                 break
             start = at + len(fingerprint)
+    # Structural delta check: every "X → Y" comparison against a withdrawn
+    # baseline must carry the inline marker, so attribution cannot drift off
+    # while the numbers stay.
+    for match in _re.finditer(r"0\.\d{3}\s*→\s*0\.\d{3}", primary_text):
+        if "withdrawn" not in primary_text[max(0, match.start() - 120) : match.end() + 40]:
+            problems.append(
+                f"delta {match.group(0)!r} lacks a withdrawn-baseline marker"
+            )
 
 
 def main() -> int:

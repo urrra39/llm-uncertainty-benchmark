@@ -1455,3 +1455,13 @@ run below closes the divergence with 27/27 scored.
   `c_verbal_confidence` (0.395→0.504, still chance) — reported as a
   directional confirmation under changed labelers, not as a clean causal
   attribution, because the labeler changed too.
+
+## Round-6 session (documentation integrity + confound)
+
+- **R14. Withdrawn baselines are marked inline (option (a)), not dropped.**
+  The E4 deltas need a baseline to be directional at all; dropping them would
+  leave "moved up" with no from-value. Every "X → Y" against a withdrawn
+  number carries "(withdrawn run-#2 baseline, directional only)", pinned by a
+  structural audit check. Point estimates that also occur as run #2b interval
+  endpoints (0.514) are deliberately NOT value-fingerprinted — the auditor's
+  rule as first written would have flagged the run #2b table itself.

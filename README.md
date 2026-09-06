@@ -60,15 +60,21 @@ TriviaQA 48/12 (80%).
 
 ### What decontamination did (the E4 prediction, tested)
 
-- **`a_mean_logprob` on PopQA: 0.514 → 0.740, clearing chance
-  [0.609, 0.861].** Predicted up; confirmed strongly. The confident stratum
-  was noise in run #2 and signal here. Rule-out completed:
-  `data/label_rule_sensitivity.json` recomputes every signal under exact-only,
-  shipped-fuzzy and strict-direction labels from the same generations — the
-  fuzzy-vs-strict rule effect on this signal is **0.000 [0.0, 0.0]** (the
-  generous containment branch fired zero times in 120 rows), so the move is
-  not a labeling artifact.
-- **`c_verbal_confidence` on PopQA: 0.395 → 0.504.** Predicted up; confirmed
+- **`a_mean_logprob` on PopQA moved 0.514 (withdrawn run-#2 baseline,
+  directional only) → 0.740, clearing chance
+  [0.609, 0.861] — but the move is NOT established as decontamination.**
+  The permissive containment branch is inert on these 120 rows (fired 0
+  times), so generosity in that branch cannot explain the move — and that is
+  a NULL-POWER contrast: fuzzy and strict are the same label set here, so
+  0.000 with interval [0.0, 0.0] is true by construction and the interval is
+  degenerate (marked as such in `data/label_rule_sensitivity.json`, which
+  refuses to report a rule-out from it). What remains unbounded is
+  containment-vs-TRUTH error: 73 of 120 labels (61%) come from the fuzzy
+  rule, and only human labels bound that error. "Confirmed strongly" is
+  withdrawn; the supported reading is "moved up under heuristic labels,
+  mechanism unattributed".
+- **`c_verbal_confidence` on PopQA: 0.395 (withdrawn run-#2 baseline,
+  directional only) → 0.504.** Predicted up; confirmed
   in direction only — it sits at chance, not above it. The hypothesis is
   right about the mechanism and overclaims nothing about this signal.
 - **`t_question_length` stripped of provenance:** pooled 0.684 in run #2,

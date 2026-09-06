@@ -1,6 +1,17 @@
 {
   "e4_decomposition_a_mean_logprob_popqa": {
     "n_dropped_nonfinite": 0,
+    "power": {
+      "detectable_effect": false,
+      "l_exact_class_counts": {
+        "correct": 47,
+        "incorrect": 0,
+        "unlabeled": 73
+      },
+      "n_rows_where_fuzzy_differs_from_strict": 0,
+      "n_rows_where_permissive_branch_fired": 0,
+      "reason": "fuzzy and strict are the same label set on these rows, so the contrast has no power by construction; a [0.0, 0.0] interval here is degenerate, not a rule-out"
+    },
     "rule_effect_95ci": [
       0.0,
       0.0
