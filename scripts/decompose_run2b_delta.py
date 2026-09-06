@@ -111,9 +111,7 @@ def _power_block(
     }
 
 
-def _human_arm(
-    frame: object, names: list[str], human_csv: str | None
-) -> dict[str, object]:
+def _human_arm(frame: object, names: list[str], human_csv: str | None) -> dict[str, object]:
     """E4 rerun with human labels as the reference arm (P4.2).
 
     Reads a validation CSV with a filled human_label column and recomputes

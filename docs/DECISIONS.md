@@ -1465,3 +1465,23 @@ run below closes the divergence with 27/27 scored.
   structural audit check. Point estimates that also occur as run #2b interval
   endpoints (0.514) are deliberately NOT value-fingerprinted — the auditor's
   rule as first written would have flagged the run #2b table itself.
+
+## Round-6 session (documentation integrity + confound)
+
+- **R15. The auditor's numbers were verified before use, and two failed.**
+  t_question_length pooled 0.719 and the four PopQA values quoted for the
+  expanded table check out against `results_run2b.json`. But the round-5
+  stratified means for run #2 used simple averaging where sample-size
+  weighting was required, and my first 22-row table printed c_p_true_plain
+  0.662 (true: 0.661) with two rows misordered. Both were caught by the new
+  table-order test on first run — which is the test justifying its existence.
+- **R16. Fingerprint collisions are a real audit hazard.** 0.514 is both a
+  withdrawn point estimate and a run #2b interval endpoint, so value-matching
+  cannot police withdrawn-number leakage. Deltas are checked structurally
+  (every "X → Y" needs its marker) instead.
+- **R17. The E4 sign-bug trail.** First decomposition reported rule effect
+  0.481 through correctness stored where incorrectness was read; caught
+  because 1 − 0.740 == 0.260 exactly. The corrected 0.000 then forced the
+  harder question — power — whose answer (zero differing rows) demoted the
+  finding the bug had inflated. Two errors, opposite directions, both kept on
+  the record.

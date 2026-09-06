@@ -239,3 +239,77 @@ dispositions for round 4 follow as each part lands.
 - Generation bit-reproducibility and batch invariance on the T4 in fp16.
 - Whether the widened run #3 slice lands in the pilot band at 3B scale.
 - Any per-dataset bootstrap interval for run #2 (artifacts lost permanently).
+
+---
+
+# Round 6: documentation integrity + run #2b confound (executed)
+
+## Refused with reason
+
+- **Withdrawing the E4 numbers entirely.** The move 0.514 → 0.740 stands as a
+  measured directional delta under stated labelers; what was withdrawn is the
+  causal attribution ("confirmed strongly"), replaced with the null-power
+  admission and the unboundedness statement. Deleting the numbers would be
+  deleting evidence (invariant 3).
+- **Filing a length-bias defect.** The generous branch fired zero times, so
+  fuzzy and strict label sets are identical and the differential bias is
+  exactly 0.000. A defect describing a mechanism with zero firings would be a
+  claim without a measurement.
+- **Re-running run #2b's family B at full audit for a tighter interval.**
+  The claim was downgraded instead (≥23 rows needed, 16 drawn): re-running
+  model stages to narrow one sentence risks artifact churn for no finding.
+- **P3.5's "27 vs 30 registry entries" (round 5, restated here).** Recounted
+  in code: 27. No "30 signals" exists anywhere committed. Nothing to reconcile.
+
+## Done
+
+- **P0.1–P0.4.** E4 rewritten to the supported reading (branch inert, contrast
+  null-power with the interval marked degenerate, 73/120 from the rule, humans
+  the only bound). Power block asserted in code with detectable_effect false.
+  `data/fuzzy_decided_rows.csv` ships the 73-row population, human_label
+  empty, wired as the default labelling target. Withdrawn baselines marked
+  inline (option (a), recorded in R14); the auditor now enforces the marking
+  and exempts 0.514-class collisions with the stated reason.
+- **P1.1–P1.4.** Primary table holds all 22 distinct signals under the stated
+  rule, asserted in `tests/test_readme_numbers.py` — which caught two live
+  hand-arithmetic errors on first run (c_p_true_plain stratified 0.662 →
+  0.661; c_verbal_confidence/t_question_length order). t_answer_length has
+  its bullet; t_question_length quotes run #2b pooled 0.719 with the widened
+  gap; every table cell and headline number is pinned to results_run2b.json.
+- **P2.1–P2.3.** Banner rewritten without dangling references (stale-scope
+  phrasing fails the audit); header numbers carry view names and JSON
+  pointers; full six-gate roster generated from the file.
+- **P3.1–P3.3.** `--target` defaults to the fuzzy file; runbook rewritten
+  around it with timing and the dropped-not-coerced fate of ambiguous rows;
+  tests prove no write without an interactive verdict, correct resume, blank
+  ambiguous storage, and an untouched committed tree. `--require-judges`
+  aborts instead of silent fallback (unrun: no key here).
+- **P4.1–P4.5.** `rule_accuracy` (precision/recall + paired bootstrap,
+  hand-tested); `--human-csv` reference arm scoring every signal under human
+  labels (verified on synthetic tmp labels with backup/restore; committed
+  artifacts untouched); attenuation storage already wired into label_quality
+  and gates; README/gates flip automatically on analyze re-run. Nothing
+  executes until a human labels — by design, not by omission.
+- **P5.1.** Downgraded with arithmetic (≥23 needed, 16 drawn), not split.
+- **P5.2 run #3 pre-flight, verified item by item:** margin 6.91x ≥ 3x
+  (measured in-config); alias diagnostic run against all 16 relations with
+  `place of birth` cut and `genre` in on the numbers; per-class design
+  arithmetic (79/150) in pre-registration; pilot band 0.25 confirmed
+  identical across all four configs (the alleged 0.35 change refused twice
+  with git evidence); D27 open, width pinned at 1 with CPU/bfloat16 scoping.
+- **P5.3.** Exact string for GitHub Settings → General → Description (owner
+  must paste; not settable from the tree): "Run #2b (n=120, CPU): no
+  uncertainty signal established above chance on 60-row subsets;
+  decontaminated validity run, heuristic labels, humans pending. Withdrawn
+  run #2 inside."
+
+## What is still unmeasured (flatly)
+
+- Human labels on either sample: 0/100 and 0/73. Every downstream payoff
+  (kappa, rule accuracy, attenuation, publishable ranking) waits on this.
+- A second opinion of any kind on run #2b rows (no judges, no second human).
+- T4/fp16 generation determinism and batch invariance.
+- Run #3's base rate at 3B scale with four ungenerated-against relations.
+- Run #2 per-dataset bootstrap intervals (artifacts lost permanently).
+- Whether any signal beats chance on 60-row subsets: run #2b's intervals all
+  admit it, which is a statement about n, not about the signals.
