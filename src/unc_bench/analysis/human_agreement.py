@@ -1,13 +1,13 @@
 """Judge-versus-human agreement over a filled-in validation sample.
 
-Nothing in the published run used this. Every label in results.json is model
+Nothing in the published runs used this. Every label in the published runs is model
 assigned, and the kappa quoted there is judge against judge, which measures
 whether two judges agree with each other and says nothing about whether either
 agrees with a human. This module is the path from a filled-in
 `data/human_validation_sample.csv` to that missing number.
 
 It reads a CSV and computes agreement. It does not call a model, does not write
-files, and does not touch results.json. Rows with an empty `human_label` are
+files, and does not touch any results file. Rows with an empty `human_label` are
 skipped and counted, so running it on the shipped file — where the column is
 empty by construction, because inventing labels would be fabrication — reports
 zero labelled rows rather than a fabricated agreement.
@@ -320,7 +320,7 @@ def render_report(report: HumanValidationReport) -> str:
 
     add("")
     add("  This measures label correctness against a human, which is a different")
-    add("  quantity from the judge-versus-judge kappa in results.json.")
+    add("  quantity from the judge-versus-judge kappa in the results file.")
     if report.oracle_ceiling == report.oracle_ceiling:  # not NaN
         add("")
         add(

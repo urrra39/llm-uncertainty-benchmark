@@ -336,7 +336,7 @@ def test_report_states_that_this_is_not_the_judge_versus_judge_kappa(
     )
     text = render_report(build_report(path))
     assert "different" in text
-    assert "results.json" in text
+    assert "results file" in text
 
 
 def test_a_file_without_the_human_column_raises(tmp_path: Path) -> None:

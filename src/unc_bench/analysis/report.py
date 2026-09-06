@@ -1,4 +1,4 @@
-"""Stage 5: assemble results.json from the signal and label artifacts.
+"""Stage 5: assemble the run's results file from the signal and label artifacts.
 
 Two label views are computed, because the choice is not neutral. `primary`
 excludes abstentions; `with_abstentions` counts them as errors. A refusal is
@@ -166,7 +166,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
     costs = cost_table(per_view["primary"]["signals"], timings, cfg, _token_means(generations))
 
     # D6: the N-ablation is produced by its own stage because it needs the NLI
-    # model. Folded in here when present so results.json stays the single file
+    # model. Folded in here when present so the results file stays the single file
     # the README and the figures both read.
     ablation_path = cfg.paths.artifacts_dir / "ablation.json"
     ablation: dict[str, Any] | None = None
@@ -319,7 +319,7 @@ def _token_means(generations: pd.DataFrame | None) -> dict[str, float] | None:
 
 
 def _label_quality(path: Path) -> dict[str, Any]:
-    """Human-label coverage and agreement summary for `results.json`.
+    """Human-label coverage and agreement summary for the results file.
 
     Reads the validation CSV through the same scorer the CLI uses, so the
     numbers here and in `unc-bench human-agreement` cannot disagree. Any

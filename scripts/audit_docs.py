@@ -1,12 +1,15 @@
-"""Cross-check every number the documentation quotes against `results.json`.
+"""Cross-check every number the documentation quotes against the results files.
 
-The four documents — `README.md`, `docs/LIMITATIONS.md`, `docs/DECISIONS.md` and
-`data/README.md` — restate the same run's numbers in prose. Prose drifts. This
-script re-derives each quoted figure from `results.json` and reports a mismatch,
-so a disagreement is found by reading the file rather than by remembering.
+Five documents — `README.md`, `docs/WITHDRAWN_RUN2.md`, `docs/LIMITATIONS.md`,
+`docs/DECISIONS.md` and `data/README.md` — restate runs' numbers in prose.
+Prose drifts. This script re-derives each quoted figure from the committed
+results files and reports a mismatch, so a disagreement is found by reading
+the file rather than by remembering. Two result files: `results_run2b.json is
+primary; `results_run2_withdrawn.json` is the withdrawn record, checked
+against the withdrawn document only.
 
 It is a diagnostic, not a test: it prints and exits non-zero on a mismatch. Run
-it by hand after editing any of the four documents.
+it by hand after editing any of the documents, and CI runs it on every push:
 
     uv run python scripts/audit_docs.py
 """
@@ -22,14 +25,26 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = (
     REPO_ROOT / "README.md",
+    REPO_ROOT / "docs" / "WITHDRAWN_RUN2.md",
     REPO_ROOT / "docs" / "LIMITATIONS.md",
     REPO_ROOT / "docs" / "DECISIONS.md",
     REPO_ROOT / "data" / "README.md",
 )
 
+#: The primary results file. Every ranking README quotes must be traceable here.
+PRIMARY_RESULTS = REPO_ROOT / "results_run2b.json"
+#: The withdrawn record. WITHDRAWN_RUN2.md's numbers must be traceable here.
+WITHDRAWN_RESULTS = REPO_ROOT / "results_run2_withdrawn.json"
+
 
 def load() -> dict[str, Any]:
-    payload = json.loads((REPO_ROOT / "results.json").read_text(encoding="utf-8"))
+    payload = json.loads(PRIMARY_RESULTS.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict)
+    return payload
+
+
+def load_withdrawn() -> dict[str, Any]:
+    payload = json.loads(WITHDRAWN_RESULTS.read_text(encoding="utf-8"))
     assert isinstance(payload, dict)
     return payload
 
@@ -46,7 +61,7 @@ def check_headline(results: dict[str, Any], problems: list[str]) -> None:
     for key, want in expected.items():
         got = view[key]
         if got != want:
-            problems.append(f"results.json views.primary.{key} is {got}, docs assume {want}")
+            problems.append(f"withdrawn views.primary.{key} is {got}, docs assume {want}")
 
     labels = results["labels"]
     if labels["sources"] != {"exact_match": 54, "judge": 66}:
@@ -110,7 +125,7 @@ def check_pooled(results: dict[str, Any], problems: list[str]) -> None:
     for name, (auroc, auprc) in POOLED.items():
         entry = signals.get(name)
         if entry is None:
-            problems.append(f"README quotes {name}, which is not in results.json")
+            problems.append(f"withdrawn doc quotes {name}, which is not in the withdrawn file")
             continue
         got_roc = round(entry["auroc"]["point"], 3)
         got_prc = round(entry["auprc"]["point"], 3)
@@ -123,13 +138,13 @@ def check_pooled(results: dict[str, Any], problems: list[str]) -> None:
 def check_per_dataset(results: dict[str, Any], problems: list[str]) -> None:
     block = results["views"]["primary"]["per_dataset"]
     if not block.get("available"):
-        problems.append("per_dataset is unavailable in results.json")
+        problems.append("per_dataset is unavailable in the withdrawn file")
         return
     for name, (popqa, triviaqa) in PER_DATASET.items():
         for source, want in (("popqa", popqa), ("triviaqa", triviaqa)):
             entry = block["datasets"][source]["signals"].get(name)
             if entry is None:
-                problems.append(f"README quotes {name} on {source}, absent from results.json")
+                problems.append(f"withdrawn doc quotes {name} on {source}, absent from file")
                 continue
             got = round(entry["auroc"], 3)
             if got != want:
@@ -180,7 +195,7 @@ def check_significance(results: dict[str, Any], problems: list[str]) -> None:
     for name, (delta, p_holm, significant) in SIGNIFICANCE.items():
         row = by_name.get(name)
         if row is None:
-            problems.append(f"README quotes a comparison for {name}, absent from results.json")
+            problems.append(f"withdrawn doc quotes a comparison for {name}, absent from file")
             continue
         if round(row["delta_vs_reference"], 3) != delta:
             problems.append(
@@ -206,13 +221,13 @@ ABLATION = {1: 0.628, 2: 0.678, 3: 0.705, 5: 0.704}
 def check_ablation(results: dict[str, Any], problems: list[str]) -> None:
     block = results.get("ablation")
     if not block or "by_n" not in block:
-        problems.append("ablation block is unavailable in results.json")
+        problems.append("ablation block is unavailable in the withdrawn file")
         return
     by_n = {int(k): v for k, v in block["by_n"].items()}
     for n, want in ABLATION.items():
         entry = by_n.get(n)
         if entry is None:
-            problems.append(f"README quotes ablation N={n}, absent from results.json")
+            problems.append(f"withdrawn doc quotes ablation N={n}, absent from the withdrawn file")
             continue
         got = round(entry["signals"]["b_distinct_count"]["point"], 3)
         if got != want:
@@ -244,7 +259,7 @@ def check_calibration(results: dict[str, Any], problems: list[str]) -> None:
         if got_after != after:
             problems.append(f"{name} ECE after Platt: results {got_after}, README {after}")
     if results["analysis_config"]["ece_bins"] != 10:
-        problems.append("README says 10 ECE bins; results.json disagrees")
+        problems.append("withdrawn doc says 10 ECE bins; the withdrawn file disagrees")
 
 
 def check_misc(results: dict[str, Any], problems: list[str]) -> None:
@@ -334,7 +349,7 @@ def check_misc(results: dict[str, Any], problems: list[str]) -> None:
     # Validity gates: all three pass, and the observed strings the README quotes.
     gates = {g["name"]: g for g in results["validity_gates"]["gates"]}
     if not results["validity_gates"]["all_passed"]:
-        problems.append("results.json says a validity gate failed; the README says all pass")
+        problems.append("withdrawn file says a gate failed; withdrawn doc says all pass")
     if gates["random_baseline_ci_contains_chance"]["observed"] != "AUROC 0.508 [0.404, 0.611]":
         problems.append(
             f"random gate observed: {gates['random_baseline_ci_contains_chance']['observed']}"
@@ -595,20 +610,142 @@ def render_open_defects() -> str:
     return "\n".join(lines)
 
 
+#: Run #2b's per-dataset table as README prints it: PopQA, TriviaQA.
+RUN2B_PER_DATASET = {
+    "b_disagreement_rate": (0.768, 0.727),
+    "a_total_logprob": (0.825, 0.656),
+    "a_length_normalized_logprob": (0.811, 0.656),
+    "b_distinct_count": (0.742, 0.712),
+    "b_mean_pairwise_f1": (0.751, 0.666),
+    "b_disagreement_rate_samples_only": (0.729, 0.673),
+    "a_mean_logprob": (0.740, 0.490),
+    "c_p_true_plain": (0.795, 0.528),
+    "t_question_length": (0.499, 0.553),
+    "c_verbal_confidence": (0.504, 0.547),
+    "t_random": (0.445, 0.571),
+}
+
+
+def check_primary_table(results: dict[str, Any], problems: list[str]) -> None:
+    """README's run #2b numbers against the primary results file."""
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    view = results["views"]["primary"]
+    if (view["n"], view["n_incorrect"], view["n_correct"]) != (120, 71, 49):
+        problems.append("primary class counts moved from 71 incorrect / 49 correct")
+    block = view["per_dataset"]
+    for name, (popqa, triviaqa) in RUN2B_PER_DATASET.items():
+        for source, want in (("popqa", popqa), ("triviaqa", triviaqa)):
+            entry = block["datasets"][source]["signals"].get(name)
+            if entry is None:
+                problems.append(f"README quotes {name} on {source}, absent from primary file")
+                continue
+            got = round(entry["auroc"], 3)
+            if got != want:
+                problems.append(f"{name} {source} AUROC: primary file {got}, pinned {want}")
+            if f"{want:.3f}" not in readme:
+                problems.append(f"README does not print {name} {source} {want:.3f}")
+    # Pooled leader, verdict shape, significance shape, ablation shape.
+    top = view["ranking"][0]
+    if top != "a_total_logprob":
+        problems.append(f"primary pooled leader moved: {top}")
+    if round(view["signals"][top]["auroc"]["point"], 3) != 0.799:
+        problems.append("primary pooled leader moved from 0.799")
+    sig = view["significance"]
+    if sig["n_comparisons"] != 21:
+        problems.append(f"primary distinct comparisons moved: {sig['n_comparisons']}")
+    if sum(1 for c in sig["comparisons"] if c.get("significant_holm_distinct")) != 5:
+        problems.append("primary significant-after-Holm count moved from 5")
+    by_n = {int(k): v for k, v in results["ablation"]["by_n"].items()}
+    for n, want in ((1, 0.641), (2, 0.700), (3, 0.742), (5, 0.765)):
+        got = round(by_n[n]["signals"]["b_distinct_count"]["point"], 3)
+        if got != want:
+            problems.append(f"primary ablation N={n}: file {got}, pinned {want}")
+    cost_b = results["cost"]["signals"]["b_disagreement_rate"]
+    if round(cost_b.get("token_multiplier") or 0.0, 2) != 6.01:
+        problems.append("primary family-B token multiplier moved from 6.01")
+    gates = {g["name"]: g for g in results["validity_gates"]["gates"]}
+    if results["validity_gates"]["all_passed"]:
+        problems.append("primary gates unexpectedly all pass (human gates should fail)")
+    if gates["human_label_coverage"]["observed"] != "coverage 0.000":
+        problems.append("primary human gate observed moved from coverage 0.000")
+
+
+def check_readme_scope(problems: list[str]) -> None:
+    """P0.3: every signal name README prints must exist in the registry;
+    defect references must exist in OPEN_DEFECTS; withdrawn-run numbers may
+    appear only inside the history section.
+    """
+    import re as _re
+
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    import unc_bench.signals.consistency
+    import unc_bench.signals.logprob_signals
+    import unc_bench.signals.trivial
+    import unc_bench.signals.verification  # noqa: F401  (registration side effect)
+    from unc_bench.signals.base import registry
+
+    names = set(registry())
+    assert names, "signal registry is empty; imports above must register every family"
+    for match in _re.finditer(r"`([a-z][a-z0-9]*(?:_[a-z0-9]+)+)`", readme):
+        token = match.group(1)
+        if token in names or token in {"qid_digest", "human_label", "machine_label"}:
+            continue
+        # Config keys and paths share the underscore shape; only fail on
+        # tokens that look like signals (family prefix + suffix).
+        if token.split("_")[0] in {"a", "b", "c", "t"} and token not in names:
+            problems.append(f"README names {token}, absent from the signal registry")
+
+    defect_ids = [d["id"] for d in OPEN_DEFECTS]
+    limitations = (REPO_ROOT / "docs" / "LIMITATIONS.md").read_text(encoding="utf-8")
+    for doc_label, text in (("README.md", readme), ("LIMITATIONS.md", limitations)):
+        for match in _re.finditer(r"\b(HUMAN-COVERAGE|RUN2-ARTIFACTS|GEN-DETERMINISM)\b", text):
+            if match.group(1) not in defect_ids:
+                problems.append(
+                    f"{doc_label} references defect {match.group(1)}, missing from OPEN_DEFECTS"
+                )
+
+    # Withdrawn-run fingerprints that occur nowhere in the primary run's
+    # tables: the pooled leader, the pooled question-length number, the
+    # run #1 random baseline, and run #2's exact class counts. A bare number
+    # outside history fails; the same number explicitly attributed to run #2
+    # in prose ("in run #2", "withdrawn") is a historical comparison, not a
+    # quoted ranking, and is allowed.
+    history_at = readme.find("## History of withdrawn runs")
+    primary_text = readme[:history_at] if history_at >= 0 else readme
+    for fingerprint in ("0.704", "0.684", "0.746", "63 incorrect / 57 correct"):
+        start = 0
+        while True:
+            at = primary_text.find(fingerprint, start)
+            if at < 0:
+                break
+            context = primary_text[max(0, at - 80) : at + len(fingerprint) + 80]
+            if "run #2" not in context and "withdrawn" not in context:
+                problems.append(
+                    f"withdrawn-run value {fingerprint!r} appears outside the history section"
+                )
+                break
+            start = at + len(fingerprint)
+
+
 def main() -> int:
     results = load()
+    withdrawn = load_withdrawn()
     problems: list[str] = []
-    check_headline(results, problems)
-    check_pooled(results, problems)
-    check_per_dataset(results, problems)
-    check_significance(results, problems)
-    check_ablation(results, problems)
-    check_calibration(results, problems)
-    check_misc(results, problems)
-    check_cross_document(results, problems)
+    # Run #2's record: the withdrawn file against the withdrawn document.
+    check_headline(withdrawn, problems)
+    check_pooled(withdrawn, problems)
+    check_per_dataset(withdrawn, problems)
+    check_significance(withdrawn, problems)
+    check_ablation(withdrawn, problems)
+    check_calibration(withdrawn, problems)
+    check_misc(withdrawn, problems)
+    check_cross_document(withdrawn, problems)
+    # The primary run: README's run #2b numbers against the primary file.
+    check_primary_table(results, problems)
+    check_readme_scope(problems)
 
     if not problems:
-        print("no discrepancies found across the four documents and results.json")
+        print("no discrepancies found across the documents and results files")
         return 0
     print(f"{len(problems)} discrepancies:")
     for problem in problems:

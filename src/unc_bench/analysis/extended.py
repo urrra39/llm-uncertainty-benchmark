@@ -2,7 +2,7 @@
 
 Kept out of `report.py` so that module stays a readable assembly of the results
 dictionary. Everything here takes a frozen analysis frame and returns plain
-dictionaries destined for results.json.
+dictionaries destined for the run's results file.
 
 Each function is written to degrade to a recorded "not computed" rather than
 raise. At n=120 several of these can legitimately fail to produce a number — a

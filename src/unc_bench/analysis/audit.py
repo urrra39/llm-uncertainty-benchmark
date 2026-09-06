@@ -1,4 +1,4 @@
-"""Post-hoc audit of the committed results, reading results.json only.
+"""Post-hoc audit of committed results, reading one results file only.
 
 Three questions the published tables did not answer, all answerable from stored
 values without re-running anything:
@@ -139,7 +139,7 @@ class AnalyticCI:
 
 
 def load_results(path: str | Path) -> dict[str, Any]:
-    """Read results.json. No other input is permitted in this module."""
+    """Read a results file. No other input is permitted in this module."""
     with Path(path).open(encoding="utf-8") as fh:
         payload: dict[str, Any] = json.load(fh)
     return payload

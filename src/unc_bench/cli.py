@@ -57,13 +57,13 @@ def build_parser() -> argparse.ArgumentParser:
     label = subparsers.add_parser("label", help="stage 4: exact match, judges, kappa")
     _add_config(label)
 
-    analyze = subparsers.add_parser("analyze", help="stage 5: write results.json")
+    analyze = subparsers.add_parser("analyze", help="stage 5: write the run's results file")
     _add_config(analyze)
     analyze.add_argument(
         "--no-figures", action="store_true", help="skip figure rendering after the report"
     )
 
-    figures = subparsers.add_parser("figures", help="redraw figures from results.json alone")
+    figures = subparsers.add_parser("figures", help="redraw figures from the run's results file alone")
     _add_config(figures)
     figures.add_argument("--view", default="primary", choices=("primary", "with_abstentions"))
 

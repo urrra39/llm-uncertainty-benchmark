@@ -161,7 +161,7 @@ def test_run3_per_dataset_bootstrap_is_on(cfg: Config) -> None:
 
 
 def test_run3_writes_its_own_artifacts_and_results(cfg: Config) -> None:
-    # Run #2's results.json is frozen. Run #3 must not be able to overwrite it.
+    # Run #2's results_run2_withdrawn.json is frozen. Run #3 must not be able to overwrite it.
     assert cfg.paths.results_json == Path("results_run3.json")
     assert cfg.paths.artifacts_dir == Path("data/run3")
     run2 = Config.load(CONFIG_DIR / "run2.yaml")

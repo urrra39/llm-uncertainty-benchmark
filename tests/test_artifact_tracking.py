@@ -123,7 +123,12 @@ def test_caches_and_downloads_stay_ignored(path: str) -> None:
 @needs_git
 @pytest.mark.parametrize(
     "path",
-    ["results.json", "figures/auroc.png", "data/README.md", "configs/run3_gpu.yaml"],
+    [
+        "results_run2_withdrawn.json",
+        "figures/auroc.png",
+        "data/README.md",
+        "configs/run3_gpu.yaml",
+    ],
 )
 def test_published_outputs_are_not_ignored(path: str) -> None:
     """The project's own output stays committed. This was already true; pin it."""

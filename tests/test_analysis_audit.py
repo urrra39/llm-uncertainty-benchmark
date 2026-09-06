@@ -3,7 +3,7 @@
 Split in two. The first half is unit tests on synthetic input, where the right
 answer is known analytically. The second half asserts against the committed
 results.json, so the published claims about duplicate signals and per-dataset
-intervals cannot drift away from the file they are drawn from.
+intervals cannot drift away from the withdrawn run #2 file they are drawn from.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from unc_bench.analysis.audit import (
 )
 from unc_bench.analysis.metrics import auroc
 
-RESULTS = Path("results.json")
+RESULTS = Path("results_run2_withdrawn.json")
 
 
 @pytest.fixture(scope="module")
@@ -205,7 +205,7 @@ def test_independent_signal_count_matches_the_readme(payload: dict[str, Any]) ->
 
 
 def test_deduplicated_holm_reproduces_the_stored_adjustment(payload: dict[str, Any]) -> None:
-    """The full-family column must equal what results.json already published,
+    """The full-family column must equal what the withdrawn file already published,
     which is what makes the deduplicated column trustworthy."""
     stored = {
         c["name"]: (c["p_value_holm"], c["significant_holm"])

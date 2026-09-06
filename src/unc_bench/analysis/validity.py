@@ -8,7 +8,7 @@ number sat in a results table next to the real signals as though it were a
 finding.
 
 So the gates live in code, they run as part of the analysis stage, and their
-outcome is written into results.json where the README generator has to read it.
+outcome is written into the run's results file where the README header generator reads it.
 Three of them:
 
 1. The random baseline's CI must contain 0.50. This is the direct test of
@@ -302,7 +302,7 @@ def assert_frozen_analysis_set(
 def _digest(qids: list[str]) -> str:
     """Order-independent fingerprint of a row set.
 
-    Written into results.json so that two views, or two runs, can be checked for
+    Written into the results file so that two views, or two runs, can be checked for
     "same rows" without shipping the whole qid list twice.
     """
     import hashlib

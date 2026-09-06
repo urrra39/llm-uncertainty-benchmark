@@ -1,6 +1,6 @@
 """Tests for the reliability-diagram figure (D5).
 
-These assert the *contract* the figure has with `results.json`: it draws only
+These assert the *contract* the figure has with a results file: it draws only
 the probability-valued signals, it reads the before- and after-Platt ECEs that
 the report already computed rather than deriving its own, it never invents a
 point for an empty bin, and it raises rather than emitting an empty axes when
@@ -183,13 +183,13 @@ def test_half_a_pair_still_draws(tmp_path: Path) -> None:
     assert plot_reliability(results, tmp_path / "reliability.png").exists()
 
 
-# ------------------------------------------- against the committed results.json
+# ------------------------------------------- against the committed withdrawn run2 file
 
 
 @pytest.fixture
 def committed_results() -> dict[str, Any]:
-    path = Path(__file__).resolve().parents[1] / "results.json"
-    if not path.exists():  # pragma: no cover - results.json is committed
+    path = Path(__file__).resolve().parents[1] / "results_run2_withdrawn.json"
+    if not path.exists():  # pragma: no cover - the withdrawn file is committed
         pytest.skip("results.json is not present")
     return load_results(path)
 
@@ -255,7 +255,7 @@ def test_no_figure_on_disk_is_orphaned() -> None:
 
 def test_results_json_parses_and_is_the_published_run() -> None:
     root = Path(__file__).resolve().parents[1]
-    data = json.loads((root / "results.json").read_text(encoding="utf-8"))
+    data = json.loads((root / "results_run2_withdrawn.json").read_text(encoding="utf-8"))
     assert data["validity_gates"]["all_passed"] is True
     assert data["validity_gates"]["ranking_publishable"] is True
     assert data["views"]["primary"]["n"] == 120

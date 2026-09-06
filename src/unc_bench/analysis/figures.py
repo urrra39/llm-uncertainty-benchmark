@@ -1,4 +1,4 @@
-"""Figures, drawn from results.json alone.
+"""Figures, drawn from the run's results file alone.
 
 Deliberately decoupled from the pipeline: `make figures` reads the JSON and
 nothing else, so a plotting change never requires rerunning a model and the
@@ -48,7 +48,7 @@ class NothingToPlotError(RuntimeError):
 
 
 def _num(value: Any, default: float = float("nan")) -> float:
-    """Read a number that `results.json` may legitimately store as null.
+    """Read a number that the results file may legitimately store as null.
 
     The report writes null wherever a value was not measurable, so every read
     here has to tolerate it. Defaults to NaN, which the plotting code already
@@ -244,7 +244,7 @@ def plot_reliability(results: dict[str, Any], out: Path, *, view: str = "primary
     and the interesting comparison is within a signal — did recalibration move
     that signal's curve towards the diagonal — not across signals.
 
-    Every number is read from `results.json`. Nothing here is recomputed.
+    Every number is read from the run's results file. Nothing here is recomputed.
     """
     payload = results["views"][view]
     signals = payload["signals"]
@@ -352,7 +352,7 @@ def plot_n_ablation(results: dict[str, Any], out: Path, *, view: str = "primary"
     del view  # the ablation is computed on the primary view only
     ablation = results.get("ablation")
     if not ablation or not ablation.get("by_n"):
-        raise NothingToPlotError("results.json carries no N-ablation; run the ablation stage")
+        raise NothingToPlotError("the results file carries no N-ablation; run the ablation stage")
 
     levels = [int(n) for n in ablation["levels"]]
     signals = list(ablation["signals"])
@@ -394,7 +394,7 @@ def plot_cost_vs_auroc(results: dict[str, Any], out: Path, *, view: str = "prima
     cost = results.get("cost")
     signals = ((results.get("views") or {}).get(view) or {}).get("signals") or {}
     if not cost or not cost.get("signals") or not signals:
-        raise NothingToPlotError("results.json carries no cost table")
+        raise NothingToPlotError("the results file carries no cost table")
 
     points: list[tuple[float, float, str, str]] = []
     token_priced = 0

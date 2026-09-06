@@ -24,7 +24,7 @@ from unc_bench.analysis.compare import (
     summarize,
 )
 
-RESULTS = Path("results.json")
+RESULTS = Path("results_run2_withdrawn.json")
 
 
 @pytest.fixture(scope="module")

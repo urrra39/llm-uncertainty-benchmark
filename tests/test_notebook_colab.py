@@ -243,7 +243,7 @@ def test_reporting_cell_works_against_a_real_results_file(
     """Run the summary cell for real, on run #2's results file renamed.
 
     The cell is the one piece of notebook code whose logic could be wrong in a
-    way syntax checking cannot see: it walks `results.json`'s structure by key.
+    way syntax checking cannot see: it walks the withdrawn run2 file's structure by key.
     Pointing it at the committed run #2 file is the only available way to check
     those key paths exist, short of owning a T4.
 
@@ -255,7 +255,7 @@ def test_reporting_cell_works_against_a_real_results_file(
         for c in notebook["cells"]
         if c["cell_type"] == "code" and "validity_gates" in _source(c)
     )
-    real = REPO_ROOT / "results.json"
+    real = REPO_ROOT / "results_run2_withdrawn.json"
     (tmp_path / "results_run3.json").write_text(real.read_text(encoding="utf-8"), encoding="utf-8")
     proc = subprocess.run(
         [sys.executable, "-c", source],

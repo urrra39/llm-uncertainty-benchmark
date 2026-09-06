@@ -337,7 +337,10 @@ class PathsSpec(Frozen):
     cache_dir: Path = Path("data/cache")
     artifacts_dir: Path = Path("data/artifacts")
     figures_dir: Path = Path("figures")
-    results_json: Path = Path("results.json")
+    # Default output name for ad-hoc configs. Named runs set their own file
+    # (run #2: results_run2_withdrawn.json; run #2b: results_run2b.json), so
+    # this name denotes no published run.
+    results_json: Path = Path("results_default.json")
     human_validation_csv: Path = Path("data/human_validation_sample.csv")
 
 
