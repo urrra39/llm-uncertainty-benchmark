@@ -481,3 +481,73 @@ See [Settled refusals](#settled-refusals).
 - Run #3's base rate at 3B scale; run #2's per-dataset intervals (lost).
 - Measured per-row labelling time (the runbook's band is an explicit guess).
 - Whether E4's move survives human labels (hook built, waiting).
+
+---
+
+# Round 10: process repair closed, owner work queued (executed)
+
+Disposition states: DONE, REFUSED-WITH-EVIDENCE, BLOCKED-ON-OWNER. No item
+below lacks one.
+
+- **A-iv, "Confirm the stale labelling scope is actually gone" (round 10).**
+  DONE. Offending paragraph moved to the withdrawn document; stale phrases
+  fail the audit; verified clean.
+- **A-i, "Fix by quoting each audit item VERBATIM (first ~15 words)" (round 10).**
+  DONE. Every bullet below quotes its item; a test fails any quoteless
+  disposition in this section.
+- **A-ii, "Add a third disposition state — DONE / REFUSED-WITH-EVIDENCE /
+  BLOCKED-ON-OWNER — and re-triage" (round 10).** DONE, this section is the
+  implementation; open-item triage follows it.
+- **A-iii, "There are TWO identical Round 4 sections" (round 10).** DONE.
+  Stub deleted; settled refusals stated once with settling rounds; rounds 7–9
+  point at it; audit enforces unique headings and no restatement.
+- **A-v, "instrument per-row seconds in label-human, owner labels THREE rows
+  only, hardcode the measured median" (round 10).** BLOCKED-ON-OWNER.
+  Instrumentation exists and is tested (timing log with per-row seconds);
+  the three rows do not, and no agent may produce them.
+- **A1, "Rewrite the run #2b lead so the FIRST claim a reader meets is the
+  null result" (round 10).** DONE. Null leads with the generated 23-count.
+- **A2, "Emit BOTH from a single computation with the denominator named in
+  each" (round 10).** DONE. "23 of 27" and "18 of 22 distinct" derive from
+  one overlap computation, asserted in tests.
+- **A4, "Quote the interval-consistent range, not the point estimate alone"
+  (round 10).** DONE. Clustering bullet quotes [0.013, 0.083]; sweep found
+  no other point-as-fact instance.
+- **B1–B4, "Compute the actual intersection ... Publish the number" (round 10).**
+  DONE. Intersection measured at 53 (not assumed); minimum 59 rows;
+  `label-plan` prints rows, shared-first order and wall clock.
+- **D1, "Verify `label-human` against its spec ... Add the missing tests"
+  (round 10).** DONE. Skip/quit/garbage/timing/prefill tests close the gaps.
+- **D2, "On coverage > 0, with no further prompting, produce" (round 10).**
+  DONE in code (rule accuracy renders iff labels exist, tested both ways;
+  attenuation/gates/header flip on re-run); BLOCKED-ON-OWNER for execution.
+- **D4, "Write the one-paragraph README status line for each possible outcome
+  in advance" (round 10).** DONE. Three paragraphs pre-written in
+  pre-registration; exactly one to be pasted.
+- **C1, "Report each pre-flight item as DONE / REFUSED / BLOCKED with
+  evidence" (round 10).** DONE: margin 6.91x measured in-config;
+  per-relation diagnostics published with cuts on the numbers; design
+  arithmetic in pre-registration; D27 open at width 1 with hardware scoping.
+- **E1, "Add docs/CEILING.md" (round 10).** DONE (rounds 7–8); replication
+  line verified present this round.
+- **P3.5-style "27 vs 30" recounts (round 10).** REFUSED-WITH-EVIDENCE (see
+  Settled refusals): registry recounted in code at 27; no referent for 30.
+
+## Open-item triage (A-ii)
+
+| item | state | evidence / unblock condition |
+|---|---|---|
+| 59 human labels (fuzzy first) | BLOCKED-ON-OWNER | `label-plan` output; no agent may do this |
+| 3-row timing instrumentation | BLOCKED-ON-OWNER | loop records seconds; needs 3 labelled rows |
+| T4/fp16 determinism + batch invariance | BLOCKED-ON-OWNER | needs GPU hardware |
+| run #3 base rate at 3B scale | BLOCKED-ON-OWNER | needs run #3 execution |
+| run #3 + second subject model | BLOCKED-ON-OWNER | GPU + operator time |
+| run #2 per-dataset intervals | closed, permanent | artifacts lost; Hanley–McNeil stands |
+
+## What is still unmeasured (flatly)
+
+- Human labels on either sample: 0/100 and 0/73.
+- Any second opinion on run #2b rows; T4/fp16 determinism and batch invariance.
+- Run #3's base rate at 3B scale; run #2's per-dataset intervals (lost).
+- Measured per-row labelling time (three rows would instrument it).
+- Whether E4's move survives human labels (hook built, waiting).

@@ -807,6 +807,7 @@ def _check_superlatives(text: str, problems: list[str]) -> None:
             f"unqualified superlative {match.group(1)!r} near: ...{window.strip()[:90]}..."
         )
 
+
 def check_audit_response_structure(problems: list[str]) -> None:
     """AUDIT_RESPONSE.md must stay navigable: no repeated round heading, one
     settled-refusals section, and no restated refusals outside it."""
@@ -831,4 +832,3 @@ def check_audit_response_structure(problems: list[str]) -> None:
 
 if __name__ == "__main__":
     sys.exit(main())
-

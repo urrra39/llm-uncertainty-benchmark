@@ -431,3 +431,28 @@ def test_signal_table_matches_generated() -> None:
     assert embedded == (
         "<!-- SIGNAL_TABLE:BEGIN -->\n" + generated.stdout + "<!-- SIGNAL_TABLE:END -->\n"
     )
+
+
+def test_round10_dispositions_carry_verbatim_quotes() -> None:
+    """A-i: every disposition bullet in the current round quotes its audit
+    item, so a reader can verify which item it answers."""
+    import re as _re
+
+    text = (Path(__file__).resolve().parents[1] / "AUDIT_RESPONSE.md").read_text()
+    section = text.split("# Round 10:", 1)[1].split("# ", 1)[0]
+    # Join wrapped bullet lines so multi-line dispositions check whole.
+    bullets: list[str] = []
+    current = ""
+    for line in section.splitlines():
+        if line.startswith("- **"):
+            if current:
+                bullets.append(current)
+            current = line
+        elif current and line.strip() and not line.startswith(("#", "|", "<!--")):
+            current += " " + line.strip()
+    if current:
+        bullets.append(current)
+    assert bullets, "no disposition bullets found in Round 10"
+    for bullet in bullets:
+        quotes = _re.findall(r'"([^"]{6,})"', bullet)
+        assert quotes, f"disposition without a verbatim quote: {bullet[:70]}"
