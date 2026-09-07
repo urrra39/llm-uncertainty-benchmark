@@ -551,3 +551,148 @@ below lacks one.
 - Run #3's base rate at 3B scale; run #2's per-dataset intervals (lost).
 - Measured per-row labelling time (three rows would instrument it).
 - Whether E4's move survives human labels (hook built, waiting).
+
+# Round 11: labeler errors reproduced, fixed, and measured (executed)
+
+Validity dropped to 5.5 this round because a hand-check of
+`data/human_validation_sample_run2b.csv` found demonstrable label errors. Those
+errors are reproduced in code (`scripts/audit_label_errors.py`, 5/5), the rule
+that made them is replaced, run #2b is re-labelled under the fixed rule with
+both label sets committed, and the labeler-induced AUROC movement is measured.
+Dispositions below: DONE / REFUSED-WITH-EVIDENCE / BLOCKED-ON-OWNER.
+
+- **PART 0.1, "Write scripts/audit_label_errors.py that reproduces all five as failing" (round 11).**
+  DONE. Reproduces all five against the committed run artifacts and sweeps all
+  120 rows. The two systematic patterns are the rule's own fingerprint: the
+  fuzzy rule marked exactly TWO rows correct and both are subject-echo false
+  positives (`popqa-5864218`, "Jamaica" inside "Kingston, Jamaica";
+  `triviaqa-jp_1520`, "whale" inside "Unicorn Whale"); four verbatim-correct
+  answers were rejected on the length gap (`popqa-6298839`, `triviaqa-qb_1435`,
+  `triviaqa-dpql_376`, and `triviaqa-bb_3148`, which sits in the 20 rows
+  outside the 100-row sample the auditor read). Lower bound on machine-label
+  error 6/120 = 5.0%, per-row evidence in `data/label_error_audit.json`.
+- **PART 0.2, "Publish that lower bound in README beside every ranking" (round 11).**
+  DONE. The header status, the caveat that travels with the table, and the E4
+  bullet now carry the measured floor; "unbounded" is gone; the header
+  generator reads the audit JSON so the number cannot drift from its source.
+- **PART A1, "Echo guard in labeling: a containment match must NOT count as correct" (round 11).**
+  DONE, within the no-judge rule rewrite below. A bare echo of the question's
+  own words is incorrect; both false positives are regression tests
+  (`tests/test_labeling.py`, `tests/test_labeling_round11.py`). Recorded in
+  DECISIONS (R19–R21) and OPEN_DEFECTS (RUN2B-LABELSET).
+- **PART A2, "Replace the gap cap with answer-span extraction ... explicit UNRESOLVED verdict" (round 11).**
+  DONE. Correct requires a FULL gold alias present verbatim with every other
+  token traceable to the question (no length gap to exceed); rule-unresolved
+  rows are AMBIGUOUS under source `heuristic_unresolved` and go to the human
+  queue, never silently coerced to incorrect. A1 and A2 land as one change
+  because the five-case regression suite cannot pass on the echo guard alone:
+  the "whale" false positive closes only with the answer-shorter containment
+  removal, which is A2's span extraction — stated in DECISIONS, not hidden.
+  On the 120 rows the fixed rule moves exactly the six demonstrable errors and
+  nothing else (pinned).
+- **PART A3, "Re-label run #2b with the fixed rule. Commit BOTH label sets" (round 11).**
+  DONE. `data/run2b/labels_fixed.parquet` committed beside the pre-fix
+  `labels.parquet`; `results_run2b_fixedlabels.json` produced by the same
+  `analyze` pipeline (mirror config/artifacts dir) so it is schema-identical;
+  `data/labeler_variance_run2b.json` carries every per-signal AUROC under both
+  label sets with a like-for-like paired-bootstrap delta on the shared 119
+  rows, after validating the estimator reproduces every committed AUROC point
+  and CI bound exactly. Old numbers are not overwritten — they are the object
+  of measurement. Counts move 71/49 → 68/51 at n=119 (one row rule-ambiguous,
+  excluded and counted).
+- **PART A4, "If the fixed labels move the ranking, the ranking moves. If they move E4, E4 moves." (round 11).**
+  The movement is measured and published in the README round-11 section: pooled
+  leader `a_total_logprob` 0.799 falls out; the PopQA column leader becomes
+  `c_p_true_plain` 0.828; the stratified column-top `b_disagreement_rate`
+  0.747 drops to 0.691, and `b_mean_pairwise_f1` 0.705 [0.601, 0.802] leads the
+  fixed-label table. E4's `a_mean_logprob` PopQA reading becomes 0.698
+  [0.553, 0.833] (still above chance). The "paste exactly one pre-written E4
+  outcome paragraph" clause is BLOCKED-ON-OWNER: the three pre-written
+  paragraphs in PREREGISTRATION are conditioned on the HUMAN fuzzy-rule
+  accuracy report (Part D), and pasting one before that report exists would be
+  editing the record after the fact on the wrong trigger. All three
+  alternatives remain live until D.
+- **PART B1, "`a_total_logprob` ... Quantify the overlap: partial Spearman ... AUROC within length strata" (round 11).**
+  DONE. `data/length_confound_audit.json` scores every signal on the same 119
+  rows under both label sets: Spearman with label and with answer length,
+  rank-residualized partial Spearman given length, and within at/below- vs
+  above-median-length AUROC with bootstrap intervals. `a_total_logprob`:
+  label 0.519, length 0.594, partial 0.401; its above-median stratum 0.855
+  [0.731, 0.951] under the old labels collapses to 0.714 [0.536, 0.873] under
+  the fixed labels, flat against its short-stratum 0.711. `t_answer_length` is
+  length by definition (Spearman 1.0, partial 0.128); `c_p_true_plain` is
+  length-independent (0.049).
+- **PART B2, "Publish a 'length-mediated share' column or an explicit paragraph naming which top-table signals lose their edge" (round 11).**
+  DONE as an explicit paragraph: the deltas whose CI excludes zero are exactly
+  the length-correlated signals (`a_total_logprob` −0.066 [−0.130, −0.015];
+  `a_length_normalized_logprob` −0.056 [−0.115, −0.011]; `t_answer_length`
+  −0.070 [−0.137, −0.016]), and they collapse toward the family-B band under
+  the fixed labels — the round's headline.
+- **PART B3, "State the mechanism plainly in README" (round 11).** DONE. The
+  sentence stands in the README round-11 section: a length-biased labeler plus
+  a length-correlated signal manufactures AUROC that measures neither
+  uncertainty nor correctness.
+- **PART C2, "Add an assertion that alias merging never unions aliases across distinct Wikidata subject QIDs" (round 11).**
+  DONE. The PopQA builder drops whole any duplicate-question group whose
+  Wikidata subject QIDs differ and asserts none survive to the generic
+  alias-merging dedup; counts recorded in `dataset_meta.json`. Run #2b's 120
+  rows contain exactly one affected row (`popqa-1782552`, "What is the capital
+  of Georgia?", gold spanning country-Georgia {Kutaisi, Tbilisi, ...} and
+  US-state-Georgia {Atlanta, ...}) — a row that cannot be answered wrongly.
+  Run #3's slice has 38 such groups (81 rows); the guard drops them at build.
+- **PART C1, "SINGLE-TEMPLATE COLLAPSE ... Verify against the built dataset" (round 11).**
+  DONE. Measured: run #2b's PopQA draw is 59/60 "What is the capital of X?",
+  because the 90th-percentile slice of the four configured relations is ~92%
+  capital (184 of 199 unique). The card is fixed (LIMITATIONS item 4, README,
+  config comment); the config is not changed because run #2b is a completed
+  run. Run #3's slice (quantile 0.5, seven relations) was checked against the
+  source and is genuinely diverse (2191 unique pre-leakage).
+- **PART C3, "Re-check the base rates and both class-count gates after C1+C2 and A3" (round 11).**
+  DONE. After A3 (C1/C2 do not alter run #2b's historical row set): pooled
+  68/51 at n=119 (0.571); PopQA 23/37 (0.383); TriviaQA 45/14 (0.763).
+  Gates: random-baseline PASS 0.538 [0.433, 0.639]; minimum_rows_per_class
+  PASS 68/51; abstention PASS 0/119; per_dataset_class_counts FAIL — minority
+  23 and 14, both under the ≥30 floor (D5's arithmetic is 23 and 14 under the
+  fixed labels, not 23 and 12); the two human gates FAIL at 0.0.
+- **PART D (owner), "`unc-bench label-plan`, then `unc-bench label-human`" (round 11).**
+  BLOCKED-ON-OWNER. No agent may fill a `human_label` cell. Prep delivered:
+  fixed-label targets `data/fuzzy_decided_rows_fixed.csv` (73 rows, the one
+  rule-ambiguous "whale" row shipped with a blank fuzzy_verdict) and
+  `data/human_validation_sample_run2b_fixed.csv` (100 rows balanced on the
+  fixed machine label), produced by `scripts/export_fixed_human_files.py`;
+  `unc-bench label-plan` prints 59 rows shared-first; every row flagged by
+  PART 0.1 and the rule-ambiguous row lies inside the 73 fuzzy-decided rows
+  (D2 is satisfied by labelling that population).
+- **PART E1, "Report each pre-flight item DONE / REFUSED / BLOCKED with evidence" (round 11).**
+  DONE, table below.
+- **PART E2/E3 (owner), "run #3 at n=600 ... second subject model from a DIFFERENT family" (round 11).**
+  BLOCKED-ON-OWNER (GPU + operator time).
+- **PART F1/F2/F3 (authorship and stop condition).** F1 honoured (single
+  author; no CONTRIBUTORS, no co-author trailers, no PRs). F2: one README line
+  added under Methods/Acknowledgements. F3: CEILING.md already states the last
+  half point is external replication, not a task; the pass stops after this
+  round's measurement.
+
+## E1 pre-flight (re-verified after the dataset changes this round)
+
+| item | state | evidence |
+|---|---|---|
+| PopQA margin ≥ 3x for 300 draws | DONE | 2074 unique after leakage = 6.91x; the C2 guard removes 38 duplicate-question groups (81 rows) → ~2036 unique = 6.79x; both measured from the source, config comments carry the numbers. The 0.9-quantile census worry (318 unique) is retired: run #3 uses quantile 0.5. |
+| Per-relation alias-completeness diagnostics BEFORE generation | DONE | `data/gold_quality_report.json` is committed and predates run #3: religion single_alias_fraction 0.050, occupation 0.147, genre 0.074; `place of birth` (0.250) was cut from run #3 on granularity-span 0.620 — the report covers it regardless. |
+| ≥30 minority rows WITHIN each dataset | DONE | From run #2b's measured base rates: PopQA 300 × 0.38 ≈ 114 and TriviaQA 300 × 0.20 ≈ 60 minority rows, both clear of the floor (preregistered); conditioned on base rates surviving at 3B scale, which the pilot gate (25–65%) enforces. |
+| D27 open | DONE | OPEN_DEFECTS; `generation_batch_size: 1` pinned until batch invariance passes on T4/fp16. |
+| generation_batch_size 1 | DONE | `configs/run3_gpu.yaml`. |
+| Relation diversity actually present | DONE | Run #3 PopQA slice: 7 relations, 2191 unique pre-leakage (capital 518, genre 872, occupation 200, religion 199, country 234, sport 135, color 33) — the C1 single-template trap does not recur. |
+
+## What is still unmeasured (flatly)
+
+- Human labels on any target: 0/100 and 0/73 on the pre-fix files, and the
+  fixed-label targets are likewise empty. Every gate that would authorise a
+  ranking still fails on them.
+- Any second opinion on run #2b rows beyond the round's hand-check; whether the
+  rule-ambiguous "whale" row is correct or incorrect (a human call, queued).
+- Semantic label error above the 5.0% floor: the code sweep cannot see
+  paraphrase/synonym false negatives, so the true rate is bounded below only.
+- T4/fp16 determinism and batch invariance (D27); run #3's base rate at 3B
+  scale; a second subject model; run #2's per-dataset intervals (lost).
+- Measured per-row labelling time (three rows would instrument it).

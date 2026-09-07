@@ -1539,3 +1539,56 @@ run below closes the divergence with 27/27 scored.
   false positive is only closed by removing the answer-shorter containment
   direction, which is A2's span extraction; each is tracked here and in
   OPEN_DEFECTS (RUN2B-LABELSET) rather than in history.
+
+## Round-11 session (relabel measurement + dataset defects, A3-C3, B1-B3)
+
+- **R22. The fixed relabel is a measurement, not an overwrite.** Run #2b was
+  re-labelled under `fuzzy_rule` (`scripts/relabel_run2b.py`); both label sets
+  and both results files are committed (`labels.parquet` pre-fix,
+  `labels_fixed.parquet`, `results_run2b.json` unchanged,
+  `results_run2b_fixedlabels.json` from the same analyze pipeline). The relabel
+  moves exactly the six demonstrable errors; counts 71/49 → 68/51 at n=119 (one
+  row rule-ambiguous and queued). The estimator in `scripts/labeler_variance.py`
+  was validated to reproduce every committed AUROC point and CI bound exactly
+  before it measured the like-for-like deltas on the shared 119 rows.
+- **R23. Correcting the length-biased labels attenuates the length-correlated
+  signals — the round's headline.** The deltas whose CI excludes zero are
+  exactly the length-correlated set: a_total_logprob −0.066 [−0.130, −0.015],
+  a_length_normalized_logprob −0.056 [−0.115, −0.011], t_answer_length −0.070
+  [−0.137, −0.016]. a_total_logprob's old above-median-length stratum 0.855
+  collapses to 0.714 under the fixed labels (flat against its short-stratum
+  0.711). c_p_true_plain, essentially length-independent, becomes the fixed-label
+  PopQA column's leader (0.828). Mechanism stated flatly in the README.
+- **R24. The pre-fix human-validation files stay the round's evidence; fixed
+  targets are written beside them.** The committed sample and fuzzy CSVs
+  snapshot the pre-fix labels, and labelling them measures the 5.0% floor
+  directly. Because a publishable ranking after this round rests on the fixed
+  label set, `scripts/export_fixed_human_files.py` writes
+  `*_fixed.csv` targets (human_label empty) for Part D; the rule-ambiguous
+  "whale" row ships with a blank fuzzy_verdict, never coerced.
+- **R25. Cross-entity gold merges are dropped at build (C2).** dedup unions the
+  aliases of rows sharing a question text; an ambiguous question that appears
+  once per Wikidata subject would union distinct entities (run #2b has exactly
+  one such row: popqa-1782552, capital of Georgia, gold spanning the country and
+  the US state — unanswerable-wrong, correct-class inflation). The PopQA builder
+  drops whole any duplicate-question group whose subject QIDs differ (asserted),
+  recording counts in dataset_meta.json. Run #3's slice has 38 such groups (81
+  rows); the guard removes them at build (~2036 unique, 6.79x).
+- **R26. Run #2b's PopQA column is one template (C1); the card, not the
+  completed config, is fixed.** Measured: 59/60 rows are "What is the capital of
+  X?" because the 90th-percentile slice of the four relations is ~92% capital.
+  LIMITATIONS/README/config comments now say so; the run2b config is not
+  changed (a completed run is not re-specified after the fact); run #3's slice
+  was verified genuinely diverse (7 relations, 2191 unique).
+- **R27. Gates after A3 (C3):** pooled 68/51@119 (base 0.571), PopQA 23/37
+  (0.383), TriviaQA 45/14 (0.763). random-baseline PASS 0.538 [0.433, 0.639];
+  minimum_rows_per_class PASS; abstention PASS; per_dataset_class_counts FAIL
+  (minority 23 and 14 under the fixed labels — D5's 23-and-12 was the pre-fix
+  count); the two human gates FAIL at 0.0. Two gates will open only with human
+  labels; per-dataset stays closed at this n.
+- **R28. A4 is measured and its preregistered paragraph paste waits for D.** The
+  fixed labels move the ranking (PopQA column leader a_total_logprob → 0.759,
+  c_p_true_plain → 0.828; stratified column-top b_disagreement_rate 0.747 →
+  0.691) and E4's a_mean_logprob PopQA becomes 0.698 [0.553, 0.833], still above
+  chance. The three pre-written E4 outcome paragraphs are conditioned on the
+  human fuzzy-rule accuracy report; none is pasted before Part D exists.

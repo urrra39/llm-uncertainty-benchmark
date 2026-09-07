@@ -280,6 +280,11 @@ run #3 at n=600 on a GPU (`configs/run3_gpu.yaml`, pre-registered in
 [docs/PREREGISTRATION.md](docs/PREREGISTRATION.md)).
 
 
+## Acknowledgements
+
+Parts of the implementation were produced with AI assistance under the
+author's direction and review.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

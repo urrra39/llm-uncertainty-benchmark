@@ -99,6 +99,10 @@ dataset_mix:
 #   TriviaQA, easy_only + min_aliases 20, leakage dropped  -> 3746 rows,
 #     all unique (314 leaked of 4060) = 12.5x margin
 #
+#   The C2 cross-subject guard (round 11) drops a further 38 duplicate-question
+#   groups (81 rows) whose Wikidata subject QIDs differ, leaving ~2036 unique
+#   PopQA questions = 6.79x margin for 300 draws — still well above the 3x bar.
+#
 # The relations are `capital`, `country`, `sport`, `color` (run #2's,
 # minus `capital of`), `religion` + `occupation` (kept: cleared by
 # measurement), and `genre` (added: single-alias 0.074, leak 0.006).

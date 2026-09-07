@@ -15,15 +15,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
 
 
-def _fixed() -> dict:
+def _fixed() -> Any:
     return json.loads((REPO / "results_run2b_fixedlabels.json").read_text(encoding="utf-8"))
 
 
-def _old() -> dict:
+def _old() -> Any:
     return json.loads((REPO / "results_run2b.json").read_text(encoding="utf-8"))
 
 
@@ -69,6 +70,7 @@ def test_length_correlated_signals_lose_ground_on_fixed_labels() -> None:
     for name in ("a_total_logprob", "t_answer_length", "a_length_normalized_logprob"):
         assert fixed[name]["point"] < old[name]["point"], name
     # the fixed-label PopQA leader is no longer a family-A total-logprob figure
-    assert fixed["a_total_logprob"]["point"] < fixed["b_mean_pairwise_f1"]["point"] or fixed[
-        "a_total_logprob"
-    ]["point"] < fixed["c_p_true_plain"]["point"]
+    assert (
+        fixed["a_total_logprob"]["point"] < fixed["b_mean_pairwise_f1"]["point"]
+        or fixed["a_total_logprob"]["point"] < fixed["c_p_true_plain"]["point"]
+    )
