@@ -13,6 +13,13 @@
 
 ## Run #2b (primary, pending the human gate)
 
+**Null result, stated first: at n=120 with stratified bootstrap intervals,
+this benchmark cannot separate the top group.** 23 of 27 signals have
+stratified intervals overlapping the leader's [0.658, 0.830] end to end —
+the count is computed from interval overlaps in `results_run2b.json`, not
+hand-counted, and the table below marks the band. Same headline run #2 had,
+now with the intervals to prove it rather than assert it.
+
 Run #2b re-ran run #2's exact configuration (Qwen2.5-0.5B-Instruct, same
 decoding, prompts, sampling, NLI, n=120) with the decontaminated dataset:
 no `capital of`, gold-in-question rows dropped, near-duplicates deduped, and
@@ -85,6 +92,7 @@ not an ordering the data supports.
 | `a_mean_logprob` | 0.740 [0.609, 0.861] | 0.490 [0.319, 0.661] | 0.615 [0.507, 0.721] |
 | `a_mean_top5_entropy` | 0.722 [0.586, 0.845] | 0.436 [0.283, 0.594] | 0.579 [0.477, 0.680] |
 | `a_first_token_logprob` | 0.595 [0.441, 0.743] | 0.517 [0.340, 0.694] | 0.556 [0.438, 0.671] |
+| ··· below this line: stratified interval entirely below the leader's [0.658, 0.830] ··· | | | |
 | `t_question_length` | 0.499 [0.392, 0.611] | 0.553 [0.371, 0.730] | 0.526 [0.419, 0.629] |
 | `c_verbal_confidence` | 0.504 [0.368, 0.639] | 0.547 [0.383, 0.707] | 0.525 [0.419, 0.634] |
 | `t_random` | 0.445 [0.296, 0.598] | 0.571 [0.384, 0.752] | 0.508 [0.388, 0.629] |
@@ -110,7 +118,10 @@ established: identical numbers, no information, no Holm penalty.
   containment-vs-TRUTH error: 73 of 120 labels (61%) come from the fuzzy
   rule, and only human labels bound that error. "Confirmed strongly" is
   withdrawn; the supported reading is "moved up under heuristic labels,
-  mechanism unattributed".
+  mechanism unattributed". Under stratified intervals the move does not
+  separate it from the group either: `a_mean_logprob` sits at 0.615
+  [0.507, 0.721], inside the 23-signal band — so E4 is not the surviving
+  finding; the null result is.
 - **`c_verbal_confidence` on PopQA: 0.395 (withdrawn run-#2 baseline,
   directional only) → 0.504.** Predicted up; confirmed
   in direction only — it sits at chance, not above it. The hypothesis is
@@ -131,7 +142,8 @@ established: identical numbers, no information, no Holm penalty.
   p_holm = 0.0076 over 21 distinct comparisons, 5 worse-significant total).
   Run #2's non-rejection was power (n=120, Holm over 20), not a defective
   test — the B1 calibration and this movement agree.
-- **Pooled leader is family A** (`a_total_logprob` 0.799), with no winner
+- **Pooled leader by point estimate is family A** (`a_total_logprob` 0.799
+  [0.717, 0.872], overlapping the runner-up's [0.709, 0.865]), with no winner
   (gap 0.008, CIs overlap). The samples-only variants trail their
   greedy-included twins by 0.02–0.04, so the temperature-mixing bias is small
   on this run but measured rather than assumed.

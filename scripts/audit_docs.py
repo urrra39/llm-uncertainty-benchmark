@@ -723,6 +723,7 @@ def check_readme_scope(problems: list[str]) -> None:
     ):
         if stale in readme:
             problems.append(f"README.md contains stale scope phrasing: {stale!r}")
+    _check_superlatives(readme, problems)
     history_at = readme.find("## History of withdrawn runs")
     primary_text = readme[:history_at] if history_at >= 0 else readme
     for fingerprint in ("0.704", "0.684", "0.746", "63 incorrect / 57 correct"):
@@ -771,6 +772,27 @@ def main() -> int:
         print(f"  - {problem}")
     return 1
 
+def _check_superlatives(text: str, problems: list[str]) -> None:
+    """A superlative applied to a signal must carry its qualifier.
+
+    Inside the indistinguishable band, "leader"/"best"/"top" performs an
+    ordering the statistics do not support — unless the sentence also carries
+    the interval, delta or p-value that qualifies it. Interrogatives (the
+    title question) are exempt: asking which signal is best is not claiming
+    one is.
+    """
+    head, _, _ = text.partition("## History of withdrawn runs")
+    for match in re.finditer(r"\b(leader|best|top)\b", head, flags=re.IGNORECASE):
+        window = head[max(0, match.start() - 160) : match.end() + 160]
+        if "?" in head[match.end() : match.end() + 60]:
+            continue
+        if re.search(r"\[[0-9.]+, ?[0-9.]+\]|p_holm|p =|\(−?[0-9.]+,", window):
+            continue
+        problems.append(
+            f"unqualified superlative {match.group(1)!r} near: ...{window.strip()[:90]}..."
+        )
+
 
 if __name__ == "__main__":
     sys.exit(main())
+

@@ -88,6 +88,8 @@ def test_headline_numbers_are_in_the_file() -> None:
     universe: set[str] = set()
     for entry in view["signals"].values():
         universe.add(f"{entry['auroc']['point']:.3f}")
+        universe.add(f"{entry['auroc']['ci_low']:.3f}")
+        universe.add(f"{entry['auroc']['ci_high']:.3f}")
     for level in payload["ablation"]["by_n"].values():
         universe.add(f"{level['signals']['b_distinct_count']['point']:.3f}")
     for difference in payload["ablation"].get("level_differences", {}).get("comparisons", []):
@@ -107,3 +109,37 @@ def test_headline_numbers_are_in_the_file() -> None:
     for claim in ("0.799", "0.008", "0.276", "0.0076", "0.124", "0.016", "6.01"):
         assert claim in text, f"headline claim {claim} missing from README"
         assert claim in universe, f"headline claim {claim} absent from results_run2b.json"
+
+
+def test_indistinguishable_band_is_computed_not_hand_counted() -> None:
+    """A1/A2: the 23-signal band and the table separator come from interval
+    overlaps in the file. If the data moves, the text must move with it."""
+    payload = _primary()
+    signals = payload["views"]["primary"]["stratified"]["signals"]
+    lead = signals["b_disagreement_rate"]
+    lo, hi = lead["ci_low"], lead["ci_high"]
+    assert (round(lo, 3), round(hi, 3)) == (0.658, 0.830)
+    band = sorted(
+        name for name, entry in signals.items() if entry["ci_low"] <= hi and entry["ci_high"] >= lo
+    )
+    assert len(band) == 23
+    dropped = set(
+        _primary()["views"]["primary"]["significance"].get("rank_equivalent_dropped", [])
+    )
+    text = _readme_primary()
+    assert "23 of 27 signals have" in text
+    separator = "below this line: stratified interval entirely below the leader's"
+    assert separator in text
+    above, _, _ = text.partition(separator)
+    below = text[text.find(separator) :]
+    for name in band:
+        if name in dropped:
+            continue  # duplicates live in the appendix by rule, not by rank
+        assert f"`{name}`" in above, f"in-band signal {name} rendered below the separator"
+    below_names = set(re.findall(r"\| `([a-z0-9_]+)` \|", below.split("Five rank")[0]))
+    assert below_names == {
+        "t_question_length",
+        "c_verbal_confidence",
+        "t_random",
+        "a_first_token_margin",
+    }

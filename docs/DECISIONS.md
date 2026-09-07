@@ -1485,3 +1485,14 @@ run below closes the divergence with 27/27 scored.
   harder question — power — whose answer (zero differing rows) demoted the
   finding the bug had inflated. Two errors, opposite directions, both kept on
   the record.
+
+## Round-8 session (null band + full audit)
+
+- **R18. The 16-row downgrade stands as correct on the evidence then
+  available.** At 1 disagreement in 16 audited rows the Wilson interval was
+  [0.011, 0.283] — an order of magnitude wide — and "unmeasured at useful
+  precision" was the only honest label for it. The full-audit rerun later
+  measured 4/120 [0.013, 0.083]. A later good outcome does not retroactively
+  justify the earlier weaker claim, and it does not retroactively condemn
+  the downgrade either: decide on the evidence at hand, record the decision,
+  re-measure when cheap.
