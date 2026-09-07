@@ -189,6 +189,68 @@ Figures (all drawn from `results_run2b.json` alone):
 `figures/run2b/reliability.png`, `figures/run2b/correlation.png`,
 `figures/run2b/n_ablation.png`, `figures/run2b/cost_vs_auroc.png`.
 
+### Round 11 measurement: the labeler was biased, and fixing it moved the table
+
+The label set every number above was built on is the pre-fix containment rule,
+and the code sweep (`scripts/audit_label_errors.py`) proves 6 of its 120
+labels wrong — 2 subject-echo false positives and 4 verbatim-correct answers
+rejected on the length gap (`data/label_error_audit.json`; a lower bound,
+because a code sweep cannot see semantic errors a human would). The rule is
+replaced (`unc_bench.labeling.fuzzy_rule`), run #2b is re-labelled under it,
+and BOTH label sets, BOTH results files and the per-signal deltas are
+committed — the old numbers are not overwritten, they are archived as the
+object of measurement:
+
+- **Labels.** The fixed rule moves exactly the six demonstrable errors: 4
+  verbatim-correct answers to correct; 1 subject echo (`popqa-5864218`)  to 
+  incorrect; 1 partial-alias (`triviaqa-jp_1520`, answer "whale")  to 
+  rule-ambiguous and queued for a human, never coerced. Counts move 71
+  incorrect / 49 correct to 68 / 51 at n=119 (the ambiguous row is excluded
+  and counted). `data/labeler_variance_run2b.json` carries the like-for-like
+  per-signal delta on the shared 119 rows.
+- **Pooled deltas whose CI excludes zero are exactly the length-correlated
+  signals.** `a_total_logprob` 0.805 to 0.739 on the shared rows (delta
+  −0.066 [−0.130, −0.015]); `a_length_normalized_logprob` 0.798 to 0.742
+  (−0.056 [−0.115, −0.011]); `t_answer_length` 0.680 to 0.609
+  (−0.070 [−0.137, −0.016]). Every other signal's delta CI spans zero.
+- **Stratified (the ranking's sort key).** the old column-top
+  `b_disagreement_rate` falls 0.747 to 0.691 [0.588, 0.789]; the fixed-label
+  top of the table is `b_mean_pairwise_f1` 0.705 [0.601, 0.802] with
+  `c_p_true_plain` 0.699 [0.590, 0.807]. The family-A logprob entries drop
+  into the same band: `a_total_logprob` 0.741 to 0.667 [0.563, 0.767] and
+  `a_length_normalized_logprob` 0.734 to 0.675 [0.572, 0.773].
+- **PopQA column.** the old column's highest number, `a_total_logprob` 0.825,
+  falls to 0.759 [0.623, 0.881]; the fixed-label PopQA column is led by
+  `c_p_true_plain` 0.828 [0.706, 0.929], the verification signal the old
+  labeler had been punishing on exactly the long verbatim answers it marked
+  wrong.
+- **Length confound, per signal** (`data/length_confound_audit.json`):
+  `a_total_logprob` correlates with answer length (0.594) more than with the
+  label (0.519), and its rank-residualized association with the label given
+  length is 0.401. Under the fixed labels its within-above-median-length AUROC
+  collapses from 0.855 [0.731, 0.951] to 0.714 [0.536, 0.873] — flat against
+  its short-stratum 0.711 — so the old skill lived where the labeler was wrong.
+  `t_answer_length` is length by definition (Spearman 1.0) and keeps almost
+  nothing once length is removed (partial 0.128); its above-median-stratum
+  AUROC falls 0.708 to 0.512. `c_p_true_plain` is essentially length-independent
+  (0.049).
+- **The mechanism, stated flatly:** a length-biased labeler plus a
+  length-correlated signal manufactures AUROC that measures neither
+  uncertainty nor correctness. The length gap cap rejected long correct
+  answers and the logprob signals that grow with length collected the points;
+  the top family-A numbers of the pre-fix table were partly that artifact.
+- **E4 under the fixed labels:** `a_mean_logprob` on PopQA 0.740 to 0.698
+  [0.553, 0.833] — the decontamination move still clears chance but its height
+  was partly labeler artifact. The pre-registered E4 outcome paragraphs
+  (PREREGISTRATION, "E4 outcome lines, pre-written") are gated on the human
+  fuzzy-rule accuracy report (Part D); none is pasted before that report
+  exists.
+- **Dataset defects the same file exposed:** run #2b's PopQA draw is
+  effectively one template (59/60 "What is the capital of X?", C1), and one
+  committed row (`popqa-1782552`, capital of Georgia) carries a gold list
+  merged across two Wikidata subjects — country Georgia and US state Georgia —
+  so it cannot be answered wrongly (C2); the builder now drops such merges.
+
 ## History of withdrawn runs
 
 - **Run #1** (tag `run1-n100`): 7 correct of 75 answered; `t_random` at
