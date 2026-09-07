@@ -342,6 +342,10 @@ class PathsSpec(Frozen):
     # this name denotes no published run.
     results_json: Path = Path("results_default.json")
     human_validation_csv: Path = Path("data/human_validation_sample.csv")
+    #: Rows the fuzzy rule decided, awaiting human check. None where the run
+    #: predates the fuzzy population file; the coverage gate then reads the
+    #: file as absent rather than as zero.
+    fuzzy_decided_csv: Path | None = None
 
 
 class PromptSpec(Frozen):

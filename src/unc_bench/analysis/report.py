@@ -151,7 +151,15 @@ def build_results(cfg: Config) -> dict[str, Any]:
     # a missing or empty human column is the shipped state, reported as
     # coverage 0.0 with a reason rather than as a number.
     label_quality = _label_quality(path=cfg.paths.human_validation_csv)
-    protocol_quality = _label_quality(path=Path("data/human_validation_sample.csv"))
+    fuzzy_quality = (
+        _label_quality(path=cfg.paths.fuzzy_decided_csv)
+        if cfg.paths.fuzzy_decided_csv is not None
+        else {
+            "human_labels_present": False,
+            "coverage": None,
+            "reason": "no fuzzy population file configured for this run",
+        }
+    )
 
     # D15: the gates are evaluated on the primary view, which is the one the
     # README quotes. A failure is recorded, not raised: the failure is the result.
@@ -159,8 +167,8 @@ def build_results(cfg: Config) -> dict[str, Any]:
         per_view["primary"],
         n_abstentions=n_abstain,
         n_scored=int(len(scored)),
-        human_label_coverage=label_quality.get("coverage"),
-        protocol_coverage=protocol_quality.get("coverage"),
+        human_label_coverage=fuzzy_quality.get("coverage"),
+        protocol_coverage=label_quality.get("coverage"),
     )
     # D7: cost per signal, using this run's own measured timings.
     costs = cost_table(per_view["primary"]["signals"], timings, cfg, _token_means(generations))
@@ -239,6 +247,7 @@ def build_results(cfg: Config) -> dict[str, Any]:
             "judge_parse_failures": label_meta.get("judge_parse_failures"),
             "heuristic_fallback_rows": label_meta.get("heuristic_fallback_rows"),
             "label_quality": label_quality,
+            "fuzzy_quality": fuzzy_quality,
         },
         "analysis_config": {
             "bootstrap_resamples": cfg.analysis.bootstrap_resamples,

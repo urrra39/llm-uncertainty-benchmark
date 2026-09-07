@@ -49,15 +49,37 @@ MAX_ABSTENTION_RATE = 0.10
 MIN_HUMAN_LABEL_COVERAGE = 0.80
 
 #: Floor for the PRE-run protocol gate: the labelling protocol counts as
-#: validated once a prior sample reaches this coverage. Lower than the
+#: validated once the run's own sample reaches this coverage. Lower than the
 #: publishability bar on purpose — shaking out instruction bugs needs breadth
 #: of edge cases, not full power — and stated as a judgement call.
 MIN_PROTOCOL_COVERAGE = 0.50
 
-#: The validation sample the labelling protocol targets. Fixed repo location:
-#: run #2's sample, whose edge cases (echo rows, granularity mismatches) are
-#: what the protocol was written against.
-PROTOCOL_CSV = "data/human_validation_sample.csv"
+#: Where each human-label gate reads its coverage from. Single source of
+#: truth for docs/LABEL_GATE_MAP.md (generated, pinned by test): every gate
+#: reads a file belonging to the run being gated. A gate on run #2b is never
+#: satisfiable by labelling run #2's withdrawn rows.
+#:
+#: - labeling_protocol_validated reads the run's own validation sample
+#:   (cfg.paths.human_validation_csv) at MIN_PROTOCOL_COVERAGE. It exercises
+#:   the instructions broadly, including rows the fuzzy rule never touched.
+#: - human_label_coverage reads the run's fuzzy-decided rows
+#:   (cfg.paths.fuzzy_decided_csv) at MIN_HUMAN_LABEL_COVERAGE. The fuzzy
+#:   rule decided 61% of run #2b's labels unchecked; that population, not a
+#:   random subsample, is what the publishability bar measures.
+GATE_SOURCES: dict[str, dict[str, str]] = {
+    "labeling_protocol_validated": {
+        "reads": "the run's own validation sample (cfg.paths.human_validation_csv)",
+        "denominator": "validation sample rows",
+        "threshold": "MIN_PROTOCOL_COVERAGE = 0.50",
+        "unlocks": "instructions exercised; further labelling proceeds on tested wording",
+    },
+    "human_label_coverage": {
+        "reads": "the run's fuzzy-decided rows (cfg.paths.fuzzy_decided_csv)",
+        "denominator": "fuzzy-decided rows",
+        "threshold": "MIN_HUMAN_LABEL_COVERAGE = 0.80",
+        "unlocks": "publishable ranking (with all other gates)",
+    },
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,43 +200,47 @@ def human_label_gate(coverage: float | None) -> Gate:
     honestly at 0.0.
     """
     ok = coverage is not None and math.isfinite(coverage) and coverage >= MIN_HUMAN_LABEL_COVERAGE
-    observed = "validation file absent" if coverage is None else f"coverage {coverage:.3f}"
+    observed = "fuzzy file absent" if coverage is None else f"coverage {coverage:.3f}"
     return Gate(
         name="human_label_coverage",
         passed=ok,
         observed=observed,
-        requirement=f">= {MIN_HUMAN_LABEL_COVERAGE:.2f} of validation rows labelled",
+        requirement=f">= {MIN_HUMAN_LABEL_COVERAGE:.2f} of fuzzy-decided rows labelled",
         detail=(
-            "human labels bound the machine label error, which bounds what any "
+            "human labels bound the fuzzy rule's error, which bounds what any "
             "AUROC against those labels can mean"
             if ok
-            else "no human has verified any label, so the label set's correctness "
-            "is unmeasured; fill the run's validation CSV (docs/HUMAN_LABELING.md)"
+            else "no human has checked the fuzzy rule's 73 verdicts, so the "
+            "label set's correctness is unmeasured; label data/fuzzy_decided_rows.csv "
+            "(docs/HUMAN_LABELING.md)"
         ),
     )
 
 
 def protocol_validated_gate(coverage: float | None) -> Gate:
-    """PRE-run gate: the labelling protocol must be validated on a prior sample.
+    """PRE-run gate: the labelling protocol must be validated on the run's
+    own sample before its labels gate anything.
 
-    The protocol (`docs/HUMAN_LABELING.md`) was written against run #2's
-    sample; it counts as validated once that file reaches MIN_PROTOCOL_COVERAGE
-    coverage. Without this, a new run's POST-run gate could pass on labels
-    produced under untested instructions. Same record-don't-raise convention.
+    It counts as validated once the run's validation sample reaches
+    MIN_PROTOCOL_COVERAGE coverage. Without this, the POST-run gate could
+    pass on labels produced under untested instructions. Same
+    record-don't-raise convention. Deliberately the run's own rows, never a
+    withdrawn run's: a gate on run #2b satisfiable only by labelling run #2
+    is the defect this mapping replaced.
     """
     ok = coverage is not None and math.isfinite(coverage) and coverage >= MIN_PROTOCOL_COVERAGE
-    observed = f"{PROTOCOL_CSV} absent" if coverage is None else f"coverage {coverage:.3f}"
+    observed = "validation file absent" if coverage is None else f"coverage {coverage:.3f}"
     return Gate(
         name="labeling_protocol_validated",
         passed=ok,
         observed=observed,
-        requirement=f">= {MIN_PROTOCOL_COVERAGE:.2f} of the protocol sample labelled",
+        requirement=f">= {MIN_PROTOCOL_COVERAGE:.2f} of the run's own sample labelled",
         detail=(
             "the labelling instructions have been exercised on real edge cases"
             if ok
-            else "the protocol has never been validated: label the prior sample "
-            "first (docs/HUMAN_LABELING.md), or the new run's human labels rest "
-            "on untested instructions"
+            else "the protocol has never been validated on this run's rows: "
+            "label the run's own sample first (docs/HUMAN_LABELING.md), or the "
+            "human labels rest on untested instructions"
         ),
     )
 

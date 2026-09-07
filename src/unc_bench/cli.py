@@ -68,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     label_human.add_argument(
         "--run",
         default="run2b",
-        help="run name (run2, run2b) or a direct .csv path",
+        help="run name (run2b) or a direct .csv path",
     )
     label_human.add_argument(
         "--target",

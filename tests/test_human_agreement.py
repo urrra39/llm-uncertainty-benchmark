@@ -570,3 +570,37 @@ def test_rule_accuracy_returns_none_without_the_rule_column() -> None:
 
     assert rule_accuracy([{"human_label": "correct"}]) is None
     assert rule_accuracy([], resamples=10) is None
+
+
+def test_gate_map_matches_generated() -> None:
+    """A1: the gate map is generated from code constants, not by hand."""
+    import subprocess
+    import sys
+
+    repo = Path(__file__).resolve().parents[1]
+    generated = subprocess.run(
+        [sys.executable, "scripts/render_gate_map.py"],
+        capture_output=True,
+        text=True,
+        cwd=repo,
+        check=False,
+    )
+    assert generated.returncode == 0
+    assert generated.stdout == (repo / "docs" / "LABEL_GATE_MAP.md").read_text()
+
+
+def test_gate_paths_are_labellable_targets_and_vice_versa() -> None:
+    """A3: no gate reads a file label-human cannot write, and no enumerated
+    target earns zero gate credit."""
+    from unc_bench.config import Config
+    from unc_bench.stages.label_human import DEFAULT_TARGET, RUN_CSVS
+
+    cfg = Config.load("configs/run2b_clean.yaml")
+    gate_files = {
+        Path(cfg.paths.human_validation_csv).name,
+        Path(str(cfg.paths.fuzzy_decided_csv)).name,
+    }
+    writable = {p.name for p in RUN_CSVS.values()} | {DEFAULT_TARGET.name}
+    assert gate_files <= writable, f"gates read unwritable files: {gate_files - writable}"
+    for name in writable:
+        assert name in gate_files, f"labellable target {name} earns zero gate credit"

@@ -36,12 +36,17 @@ verdict: it appears only after you commit yours, so you cannot anchor on it.
 
 ## Duration
 
-73 fuzzy-decided rows at a measured median of ~20 seconds per row is roughly
-25 minutes. The timing log beside the CSV (`.timing.json`) records the real
-median; if your median differs, budget from it, not from this paragraph.
-Partial passes are fine: unlabelled rows are counted and skipped. The full
-100-row sample costs proportionally more and adds mostly exact-match rows of
-no labelling value — do the fuzzy file first.
+73 fuzzy-decided rows is the whole population at risk; the gates need 59 of
+them (0.80 coverage) including at least 50 rows also in the validation
+sample (the protocol gate), and 53 rows sit in both files — so label the
+shared rows first and the minimum honest total is **59 rows**. Per-row timing
+is unmeasured (no human has done this yet); at 20–40 seconds per row that is
+roughly 20–40 minutes, but treat that band as a guess, not a measurement —
+the timing log beside the CSV records the real median from row one. Partial
+passes are fine: unlabelled rows are counted and skipped. The full 100-row
+sample costs proportionally more and adds mostly exact-match rows of no
+labelling value — do the fuzzy file first. Gate/file mapping:
+[LABEL_GATE_MAP.md](LABEL_GATE_MAP.md) (generated, pinned by test).
 
 ## Adjudication rules
 

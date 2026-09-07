@@ -28,9 +28,10 @@ from typing import Any
 
 import pandas as pd
 
-#: Map from --run names to validation CSVs. Anything else is a direct path.
+#: Map from --run names to validation CSVs. Withdrawn runs are deliberately
+#: absent: labelling withdrawn rows earns no gate credit, so they are not a
+#: target. A direct .csv path still works as an escape hatch for anything.
 RUN_CSVS = {
-    "run2": Path("data/human_validation_sample.csv"),
     "run2b": Path("data/human_validation_sample_run2b.csv"),
 }
 
