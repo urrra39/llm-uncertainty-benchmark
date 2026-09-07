@@ -1203,7 +1203,7 @@
         "note": "computed from text already in hand"
       }
     },
-    "measured_family_b_seconds_per_question": 0.213824729166663,
+    "measured_family_b_seconds_per_question": 0.4774132361083313,
     "measured_generate_seconds_per_question": 6.125889810075023,
     "method": "extra-model-call multiples; a verification scoring pass counts as one call regardless of prompt length, so this is not a token price",
     "n_samples": 5,
@@ -1293,7 +1293,7 @@
         "auroc": 0.7782408738143145,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1302,7 +1302,7 @@
         "auroc": 0.752083932164415,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1311,7 +1311,7 @@
         "auroc": 0.7647312446105202,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1320,7 +1320,7 @@
         "auroc": 0.752083932164415,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1329,7 +1329,7 @@
         "auroc": 0.7647312446105202,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1338,7 +1338,7 @@
         "auroc": 0.752083932164415,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1347,7 +1347,7 @@
         "auroc": 0.7486346651336591,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1356,7 +1356,7 @@
         "auroc": 0.7359873526875539,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1365,7 +1365,7 @@
         "auroc": 0.7293762575452716,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1374,7 +1374,7 @@
         "auroc": 0.7293762575452716,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1383,7 +1383,7 @@
         "auroc": 0.7211842483472262,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1392,7 +1392,7 @@
         "auroc": 0.7211842483472262,
         "cost_multiplier": 6.0,
         "extra_model_calls_per_question": 5.0,
-        "extra_seconds_per_question": 30.84327377954178,
+        "extra_seconds_per_question": 31.106862286483445,
         "extra_tokens_per_question": 647.6999999999999,
         "family": "B",
         "token_multiplier": 6.009926517983756
@@ -1500,13 +1500,14 @@
   "family_b_clustering": {
     "audit_fraction": 0.2,
     "available": true,
-    "disagreement_rate": 0.0625,
+    "disagreement_rate": 0.03333333333333333,
     "disagreement_wilson_95": [
-      0.01111934476464252,
-      0.28328737570298934
+      0.0130375510983506,
+      0.08258033755910597
     ],
-    "greedy_vs_exhaustive_disagreements": 1,
-    "n_rows_audited": 16,
+    "force_full_audit": true,
+    "greedy_vs_exhaustive_disagreements": 4,
+    "n_rows_audited": 120,
     "note": "rows where greedy single-pass assignment and transitive-closure clustering partition the answer set differently; on disagreement the exhaustive partition is primary",
     "primary_clusterer": "exhaustive"
   },
@@ -1526,7 +1527,7 @@
       "view": "with_abstentions"
     }
   },
-  "generated_at_utc": "2026-09-07T13:33:47+00:00",
+  "generated_at_utc": "2026-09-07T14:07:05+00:00",
   "is_pilot": false,
   "labels": {
     "counts": {
@@ -1773,10 +1774,10 @@
   },
   "timings": {
     "family_b": {
-      "elapsed_s": 25.658967499999562,
+      "elapsed_s": 57.289588332999756,
       "failures": 0.0,
       "items": 120.0,
-      "seconds_per_item": 0.213824729166663
+      "seconds_per_item": 0.4774132361083313
     },
     "generate": {
       "cache_hits": 0.0,

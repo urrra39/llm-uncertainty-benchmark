@@ -52,6 +52,9 @@ nli:
   entailment_threshold: 0.5
   max_length: 128
   batch_size: 16
+  # Full clustering audit: run #2b is a validity run, so every row gets both
+  # clusterers rather than the default 20% sample.
+  force_full_audit: true
 
 # Balanced 60/60 at n=120. Run #2's 90/30 split is the documented mechanism
 # behind its pooled distortion; there is no reason to inherit it, and both

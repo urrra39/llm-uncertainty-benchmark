@@ -182,6 +182,7 @@ def run_b(cfg: Config, *, limit: int | None = None) -> int:
         "greedy_vs_exhaustive_disagreements": clustering_disagreements,
         "primary_clusterer": cfg.nli.primary_clusterer,
         "audit_fraction": cfg.nli.audit_fraction,
+        "force_full_audit": cfg.nli.force_full_audit,
         "note": (
             "rows where greedy single-pass assignment and transitive-closure "
             "clustering partition the answer set differently; on disagreement "

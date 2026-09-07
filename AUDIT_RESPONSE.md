@@ -313,3 +313,39 @@ dispositions for round 4 follow as each part lands.
 - Run #2 per-dataset bootstrap intervals (artifacts lost permanently).
 - Whether any signal beats chance on 60-row subsets: run #2b's intervals all
   admit it, which is a statement about n, not about the signals.
+
+## Signal coverage (generated, Part B2)
+
+<!-- SIGNAL_TABLE:BEGIN -->
+| signal | family | rank-equivalent to | run #2 | run #2b |
+|---|---|---|---|---|
+| a_first_token_logprob | A | — | scored | scored |
+| a_first_token_margin | A | — | scored | scored |
+| a_length_normalized_logprob | A | — | scored | scored |
+| a_max_top5_entropy | A | — | scored | scored |
+| a_mean_logprob | A | — | scored | scored |
+| a_mean_top5_entropy | A | — | scored | scored |
+| a_min_logprob | A | — | scored | scored |
+| a_perplexity | A | a_mean_logprob | scored | scored |
+| a_total_logprob | A | — | scored | scored |
+| b_disagreement_rate | B | — | scored | scored |
+| b_disagreement_rate_samples_only | B | — | — | scored |
+| b_distinct_count | B | — | scored | scored |
+| b_distinct_count_samples_only | B | — | — | scored |
+| b_distinct_fraction | B | b_distinct_count | scored | scored |
+| b_distinct_fraction_samples_only | B | b_distinct_count_samples_only | — | scored |
+| b_mean_pairwise_f1 | B | — | scored | scored |
+| b_mean_pairwise_f1_samples_only | B | — | — | scored |
+| b_semantic_entropy | B | — | scored | scored |
+| b_semantic_entropy_normalized | B | b_semantic_entropy | scored | scored |
+| b_semantic_entropy_normalized_samples_only | B | b_semantic_entropy_samples_only | — | scored |
+| b_semantic_entropy_samples_only | B | — | — | scored |
+| c_p_true_plain | C | — | scored | scored |
+| c_p_true_with_samples | C | — | scored | scored |
+| c_verbal_confidence | C | — | scored | scored |
+| t_answer_length | T | — | scored | scored |
+| t_question_length | T | — | scored | scored |
+| t_random | T | — | scored | scored |
+
+Tallies: 27 registered; 22 distinct scored in run #2b; 5 duplicates scored alongside.
+<!-- SIGNAL_TABLE:END -->

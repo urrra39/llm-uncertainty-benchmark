@@ -407,3 +407,27 @@ def test_readme_header_matches_generated_block() -> None:
     for line in generated.stdout.strip().splitlines():
         if line.strip():
             assert line.strip() in readme
+
+
+def test_signal_table_matches_generated() -> None:
+    """B2: the coverage table in AUDIT_RESPONSE is generated, not hand-kept."""
+    import subprocess
+    import sys
+
+    repo = Path(__file__).resolve().parents[1]
+    generated = subprocess.run(
+        [sys.executable, "scripts/render_signal_table.py"],
+        capture_output=True,
+        text=True,
+        cwd=repo,
+        check=False,
+    )
+    assert generated.returncode == 0
+    text = (repo / "AUDIT_RESPONSE.md").read_text(encoding="utf-8")
+    start = text.find("<!-- SIGNAL_TABLE:BEGIN -->")
+    end = text.find("<!-- SIGNAL_TABLE:END -->")
+    assert start >= 0 and end > start
+    embedded = text[start : end + len("<!-- SIGNAL_TABLE:END -->")] + "\n"
+    assert embedded == (
+        "<!-- SIGNAL_TABLE:BEGIN -->\n" + generated.stdout + "<!-- SIGNAL_TABLE:END -->\n"
+    )

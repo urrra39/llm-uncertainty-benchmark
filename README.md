@@ -139,13 +139,12 @@ established: identical numbers, no information, no Holm penalty.
   at N=1/2/3/5, with N=1 significantly below N=5 (−0.124, p_holm = 0.016)
   and N=3 vs N=5 indistinguishable (−0.023, p = 0.698). Run #2's "use N=3"
   survives as cost advice, not as an optimum.
-- **Clustering audit: unmeasured at useful precision.** 1 disagreement in 16
-  audited rows (Wilson [0.011, 0.283]) — the interval spans an order of
-  magnitude, so no claim about greedy-vs-exhaustive agreement follows. At the
-  observed rate, half-width < 0.10 needs ≥23 audited rows; the 20% audit
-  fraction yields ~24 per 120-row run in expectation (this run drew 16).
-  Family-B token multiplier measured at 6.01× for 6.0× calls — the call-count
-  price was honest.
+- **Clustering audit: measured, and small.** 4 disagreements in 120 audited
+  rows (rate 0.033, Wilson 95% [0.013, 0.083]) — greedy single-pass and
+  transitive-closure partitions agree on 97% of answer sets, so the published
+  family-B numbers stand under either clusterer. Full audit
+  (`force_full_audit`), not the default 20% sample. Family-B token multiplier
+  measured at 6.01× for 6.0× calls — the call-count price was honest.
 
 Figures (all drawn from `results_run2b.json` alone):
 `figures/run2b/auroc.png`, `figures/run2b/risk_coverage.png`,
