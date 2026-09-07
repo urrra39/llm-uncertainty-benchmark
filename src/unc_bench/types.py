@@ -155,6 +155,9 @@ ALL_LABELS: tuple[LabelValue, ...] = (
 SOURCE_EXACT_MATCH = "exact_match"
 SOURCE_JUDGE = "judge"
 SOURCE_ABSTENTION = "abstention"
+#: The no-judge rule could not decide (value LABEL_AMBIGUOUS) and the row must
+#: go to a human. Distinct from a judge's AMBIGUOUS so provenance survives.
+SOURCE_HEURISTIC_UNRESOLVED = "heuristic_unresolved"
 
 
 @dataclass(frozen=True, slots=True)

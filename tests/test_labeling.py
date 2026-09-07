@@ -18,7 +18,7 @@ from unc_bench.labeling import (
     JUDGE_PROMPT,
     cohens_kappa,
     cross_validation_sample,
-    fuzzy_correct,
+    fuzzy_rule,
     judge_item,
     label_by_exact_match,
     label_heuristic,
@@ -32,6 +32,7 @@ from unc_bench.types import (
     LABEL_INCORRECT,
     SOURCE_ABSTENTION,
     SOURCE_EXACT_MATCH,
+    SOURCE_HEURISTIC_UNRESOLVED,
     Question,
 )
 
@@ -224,27 +225,111 @@ def test_judge_item_returns_the_parsed_verdict() -> None:
 
 
 @pytest.mark.parametrize(
-    ("answer", "gold", "expected"),
+    ("answer", "gold", "question", "expected"),
     [
-        ("Bram Stoker", ("Stoker",), True),
-        ("Stoker", ("Bram Stoker",), True),
-        ("Bill Clinton", ("Clinton",), True),
-        ("Rome", ("Rome",), True),
-        ("Paris, Texas", ("Paris, France",), False),
-        ("Jules Verne", ("Bram Stoker",), False),
-        ("", ("Stoker",), False),
+        # exact alias -> correct, whatever the question supplies
+        ("Rome", ("Rome",), "Which city was built on seven hills?", LABEL_CORRECT),
+        # distinct entities do not merge, even sharing tokens
+        ("Paris, Texas", ("Paris, France",), "What is the capital of France?", LABEL_INCORRECT),
+        ("Jules Verne", ("Bram Stoker",), "Who wrote Dracula?", LABEL_INCORRECT),
+        # empty answer is not correct
+        ("", ("Stoker",), "Who wrote Dracula?", LABEL_INCORRECT),
     ],
 )
-def test_fuzzy_rule_catches_qualifiers_without_merging_distinct_entities(
-    answer: str, gold: tuple[str, ...], expected: bool
+def test_fuzzy_rule_keeps_distinct_entities_apart(
+    answer: str, gold: tuple[str, ...], question: str, expected: str
 ) -> None:
-    assert fuzzy_correct(answer, gold) is expected
+    assert fuzzy_rule(answer, gold, question) == expected
+
+
+def test_fuzzy_rule_echo_guard_refuses_a_question_subject_as_an_answer() -> None:
+    """A1 regression: run #2b's popqa-5864218. Containment scored the answer
+    'Jamaica' correct because 'Jamaica' sits inside the gold alias 'Kingston,
+    Jamaica'; the token is the question's own subject, not the capital. A bare
+    echo of the question is incorrect."""
+    assert (
+        fuzzy_rule("Jamaica", ("Kingston", "Kingston, Jamaica"), "What is the capital of Jamaica?")
+        == LABEL_INCORRECT
+    )
+
+
+def test_fuzzy_rule_partial_alias_is_unresolved_not_correct() -> None:
+    """A1/A2 regression: run #2b's triviaqa-jp_1520. 'whale' is a sub-token of
+    the alias 'Unicorn Whale', so containment scored it correct; it is not the
+    mammal the question asks about. The rule cannot prove the fragment right or
+    wrong, so it is ambiguous — queued for a human, never coerced."""
+    assert (
+        fuzzy_rule(
+            "whale",
+            ("Narwhal", "Unicorn Whale"),
+            "What marine mammal's tusks were once thought to be from unicorns?",
+        )
+        == LABEL_AMBIGUOUS
+    )
+
+
+def test_fuzzy_rule_verbose_correct_survives_the_gap_cap_removal() -> None:
+    """A2 regression: run #2b's popqa-6298839 / triviaqa-qb_1435 /
+    triviaqa-dpql_376. A correct answer that restates the question was rejected
+    when its sentence pushed the token gap past the old cap; scoring the answer
+    against question-vocabulary coverage accepts it (possessive-tolerant for
+    "Oman's" -> "omans")."""
+    assert (
+        fuzzy_rule("Oman's capital is Muscat.", ("Muscat",), "What is the capital of Oman?")
+        == LABEL_CORRECT
+    )
+    assert (
+        fuzzy_rule(
+            "Iraq invaded Kuwait in 1990.",
+            ("Kuwait",),
+            "Which country was invaded by Iraq in 1990?",
+        )
+        == LABEL_CORRECT
+    )
+    assert (
+        fuzzy_rule(
+            "Pantagruel was the son of Gargantua.",
+            ("Gargantua",),
+            "Pantagruel was the son of which giant?",
+        )
+        == LABEL_CORRECT
+    )
+
+
+def test_fuzzy_rule_negated_question_is_not_auto_corrected() -> None:
+    """A question that says 'not' can be echoed by a false answer; an answer
+    that restates a negated question's wording is ambiguous, not correct."""
+    assert (
+        fuzzy_rule(
+            "Kuwait was not invaded by Iraq in 1990.",
+            ("Kuwait",),
+            "Which country was not invaded by Iraq in 1990?",
+        )
+        == LABEL_AMBIGUOUS
+    )
+
+
+def test_fuzzy_rule_novel_content_around_an_alias_is_unresolved() -> None:
+    """'Bram Stoker, the Irish novelist' names the gold entity but wraps it in
+    words the question does not supply; whether that sentence is correct is a
+    human's call, not the rule's."""
+    assert (
+        fuzzy_rule("Bram Stoker, the Irish novelist", ("Stoker",), "Who wrote Dracula?")
+        == LABEL_AMBIGUOUS
+    )
 
 
 def test_fuzzy_rule_will_not_let_a_long_answer_swallow_a_short_alias() -> None:
-    """Without the length cap, gold "Rome" is contained in this and scores
-    correct, which would make the heuristic fallback useless."""
-    assert fuzzy_correct("Rome was not built in a single day you know", ("Rome",)) is False
+    """The old length cap existed so gold 'Rome' in this proverb could not score
+    correct. The question-coverage constraint replaces the cap: 'built', 'day'
+    and 'know' are not question words, so the row is at most unresolved — never
+    the rule's correct."""
+    verdict = fuzzy_rule(
+        "Rome was not built in a single day you know",
+        ("Rome",),
+        "Which city was built on seven hills?",
+    )
+    assert verdict != LABEL_CORRECT
 
 
 def test_heuristic_labeling_still_routes_abstentions_correctly() -> None:
@@ -252,10 +337,16 @@ def test_heuristic_labeling_still_routes_abstentions_correctly() -> None:
     assert label.value == LABEL_ABSTAIN
 
 
-def test_heuristic_labeling_marks_its_source() -> None:
-    """The README must be able to say which labels were heuristic."""
-    label = label_heuristic(DRACULA, "Bram Stoker, the novelist", "UNKNOWN")
-    assert label.source == "heuristic_fuzzy"
+def test_heuristic_labeling_marks_resolved_and_unresolved_sources() -> None:
+    """The README must be able to say which labels were heuristic and which the
+    rule could not decide. A clear miss keeps the fuzzy source; a row the rule
+    cannot decide is ambiguous under the unresolved source, not coerced."""
+    miss = label_heuristic(DRACULA, "Charles Dickens", "UNKNOWN")
+    assert miss.value == LABEL_INCORRECT
+    assert miss.source == "heuristic_fuzzy"
+    unresolved = label_heuristic(DRACULA, "Bram Stoker, the novelist", "UNKNOWN")
+    assert unresolved.value == LABEL_AMBIGUOUS
+    assert unresolved.source == SOURCE_HEURISTIC_UNRESOLVED
 
 
 # --------------------------------------------------------------- kappa

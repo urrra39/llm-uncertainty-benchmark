@@ -79,16 +79,34 @@ VERIFIED: tuple[dict[str, str], ...] = (
         "qid": "triviaqa-dpql_376",
         "truth": "correct",
         "direction": "false_negative",
-        "note": "'Pantagruel was the son of Gargantua.' gives gold 'Gargantua'; "
-        "gap 5 > cap",
+        "note": "'Pantagruel was the son of Gargantua.' gives gold 'Gargantua'; " "gap 5 > cap",
     },
 )
 
 _NEGATION = frozenset(
     {
-        "not", "never", "no", "nobody", "nothing", "neither", "nor", "without",
-        "except", "unless", "false", "denied", "deny", "refuse", "refused",
-        "cannot", "cant", "didnt", "doesnt", "wasnt", "isnt", "are not",
+        "not",
+        "never",
+        "no",
+        "nobody",
+        "nothing",
+        "neither",
+        "nor",
+        "without",
+        "except",
+        "unless",
+        "false",
+        "denied",
+        "deny",
+        "refuse",
+        "refused",
+        "cannot",
+        "cant",
+        "didnt",
+        "doesnt",
+        "wasnt",
+        "isnt",
+        "are not",
     }
 )
 
@@ -133,7 +151,9 @@ def _load_run() -> list[dict[str, object]]:
     merged = generations.merge(labels, on="qid", how="inner", validate="one_to_one")
     rows: list[dict[str, object]] = []
     for record in merged.to_dict(orient="records"):
-        raw_gold = json.loads(str(record.get("gold_answers"))) if record.get("gold_answers") else None
+        raw_gold = (
+            json.loads(str(record.get("gold_answers"))) if record.get("gold_answers") else None
+        )
         gold = [str(a) for a in raw_gold] if isinstance(raw_gold, list) else []
         rows.append(
             {
@@ -158,9 +178,7 @@ def _alias_swallowed_answer(answer: list[str], gold: list[list[str]]) -> bool:
     """Answer is a PROPER token-subsequence of a longer alias."""
     if not answer:
         return False
-    return any(
-        len(alias) > len(answer) and _subseq_start(alias, answer) >= 0 for alias in gold
-    )
+    return any(len(alias) > len(answer) and _subseq_start(alias, answer) >= 0 for alias in gold)
 
 
 def _full_alias_with_question_coverage(
@@ -280,9 +298,14 @@ def main() -> int:
             verbose_qids.append(str(row["qid"]))
 
     fuzzy_correct_total = sum(
-        1 for r in rows if str(r["machine_label"]) == "correct" and str(r["machine_label_source"]) == "heuristic_fuzzy"
+        1
+        for r in rows
+        if str(r["machine_label"]) == "correct"
+        and str(r["machine_label_source"]) == "heuristic_fuzzy"
     )
-    confirmed = sorted(set(q for r in verified_out if r["reproduced"] for q in [str(r["qid"])]) | set(verbose_qids))
+    confirmed = sorted(
+        set(q for r in verified_out if r["reproduced"] for q in [str(r["qid"])]) | set(verbose_qids)
+    )
 
     payload: dict[str, object] = {
         "run": "run2b_clean",
@@ -338,12 +361,16 @@ def main() -> int:
         },
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False), encoding="utf-8")
+    args.out.write_text(
+        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False), encoding="utf-8"
+    )
 
     print(f"verified errors reproduced: {sum(1 for r in verified_out if r['reproduced'])}/5")
     print(f"pattern sweep over {len(rows)} rows:")
     print(f"  echo_fp   (answer swallowed by a longer alias):  {len(echo_qids)}  {echo_qids}")
-    print(f"  verbose_fn (full gold alias verbatim, mislabelled): {len(verbose_qids)}  {verbose_qids}")
+    print(
+        f"  verbose_fn (full gold alias verbatim, mislabelled): {len(verbose_qids)}  {verbose_qids}"
+    )
     print(f"fuzzy-correct rows total: {fuzzy_correct_total} (both are the echo FPs)")
     print(
         f"confirmed errors: {len(confirmed)}/120 = {len(confirmed) / len(rows):.1%} "

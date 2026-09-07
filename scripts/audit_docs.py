@@ -573,6 +573,22 @@ OPEN_DEFECTS: tuple[dict[str, str], ...] = (
         "blocks": "validity_gates.all_passed for every future run",
     },
     {
+        "id": "RUN2B-LABELSET",
+        "title": (
+            "Run #2b's committed label set is the pre-fix containment rule; the "
+            "code sweep fixes a 6/120 (5.0%) demonstrable-error floor "
+            "(data/label_error_audit.json)"
+        ),
+        "status": "open",
+        "measurement_to_close": (
+            "relabel run #2b under the fixed no-judge rule (labels_fixed.parquet) "
+            "and, for publishability, >= 0.80 human coverage of the run's "
+            "fuzzy-decided rows (docs/HUMAN_LABELING.md)"
+        ),
+        "blocks": "reading run #2b's AUROC table as a measured label set rather "
+        "than a measurement pending its label gates",
+    },
+    {
         "id": "RUN2-ARTIFACTS",
         "title": "Run #2 per-row artifacts lost to the old ignore policy",
         "status": "permanent",

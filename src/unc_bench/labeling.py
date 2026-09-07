@@ -30,7 +30,13 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from unc_bench.config import Config, JudgeSpec
-from unc_bench.normalize import clean_model_answer, exact_match, is_abstention, normalize_answer
+from unc_bench.normalize import (
+    clean_model_answer,
+    exact_match,
+    is_abstention,
+    normalize_answer,
+    tokenize,
+)
 from unc_bench.types import (
     LABEL_ABSTAIN,
     LABEL_AMBIGUOUS,
@@ -38,6 +44,7 @@ from unc_bench.types import (
     LABEL_INCORRECT,
     SOURCE_ABSTENTION,
     SOURCE_EXACT_MATCH,
+    SOURCE_HEURISTIC_UNRESOLVED,
     Label,
     Question,
 )
@@ -176,46 +183,163 @@ def judge_item(judge: TextJudge, question: Question, answer: str, *, seed: int) 
 # Judge gateway unusable: fall back to exact match plus this rule, and mark the
 # whole label set heuristic in the README. The kappa claim is dropped rather
 # than faked, because there is no second judge to disagree with.
+#
+# Round 11 rewrote the fallback. The old rule — containment either way on
+# normalized token sequences, capped by a two-token length gap — manufactured
+# both error directions that a human hand-check found in run #2b
+# (`data/label_error_audit.json`, reproduced in code by
+# `scripts/audit_label_errors.py`):
+#
+#   FALSE POSITIVE (echo): a SHORT answer swallowed by a LONGER alias scored
+#   correct — "Jamaica" matched inside "Kingston, Jamaica", "whale" inside
+#   "Unicorn Whale" — even when the answer only echoed the question's subject.
+#   Run #2b's two fuzzy-correct rows were both of this shape.
+#
+#   FALSE NEGATIVE (verbose): a correct answer that restated the question and
+#   then gave the gold alias was rejected when the sentence pushed the length
+#   gap past the cap — "Oman's capital is Muscat." for gold "Muscat" (gap 3).
+#
+# The replacement scores the ANSWER, not the cap:
+#   - correct requires a FULL gold alias present verbatim (or exact), with
+#     every surrounding token traceable to the question — the verbose-but-
+#     correct shape, with no length gap to exceed;
+#   - a bare echo of the question's own words (the answer adds no token the
+#     question does not already have) is incorrect, not correct;
+#   - anything the rule cannot decide returns AMBIGUOUS with source
+#     `heuristic_unresolved` and goes to the human queue rather than being
+#     silently coerced to incorrect.
 
-# Largest token-count difference the containment rule will accept. Two covers
-# the real cases ("Bram Stoker" vs "Stoker", "the United States of America" vs
-# "United States") without letting a sentence swallow a one-word alias.
-MAX_LENGTH_GAP = 2
+#: Tokens that mark a negated question. An answer that restates the words of a
+#: negated question is not evidence of correctness ("Kuwait was NOT invaded by
+#: Iraq" is a false answer to "Which country was invaded by Iraq?"), so the
+#: rule refuses to auto-correct any row whose question carries one of these.
+_NEGATION_CUES = frozenset(
+    {
+        "not",
+        "never",
+        "no",
+        "nobody",
+        "nothing",
+        "neither",
+        "nor",
+        "without",
+        "except",
+        "unless",
+        "false",
+        "deny",
+        "denied",
+        "refuse",
+        "refused",
+        "cannot",
+        "cant",
+        "didnt",
+        "doesnt",
+        "wasnt",
+        "isnt",
+        "arent",
+        "wont",
+        "nowhere",
+    }
+)
 
 
-def fuzzy_correct(answer: str, gold_answers: Sequence[str]) -> bool:
-    """Containment either way on normalized token sequences.
+def _token_covered(token: str, question_tokens: Sequence[str]) -> bool:
+    """True when a token adds nothing to the question.
 
-    Catches the two dominant exact-match misses: a model answer that adds a
-    qualifier ("Bram Stoker" vs "Stoker") and one that drops one ("Clinton" vs
-    "Bill Clinton"). Deliberately does NOT do token-overlap scoring, which would
-    score "Paris, Texas" against "Paris, France" as a partial match; containment
-    of whole token sequences is strict enough to keep those apart.
-
-    Containment is capped by the LENGTH GAP, not by which side is longer. My
-    first attempt capped `len(gold) <= len(pred) + 2`, which is trivially true
-    whenever the gold alias is short and therefore constrained nothing: gold
-    "Rome" was contained in "Rome was not built in a day you know" and scored
-    correct. The cap has to bound the difference in both directions, so a match
-    is only allowed when the two token sequences are within `MAX_LENGTH_GAP` of
-    each other.
+    Either it is a question word, or it is the possessive of one: punctuation
+    is stripped before matching, so "Oman's" normalizes to the single token
+    "omans", which is not in "what is the capital of oman" even though its
+    stem is. Without this the restatement in "Oman's capital is Muscat."
+    would read as novel content and the verbose-but-correct shape would not be
+    recognised.
     """
-    predicted = normalize_answer(answer)
+    return token in question_tokens or (
+        len(token) > 1 and token.endswith("s") and token[:-1] in question_tokens
+    )
+
+
+def _first_subseq(haystack: Sequence[str], needle: Sequence[str]) -> int:
+    """First index where `needle` sits contiguously in `haystack`, else -1."""
+    if not needle or len(needle) > len(haystack):
+        return -1
+    for start in range(len(haystack) - len(needle) + 1):
+        if haystack[start : start + len(needle)] == needle:
+            return start
+    return -1
+
+
+def fuzzy_rule(answer: str, gold_answers: Sequence[str], question: str) -> str:
+    """Label an answer without a judge: correct, incorrect, or ambiguous.
+
+    `answer` is the cleaned model answer; `gold_answers` are the accepted
+    aliases; `question` supplies the vocabulary that an echo can be recognised
+    by. Returns one of LABEL_CORRECT / LABEL_INCORRECT / LABEL_AMBIGUOUS.
+    AMBIGUOUS here means "the rule cannot decide, a human must": the row is
+    queued for the human and is never silently coerced to incorrect. The label
+    stage routes a judge's ambiguous verdict the same way, so rule-ambiguous
+    and judge-ambiguous rows share the analysis path (dropped and counted).
+
+    The verdicts are deliberately conservative in the CORRECT direction: an
+    answer is only auto-correct when the text gives the labeler no room to
+    argue (a full alias stated against a background of question words). Every
+    softer positive is AMBIGUOUS rather than guessed.
+    """
+    predicted = tokenize(answer)
     if not predicted:
-        return False
-    pred_tokens = predicted.split()
-    for gold in gold_answers:
-        gold_norm = normalize_answer(gold)
-        if not gold_norm:
+        return LABEL_INCORRECT
+    question_tokens = tokenize(question)
+    gold_tokens = [tokenize(g) for g in gold_answers if tokenize(g)]
+
+    # Exact alias under the rule's own eyes. The label stage catches this for
+    # free before the rule runs; the defensive copy keeps the rule total when
+    # it is reused directly (probe_base_rate, tests).
+    if any(predicted == gold for gold in gold_tokens):
+        return LABEL_CORRECT
+
+    # Full gold alias present verbatim, every surrounding token a question
+    # word: the verbose-but-correct shape. A length cap is neither needed nor
+    # wanted here — the question-coverage constraint is what binds, and it
+    # cannot swallow "Rome was not built in a day you know" (outside tokens
+    # "built", "day", "know" are not question words).
+    longest_match: int = -1
+    for gold in gold_tokens:
+        start = _first_subseq(predicted, gold)
+        if start < 0:
             continue
-        gold_tokens = gold_norm.split()
-        if gold_tokens == pred_tokens:
-            return True
-        if abs(len(pred_tokens) - len(gold_tokens)) > MAX_LENGTH_GAP:
-            continue
-        if _contains(pred_tokens, gold_tokens) or _contains(gold_tokens, pred_tokens):
-            return True
-    return False
+        outside = predicted[:start] + predicted[start + len(gold) :]
+        if outside and all(_token_covered(t, question_tokens) for t in outside):
+            longest_match = max(longest_match, len(gold))
+    if longest_match >= 0:
+        if any(t in _NEGATION_CUES for t in question_tokens):
+            # The answer may be parroting a negated question's false shape.
+            return LABEL_AMBIGUOUS
+        return LABEL_CORRECT
+
+    # Bare echo of the question: every answer token already appears in the
+    # question, so the model restated the subject and supplied no answer. The
+    # round's echo guard: "Jamaica" in answer to "capital of Jamaica?" is
+    # wrong, and a containment rule that called it correct was scoring the
+    # question's subject against itself.
+    if all(_token_covered(t, question_tokens) for t in predicted):
+        return LABEL_INCORRECT
+
+    # Partial echo: the answer was only ever matchable as a piece of a longer
+    # alias ("Jamaica" inside "Kingston, Jamaica", "whale" inside "Unicorn
+    # Whale"). Whether the fragment is the entity the question wants is a
+    # human's call, not a containment rule's.
+    if any(
+        len(gold) > len(predicted) and _first_subseq(gold, predicted) >= 0 for gold in gold_tokens
+    ):
+        return LABEL_AMBIGUOUS
+
+    # A full alias verbatim but wrapped in words the question does not account
+    # for ("Bram Stoker, the Irish novelist" for gold "Stoker"). The answer may
+    # be a sentence that names the entity; unresolved, never assumed wrong.
+    if any(_first_subseq(predicted, gold) >= 0 for gold in gold_tokens):
+        return LABEL_AMBIGUOUS
+
+    # No alias content at all: the answer names something else.
+    return LABEL_INCORRECT
 
 
 def _contains(haystack: list[str], needle: list[str]) -> bool:
@@ -234,8 +358,10 @@ def label_heuristic(question: Question, raw_answer: str, abstain_token: str) -> 
     if early is not None:
         return early
     answer = clean_model_answer(raw_answer, abstain_token=abstain_token)
-    value = LABEL_CORRECT if fuzzy_correct(answer, question.gold_answers) else LABEL_INCORRECT
-    return Label(qid=question.qid, value=value, source="heuristic_fuzzy")
+    verdict = fuzzy_rule(answer, question.gold_answers, question.question)
+    if verdict == LABEL_AMBIGUOUS:
+        return Label(qid=question.qid, value=verdict, source=SOURCE_HEURISTIC_UNRESOLVED)
+    return Label(qid=question.qid, value=verdict, source="heuristic_fuzzy")
 
 
 # ----------------------------------------------------------- Cohen's kappa

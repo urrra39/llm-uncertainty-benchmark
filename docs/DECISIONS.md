@@ -1496,3 +1496,46 @@ run below closes the divergence with 27/27 scored.
   justify the earlier weaker claim, and it does not retroactively condemn
   the downgrade either: decide on the evidence at hand, record the decision,
   re-measure when cheap.
+
+## Round-11 session (decisive pass: labeler errors, A1+A2)
+
+- **R19. The auditor's five label errors are real, and reproduced in code.**
+  A hand-check of `data/human_validation_sample_run2b.csv` flagged five rows;
+  `scripts/audit_label_errors.py` reproduces all five against the committed run
+  artifacts (5/5) and sweeps all 120 rows. The sweep enumerates the fuzzy
+  rule's entire correct population as its false-positive population: the rule
+  marked exactly two rows correct and both are subject-echo errors
+  (`popqa-5864218` "Jamaica" inside "Kingston, Jamaica";
+  `triviaqa-jp_1520` "whale" inside "Unicorn Whale"). It also finds four
+  verbose false negatives (`popqa-6298839`, `triviaqa-qb_1435`,
+  `triviaqa-dpql_376` plus `triviaqa-bb_3148`, which sits in the 20 rows
+  outside the 100-row sample the auditor read) where a full gold alias sits
+  verbatim in the answer but the token gap exceeded the cap. Lower bound on
+  machine-label error: 6/120 = 5.0%, published in the README beside the
+  rankings; the residue (semantic errors a code sweep cannot see) needs human
+  labels to bound from above.
+- **R20. The containment rule is retired; the no-judge labeler scores the
+  answer, not the cap.** The old rule — containment either way within a
+  two-token length gap — manufactured both error directions at once. The
+  replacement (`fuzzy_rule` in `unc_bench/labeling.py`): an answer is correct
+  only when it states a FULL gold alias verbatim with every surrounding token
+  traceable to the question (the verbose-but-correct shape, no length gap to
+  exceed); a bare echo of the question's own words is incorrect (the echo
+  guard); a partial-alias swallow ("whale" inside "Unicorn Whale") and any
+  alias wrapped in novel words are AMBIGUOUS with source
+  `heuristic_unresolved`, queued for a human and never coerced to incorrect.
+  Negation-guarded: an answer that restates a negated question's wording is
+  not auto-corrected. On the 120 run #2b rows the rule moves exactly the six
+  demonstrable errors (4 → correct, 1 → incorrect, 1 → ambiguous) and nothing
+  else; pinned by `tests/test_labeling_round11.py`. Run #2b's committed label
+  set and results file are untouched — the relabel is the next decision
+  (A3), recorded separately.
+- **R21. Ambiguous-by-rule is routed like ambiguous-by-judge, with its own
+  source.** The rule-unresolved verdict reuses LABEL_AMBIGUOUS (dropped and
+  counted by the analysis) so rule- and judge-ambiguous rows share one path,
+  but carries source `heuristic_unresolved` so provenance survives in
+  `labels.sources`. A1 and A2 were implemented as one change because the
+  five-case regression suite cannot pass on the echo guard alone: the "whale"
+  false positive is only closed by removing the answer-shorter containment
+  direction, which is A2's span extraction; each is tracked here and in
+  OPEN_DEFECTS (RUN2B-LABELSET) rather than in history.

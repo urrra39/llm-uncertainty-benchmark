@@ -39,7 +39,7 @@ from unc_bench.labeling import (
     build_judge,
     cohens_kappa,
     cross_validation_sample,
-    fuzzy_correct,
+    fuzzy_rule,
     judge_item,
     label_by_exact_match,
 )
@@ -52,8 +52,8 @@ from unc_bench.stages.common import (
     write_checkpoint,
 )
 from unc_bench.types import (
-    LABEL_CORRECT,
-    LABEL_INCORRECT,
+    LABEL_AMBIGUOUS,
+    SOURCE_HEURISTIC_UNRESOLVED,
     SOURCE_JUDGE,
     Label,
     Question,
@@ -275,15 +275,18 @@ def run(cfg: Config, *, require_judges: bool = False) -> int:
             progress.tick(question.qid)
         judge_cache.flush()
 
-    # Anything the judge could not settle gets the heuristic label, flagged as
+    # Anything the judge could not settle gets the no-judge rule, flagged as
     # such in `source` so the analysis can report how much of the label set is
-    # judge-derived versus heuristic.
+    # judge-derived versus heuristic. A row the rule cannot decide is marked
+    # ambiguous with source `heuristic_unresolved` and is queued for a human,
+    # never silently coerced to incorrect.
     heuristic_used = 0
     for question, answer in contested:
         if question.qid in labels:
             continue
-        value = LABEL_CORRECT if fuzzy_correct(answer, question.gold_answers) else LABEL_INCORRECT
-        labels[question.qid] = Label(qid=question.qid, value=value, source="heuristic_fuzzy")
+        verdict = fuzzy_rule(answer, question.gold_answers, question.question)
+        source = SOURCE_HEURISTIC_UNRESOLVED if verdict == LABEL_AMBIGUOUS else "heuristic_fuzzy"
+        labels[question.qid] = Label(qid=question.qid, value=verdict, source=source)
         heuristic_used += 1
 
     # ---- second judge on a deterministic subsample, for kappa ----

@@ -30,7 +30,7 @@ from unc_bench.cache import ResponseCache
 from unc_bench.client import build_client
 from unc_bench.config import Config
 from unc_bench.datasets.base import frame_to_questions
-from unc_bench.labeling import fuzzy_correct
+from unc_bench.labeling import fuzzy_rule
 from unc_bench.normalize import clean_model_answer, exact_match, is_abstention
 from unc_bench.stages import build_dataset
 from unc_bench.stages.generate import render_answer_prompt
@@ -73,12 +73,14 @@ def main() -> int:
         answer = clean_model_answer(raw, abstain_token=cfg.prompts.abstain_token)
         if is_abstention(raw, cfg.prompts.abstain_token) or not answer:
             outcome = "abstain"
-        elif exact_match(answer, question.gold_answers) or fuzzy_correct(
-            answer, question.gold_answers
-        ):
+        elif exact_match(answer, question.gold_answers):
             outcome = "correct"
         else:
-            outcome = "incorrect"
+            verdict = fuzzy_rule(answer, question.gold_answers, question.question)
+            # A rule-unresolved row is not a correct answer a probe can count:
+            # it is a row a real run would send to a human. Keep it its own
+            # bucket so base-rate planning sees the resolvable split.
+            outcome = {"correct": "correct", "ambiguous": "unresolved"}.get(verdict, "incorrect")
 
         per_dataset.setdefault(question.dataset, Counter())[outcome] += 1
         rows.append(
