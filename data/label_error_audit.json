@@ -1,0 +1,250 @@
+{
+  "all_verified_reproduced": true,
+  "audit_source": "data/run2b/labels.parquet x generations.parquet (the committed artifacts the analysis consumed); five hand-verified rows from data/human_validation_sample_run2b.csv are reproduced here in code",
+  "confirmed_error_count": 6,
+  "confirmed_error_qids": [
+    "popqa-5864218",
+    "popqa-6298839",
+    "triviaqa-bb_3148",
+    "triviaqa-dpql_376",
+    "triviaqa-jp_1520",
+    "triviaqa-qb_1435"
+  ],
+  "fuzzy_correct_rows_total": 2,
+  "lower_bound_machine_label_error": {
+    "count": 6,
+    "n": 120,
+    "note": "lower bound, not the error rate: a code sweep cannot see semantic errors a human would — an answer naming the same entity with no shared token, an answer that negates the gold one in unseen words, or a wrong gold alias. Human labels (docs/HUMAN_LABELING.md, Part D) bound the residue. The verbose_fn qids were found by code; three of the four (all but triviaqa-bb_3148, which sits outside the 100-row sample the auditor read) are among the five hand-verified rows.",
+    "rate": 0.05
+  },
+  "n_rows": 120,
+  "note_fp_is_fully_enumerated": "the fuzzy rule marked exactly two rows correct and both are echo false positives, so the false-positive population of the rule is fully enumerated at 2",
+  "pattern_sweep": {
+    "echo_fp": {
+      "count": 2,
+      "definition": "machine correct, heuristic_fuzzy; model answer is a proper token-subsequence of a longer gold alias (swallowed by it)",
+      "qids": [
+        "popqa-5864218",
+        "triviaqa-jp_1520"
+      ]
+    },
+    "verbose_fn": {
+      "count": 4,
+      "definition": "machine incorrect, heuristic_fuzzy; a full gold alias appears verbatim in the answer and every non-alias token is question vocabulary (possessive-tolerant); question carries no negation",
+      "qids": [
+        "popqa-6298839",
+        "triviaqa-bb_3148",
+        "triviaqa-dpql_376",
+        "triviaqa-qb_1435"
+      ]
+    }
+  },
+  "run": "run2b_clean",
+  "verified_errors": [
+    {
+      "direction": "false_positive",
+      "evidence": {
+        "answer_is_question_vocabulary": true,
+        "swallowed_aliases": [
+          {
+            "alias": "kingston jamaica",
+            "answer": "jamaica",
+            "gap": 1
+          }
+        ]
+      },
+      "gold_answers": [
+        "Kingston",
+        "Kingston, Jamaica"
+      ],
+      "human_truth": "incorrect",
+      "machine_label": "correct",
+      "machine_label_source": "heuristic_fuzzy",
+      "model_answer": "Jamaica",
+      "qid": "popqa-5864218",
+      "question": "What is the capital of Jamaica?",
+      "reproduced": true
+    },
+    {
+      "direction": "false_positive",
+      "evidence": {
+        "answer_is_question_vocabulary": false,
+        "swallowed_aliases": [
+          {
+            "alias": "unicorn whale",
+            "answer": "whale",
+            "gap": 1
+          },
+          {
+            "alias": "norwhal whale",
+            "answer": "whale",
+            "gap": 1
+          },
+          {
+            "alias": "unicorn whale",
+            "answer": "whale",
+            "gap": 1
+          },
+          {
+            "alias": "norwhal whale",
+            "answer": "whale",
+            "gap": 1
+          }
+        ]
+      },
+      "gold_answers": [
+        "Narwhal",
+        "Narwahl",
+        "Unicorn Whale",
+        "Narwale",
+        "Narwhale",
+        "Monodon monoceros",
+        "Narwall",
+        "Narval",
+        "Narwhals",
+        "Arctic unicorn",
+        "Norwhal whale",
+        "Monodon",
+        "Sea unicorn",
+        "Norwhal whales",
+        "monodon",
+        "narval",
+        "arctic unicorn",
+        "norwhal whales",
+        "narwhale",
+        "narwhal",
+        "narwahl",
+        "unicorn whale",
+        "narwall",
+        "monodon monoceros",
+        "norwhal whale",
+        "narwhals",
+        "narwale",
+        "sea unicorn"
+      ],
+      "human_truth": "incorrect",
+      "machine_label": "correct",
+      "machine_label_source": "heuristic_fuzzy",
+      "model_answer": "whale",
+      "qid": "triviaqa-jp_1520",
+      "question": "What marine mammal's tusks were once thought to be from unicorns?",
+      "reproduced": true
+    },
+    {
+      "direction": "false_negative",
+      "evidence": {
+        "length_gap_to_verbatim_alias": 3,
+        "max_length_gap_accepted": 2,
+        "question_has_negation": false,
+        "restatement_tokens_all_question_vocabulary": true,
+        "verbatim_gold_alias_present": "muscat"
+      },
+      "gold_answers": [
+        "Muscat"
+      ],
+      "human_truth": "correct",
+      "machine_label": "incorrect",
+      "machine_label_source": "heuristic_fuzzy",
+      "model_answer": "Oman's capital is Muscat.",
+      "qid": "popqa-6298839",
+      "question": "What is the capital of Oman?",
+      "reproduced": true
+    },
+    {
+      "direction": "false_negative",
+      "evidence": {
+        "length_gap_to_verbatim_alias": 4,
+        "max_length_gap_accepted": 2,
+        "question_has_negation": false,
+        "restatement_tokens_all_question_vocabulary": true,
+        "verbatim_gold_alias_present": "kuwait"
+      },
+      "gold_answers": [
+        "Kuwait",
+        "ISO 3166-1:KW",
+        "Kuwayt",
+        "State of Kuwait",
+        "KUW",
+        "الكويت",
+        "Kuait",
+        "Koweit",
+        "Languages of Kuwait",
+        "Administrative divisions of Kuwait",
+        "Kowait",
+        "Subdivisions of Kuwait",
+        "Kuwaitis",
+        "Kuwet",
+        "Koweït",
+        "State Kuwait",
+        "Quwait",
+        "Kuweit",
+        "دولة الكويت",
+        "state of kuwait",
+        "state kuwait",
+        "languages of kuwait",
+        "quwait",
+        "koweït",
+        "administrative divisions of kuwait",
+        "kuwet",
+        "kuwayt",
+        "koweit",
+        "subdivisions of kuwait",
+        "kuwait",
+        "iso 3166 1 kw",
+        "kuait",
+        "kuwaitis",
+        "kuw",
+        "kuweit",
+        "kowait"
+      ],
+      "human_truth": "correct",
+      "machine_label": "incorrect",
+      "machine_label_source": "heuristic_fuzzy",
+      "model_answer": "Iraq invaded Kuwait in 1990.",
+      "qid": "triviaqa-qb_1435",
+      "question": "Which country was invaded by Iraq in 1990?",
+      "reproduced": true
+    },
+    {
+      "direction": "false_negative",
+      "evidence": {
+        "length_gap_to_verbatim_alias": 4,
+        "max_length_gap_accepted": 2,
+        "question_has_negation": false,
+        "restatement_tokens_all_question_vocabulary": true,
+        "verbatim_gold_alias_present": "gargantua"
+      },
+      "gold_answers": [
+        "Gargantua",
+        "Pantagruelism",
+        "Gargantua And Pantagruel",
+        "Gargantua and pantagruel",
+        "Pantagruelian",
+        "Friar John",
+        "The Life of Gargantua and of Pantagruel",
+        "Gargantua and Pantagruel",
+        "Pandagruel",
+        "Gargantua & Pantagruel",
+        "La vie de Gargantua et de Pantagruel",
+        "Garagantua",
+        "pantagruelism",
+        "gargantua",
+        "gargantua pantagruel",
+        "gargantua and pantagruel",
+        "la vie de gargantua et de pantagruel",
+        "life of gargantua and of pantagruel",
+        "friar john",
+        "pantagruelian",
+        "pandagruel",
+        "garagantua"
+      ],
+      "human_truth": "correct",
+      "machine_label": "incorrect",
+      "machine_label_source": "heuristic_fuzzy",
+      "model_answer": "Pantagruel was the son of Gargantua.",
+      "qid": "triviaqa-dpql_376",
+      "question": "Pantagruel was the son of which giant?",
+      "reproduced": true
+    }
+  ]
+}
