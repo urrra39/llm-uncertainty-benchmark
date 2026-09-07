@@ -174,6 +174,15 @@ established: identical numbers, no information, no Holm penalty.
   family-B numbers stand under either clusterer. Full audit
   (`force_full_audit`), not the default 20% sample. Family-B token multiplier
   measured at 6.01× for 6.0× calls — the call-count price was honest.
+- **Run #2b's PopQA column is effectively one template, measured.** 59 of 60
+  PopQA rows ask "What is the capital of X?" — the 90th-percentile popularity slice
+  of the four configured relations is ~92% capital (184 of 199 unique
+  questions), so the relation filter named four relations and the draw
+  delivered one (plus a single `sport` row). Within-PopQA question length
+  therefore varies only with the country name, not with question structure,
+  which is why `t_question_length` sits at chance (0.499) there. Run #3's slice
+  (quantile 0.5, seven relations) was checked against the source and is
+  genuinely diverse.
 
 Figures (all drawn from `results_run2b.json` alone):
 `figures/run2b/auroc.png`, `figures/run2b/risk_coverage.png`,

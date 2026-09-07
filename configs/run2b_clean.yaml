@@ -71,6 +71,11 @@ dataset_mix:
 # capital's 0.181 leak fraction is removed row-by-row by the drop flag).
 # Measured: 200 rows, 192 unique after collapse (7 leaked) = 3.20x margin
 # for 60 draws. TriviaQA: run #2's easy slice unchanged (3746 unique).
+# The realized PopQA slice is effectively ONE template (C1, measured against
+# the built dataset): the top-decile slice of the four relations is ~92%
+# capital (184 of 199 unique), so the 60-row draw landed 59/60 capital of a
+# country and 1/60 sport. Relation diversity was meant to be a difficulty
+# axis; at quantile 0.9 it collapses to capitals.
 difficulty:
   triviaqa_easy_only: true
   triviaqa_min_aliases: 20

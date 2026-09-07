@@ -24,10 +24,18 @@ run #2b itself.
    40–60% target anyway. See docs/DECISIONS.md.
 
 4. **The dataset is deliberately easy and therefore unrepresentative.** PopQA is
-   restricted to five lookup-style relations (`capital`, `country`, `capital of`,
-   `sport`, `color`) and TriviaQA to high-alias-count short questions. This was
-   necessary to get a measurable base rate out of a 0.5B model, and it means the
-   question distribution is not PopQA's or TriviaQA's.
+   restricted to lookup-style relations (run #2's five: `capital`, `country`,
+   `capital of`, `sport`, `color`; run #2b's four minus the inverse `capital of`)
+   and TriviaQA to high-alias-count short questions. This was necessary to get a
+   measurable base rate out of a 0.5B model, and it means the question
+   distribution is not PopQA's or TriviaQA's. Measured against the built dataset
+   (C1): run #2b's PopQA draw is effectively a SINGLE template — 59 of 60 rows
+   are "What is the capital of X?" — because the 90th-percentile popularity slice of
+   the four configured relations is ~92% capital of a country (184 of 199 unique
+   questions), so the relation filter named four relations and the draw
+   delivered one. Within-PopQA question length therefore varies only with the
+   country name, not with question structure. Run #3's slice (quantile 0.5, seven
+   relations) was checked and is genuinely diverse.
 
 5. **A cheap non-signal is nearly competitive.** `t_question_length` scores 0.684
    at 1× cost against the leader's 0.704 at 6× cost, their CIs overlap, and the
