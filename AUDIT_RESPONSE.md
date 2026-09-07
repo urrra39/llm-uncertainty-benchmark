@@ -450,3 +450,47 @@ Tallies: 27 registered; 22 distinct scored in run #2b; 5 duplicates scored along
 - Run #3's base rate at 3B scale; run #2's per-dataset intervals (lost).
 - Whether E4's move survives human labels (hook built, waiting).
 - Measured per-row labelling time (the runbook's band is an explicit guess).
+
+---
+
+# Round 9: null first, shared-first plan, measured audit (executed)
+
+## Refused with reason
+
+- None this round. Every instruction checked out against the artifacts,
+  including the ones I expected to refuse (the 0.719 pooled value, the
+  four PopQA values and the 22-row sort all verified; the 59-row minimum
+  recomputed from the overlap).
+
+## Done (measured results)
+
+- **A1/A2.** Null leads with the generated count (23/27; 18/22 distinct,
+  both denominators from one overlap computation, asserted in tests);
+  generated tension paragraph placed at the contradiction; table separator
+  position asserted.
+- **A5.** E4 sits inside the band (0.615 [0.507, 0.721]); the move is not
+  the surviving finding.
+- **A3.** Superlative audit live; caught and fixed one live instance
+  ("Pooled leader", now carrying both intervals).
+- **A4.** R18 (round 8): the 16-row downgrade stands as correct on its evidence.
+- **B1–B4.** Intersection measured at 53; minimum 59 rows; `label-plan`
+  prints rows, shared-first order and wall clock with the rate marked
+  unmeasured.
+- **D1.** Skip/quit/garbage/timing/prefill tests close every spec clause.
+- **D2.** Rule accuracy renders automatically iff labels exist (tested both
+  directions); attenuation/gates/header flip on analyze re-run (mechanism
+  verified, nothing to trigger).
+- **D4.** Three outcome paragraphs pre-written in pre-registration.
+- **C1–C5.** Verified item by item against current files (margins,
+  per-relation diagnostics, design arithmetic, D27 open at width 1,
+  complete pre-registration with E4 prediction).
+- **E1.** CEILING states the cap and now the replication line.
+
+## What is still unmeasured (flatly)
+
+- 59 human labels minimum (fuzzy file first, shared rows next). The single
+  blocker for validity; no agent may do this.
+- Any second opinion on run #2b rows; T4/fp16 determinism and batch invariance.
+- Run #3's base rate at 3B scale; run #2's per-dataset intervals (lost).
+- Measured per-row labelling time (the runbook's band is an explicit guess).
+- Whether E4's move survives human labels (hook built, waiting).

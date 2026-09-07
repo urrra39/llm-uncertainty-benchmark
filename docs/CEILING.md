@@ -14,3 +14,7 @@ What lifts the ceiling is run #3 at n=600 on a GPU (pre-registered in
 `docs/PREREGISTRATION.md`, pre-flighted in `configs/run3_gpu.yaml`), plus a
 second subject model from a different family on the same frozen question set,
 so at least one finding generalises beyond one model.
+
+The last half point is not a task: it is external replication or peer review
+— someone other than the author reproducing the result on their own hardware.
+No further prompting or polishing inside this repository can earn it.
