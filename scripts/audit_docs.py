@@ -772,6 +772,7 @@ def main() -> int:
         print(f"  - {problem}")
     return 1
 
+
 def _check_superlatives(text: str, problems: list[str]) -> None:
     """A superlative applied to a signal must carry its qualifier.
 
@@ -798,4 +799,3 @@ def _check_superlatives(text: str, problems: list[str]) -> None:
 
 if __name__ == "__main__":
     sys.exit(main())
-

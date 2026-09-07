@@ -123,9 +123,7 @@ def test_indistinguishable_band_is_computed_not_hand_counted() -> None:
         name for name, entry in signals.items() if entry["ci_low"] <= hi and entry["ci_high"] >= lo
     )
     assert len(band) == 23
-    dropped = set(
-        _primary()["views"]["primary"]["significance"].get("rank_equivalent_dropped", [])
-    )
+    dropped = set(_primary()["views"]["primary"]["significance"].get("rank_equivalent_dropped", []))
     text = _readme_primary()
     assert "23 of 27 signals have" in text
     separator = "below this line: stratified interval entirely below the leader's"

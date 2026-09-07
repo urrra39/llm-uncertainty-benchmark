@@ -44,9 +44,7 @@ DEFAULT_TARGET = Path("data/fuzzy_decided_rows.csv")
 VALID_VERDICTS = ("correct", "incorrect")
 
 
-def label_plan(
-    sample_csv: str | Path, fuzzy_csv: str | Path
-) -> dict[str, object]:
+def label_plan(sample_csv: str | Path, fuzzy_csv: str | Path) -> dict[str, object]:
     """The minimum labelling order that greens every label gate (Part B4).
 
     Protocol gate needs 50/100 sample rows; coverage gate needs 59/73 fuzzy
@@ -62,9 +60,7 @@ def label_plan(
     sample_qids = [str(q) for q in sample["qid"]]
     fuzzy_qids = [str(q) for q in fuzzy["qid"]]
     sample_done = {
-        str(q)
-        for q, h in zip(sample["qid"], sample["human_label"], strict=True)
-        if str(h).strip()
+        str(q) for q, h in zip(sample["qid"], sample["human_label"], strict=True) if str(h).strip()
     }
     fuzzy_done = {
         str(q) for q, h in zip(fuzzy["qid"], fuzzy["human_label"], strict=True) if str(h).strip()

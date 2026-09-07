@@ -687,9 +687,7 @@ def test_label_plan_counts_shared_rows_once() -> None:
     """B4: 53 shared rows serve both gates; the minimum is 59, not 59+50."""
     from unc_bench.stages.label_human import label_plan
 
-    plan = label_plan(
-        "data/human_validation_sample_run2b.csv", "data/fuzzy_decided_rows.csv"
-    )
+    plan = label_plan("data/human_validation_sample_run2b.csv", "data/fuzzy_decided_rows.csv")
     assert plan["rows_to_label"] == 59
     assert plan["fuzzy_coverage_after"] == [59, 73]
     assert plan["sample_coverage_after"] == [53, 100]
@@ -712,7 +710,7 @@ def test_label_human_logs_timing_and_prefills_nothing(tmp_path: Path) -> None:
     target = tmp_path / "sample.csv"
     target.write_text(
         "qid,dataset,question,gold_answers,model_answer,machine_label,human_label\n"
-        'q1,popqa,What is X?,X|Y,X,correct,\n',
+        "q1,popqa,What is X?,X|Y,X,correct,\n",
         encoding="utf-8",
     )
     clock = iter([100.0, 112.5])

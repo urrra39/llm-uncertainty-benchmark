@@ -403,3 +403,50 @@ Tallies: 27 registered; 22 distinct scored in run #2b; 5 duplicates scored along
 - Any second opinion on run #2b rows; T4/fp16 determinism and batch invariance.
 - Run #3's base rate at 3B scale; run #2's per-dataset intervals (lost permanently).
 - Whether the E4 move survives human labels (the decomposition hook is built and waiting).
+
+---
+
+# Round 8: null band first, shared-first labelling, measured audit (executed)
+
+## Refused with reason
+
+- **Withdrawing the E4 numbers.** The directional move is measured evidence
+  under stated labelers; only its causal attribution was withdrawn. Deleting
+  measured numbers would violate invariant 3.
+- **Filing a length-bias defect.** Generous branch fired zero times;
+  differential bias exactly 0.000. No measurement, no defect.
+- **A "partial raise" of the clustering audit.** Binary choice honored:
+  full-audit rerun executed instead (4/120, Wilson [0.013, 0.083]),
+  deterministic recompute confirmed. The earlier downgrade stands as correct
+  on its evidence (R18).
+- **P3.5's "27 vs 30" (third refusal).** Registry recounted in code: 27.
+
+## Done (measured results, not prose)
+
+- **A1/A2.** Null result leads: 23 of 27 stratified intervals overlap the
+  leader's [0.658, 0.830], count computed from overlaps; table separator
+  above the 4 below-band rows, position asserted in tests.
+- **A5.** E4 under stratified intervals: a_mean_logprob at 0.615
+  [0.507, 0.721], inside the band — the move is not the surviving finding.
+- **A3.** Superlative audit live; caught one ("Pooled leader is family A",
+  now carrying [0.717, 0.872] vs [0.709, 0.865]).
+- **B1–B4.** Intersection measured at 53 (not assumed); minimum 59 rows, not
+  109; `label-plan` prints rows, shared-first order and wall clock with the
+  rate marked unmeasured.
+- **D1.** Skip/quit/garbage/timing/prefill tests close every spec clause.
+- **D2.** Rule accuracy renders automatically iff labels exist (tested both
+  directions); attenuation/gates/header flip on analyze re-run (mechanism
+  verified, nothing to trigger).
+- **D4.** Three outcome paragraphs pre-written in pre-registration.
+- **C1–C5.** Verified item by item against current files (margins,
+  per-relation diagnostics, design arithmetic, D27 open at width 1,
+  complete pre-registration with E4 prediction).
+- **E1.** `docs/CEILING.md` states the cap first.
+
+## What is still unmeasured (flatly)
+
+- 59 human labels minimum (fuzzy file first). The single blocker for validity.
+- Any second opinion on run #2b rows; T4/fp16 determinism and batch invariance.
+- Run #3's base rate at 3B scale; run #2's per-dataset intervals (lost).
+- Whether E4's move survives human labels (hook built, waiting).
+- Measured per-row labelling time (the runbook's band is an explicit guess).
