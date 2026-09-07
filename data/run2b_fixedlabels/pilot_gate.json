@@ -1,0 +1,21 @@
+{
+  "abstention_rate": 0.0,
+  "ambiguous_rate": 0.0,
+  "band": {
+    "high": 0.65,
+    "low": 0.25
+  },
+  "error_rate": 0.5916666666666667,
+  "in_band": true,
+  "label_counts": {
+    "correct": 49,
+    "incorrect": 71
+  },
+  "max_iterations": 2,
+  "n_incorrect": 71,
+  "n_primary": 120,
+  "n_scored": 120,
+  "recommendation": "proceed: error rate is inside the usable band",
+  "run_name": "run2b_clean",
+  "seconds_per_question": 6.125889810075023
+}

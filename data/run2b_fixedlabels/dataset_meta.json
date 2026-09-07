@@ -1,0 +1,18 @@
+{
+  "popqa": {
+    "dedup_collapsed": 8,
+    "drawn": 60,
+    "gold_leakage_dropped": 7,
+    "gold_leakage_inspected": 207,
+    "pool_unique": 192,
+    "sampling_margin": 3.2
+  },
+  "triviaqa": {
+    "dedup_collapsed": 0,
+    "drawn": 60,
+    "gold_leakage_dropped": 314,
+    "gold_leakage_inspected": 4060,
+    "pool_unique": 3746,
+    "sampling_margin": 62.43333333333333
+  }
+}

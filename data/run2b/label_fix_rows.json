@@ -1,0 +1,68 @@
+{
+  "changes": [
+    {
+      "new_label": "incorrect",
+      "new_source": "heuristic_fuzzy",
+      "old_label": "correct",
+      "old_source": "heuristic_fuzzy",
+      "qid": "popqa-5864218"
+    },
+    {
+      "new_label": "correct",
+      "new_source": "heuristic_fuzzy",
+      "old_label": "incorrect",
+      "old_source": "heuristic_fuzzy",
+      "qid": "popqa-6298839"
+    },
+    {
+      "new_label": "correct",
+      "new_source": "heuristic_fuzzy",
+      "old_label": "incorrect",
+      "old_source": "heuristic_fuzzy",
+      "qid": "triviaqa-bb_3148"
+    },
+    {
+      "new_label": "correct",
+      "new_source": "heuristic_fuzzy",
+      "old_label": "incorrect",
+      "old_source": "heuristic_fuzzy",
+      "qid": "triviaqa-dpql_376"
+    },
+    {
+      "new_label": "ambiguous",
+      "new_source": "heuristic_unresolved",
+      "old_label": "correct",
+      "old_source": "heuristic_fuzzy",
+      "qid": "triviaqa-jp_1520"
+    },
+    {
+      "new_label": "correct",
+      "new_source": "heuristic_fuzzy",
+      "old_label": "incorrect",
+      "old_source": "heuristic_fuzzy",
+      "qid": "triviaqa-qb_1435"
+    }
+  ],
+  "n_changed": 6,
+  "n_rows": 120,
+  "new_counts": {
+    "ambiguous": 1,
+    "correct": 51,
+    "incorrect": 68
+  },
+  "new_sources": {
+    "exact_match": 47,
+    "heuristic_fuzzy": 72,
+    "heuristic_unresolved": 1
+  },
+  "old_counts": {
+    "correct": 49,
+    "incorrect": 71
+  },
+  "old_sources": {
+    "exact_match": 47,
+    "heuristic_fuzzy": 73
+  },
+  "rule": "unc_bench.labeling.fuzzy_rule (round 11 fixed no-judge rule)",
+  "run": "run2b_clean"
+}
