@@ -101,6 +101,8 @@ def run(cfg: Config, *, force: bool = False) -> int:
             "dedup_collapsed": int(getattr(builder, "last_dedup_collapsed", 0)),
             "gold_leakage_dropped": int(getattr(builder, "last_gold_leakage_dropped", 0)),
             "gold_leakage_inspected": int(getattr(builder, "last_gold_leakage_inspected", 0)),
+            "cross_subject_dropped": int(getattr(builder, "last_cross_subject_dropped", 0)),
+            "cross_subject_groups": int(getattr(builder, "last_cross_subject_groups", 0)),
         }
 
     frame = questions_to_frame(questions)

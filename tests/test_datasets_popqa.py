@@ -120,6 +120,45 @@ def test_gold_in_question_flags_the_echo_cases() -> None:
     assert not gold_in_question("Who runs finance?", ["Nan"])
 
 
+GEORGIA_Q = "What is the capital of Georgia?"
+OTHER_Q = "What is the capital of that country?"
+
+
+def test_cross_subject_duplicate_questions_are_dropped_whole(tmp_path: Path) -> None:
+    """Round 11 (C2): dedup unions the alias lists of rows that share a
+    normalized question. When the same question text belongs to two distinct
+    Wikidata subjects — "What is the capital of Georgia?" exists for the country
+    AND the US state — that union accepts Tbilisi and Atlanta both, and the
+    survivor cannot be answered wrongly. Such groups must be dropped, not
+    merged; same-subject duplicates must survive to merge."""
+
+    def row(id_: str, subj: str, subj_id: str, obj: str, q: str, pa: str) -> str:
+        return "\t".join([id_, subj, "capital", obj, subj_id, "q1", "200", "0", q, pa])
+
+    lines = [
+        # country Georgia: two rows, same subject, same question text
+        row("1", "Georgia (country)", "787894", "Tbilisi", GEORGIA_Q, '["Tbilisi"]'),
+        row("2", "Georgia (country)", "787894", "Kutaisi", GEORGIA_Q, '["Kutaisi"]'),
+        # US state Georgia: different subject, identical question text
+        row("3", "Georgia (state)", "233401", "Atlanta", GEORGIA_Q, '["Atlanta"]'),
+        # an unrelated single-subject duplicate that must NOT be dropped
+        row("4", "some subject", "q3", "Kutaisi", OTHER_Q, '["Kutaisi"]'),
+        row("5", "some subject", "q3", "Kutaisi", OTHER_Q, '["Tbilisi"]'),
+    ]
+    header = "id\tsubj\tprop\tobj\tsubj_id\tprop_id\ts_pop\to_pop\tquestion\tpossible_answers"
+    path = tmp_path / "popqa_test.tsv"
+    path.write_text("\n".join([header, *lines]), encoding="utf-8")
+    made = PopQABuilder(tmp_path)
+    got = made.load_candidates()
+    assert made.last_cross_subject_groups == 1
+    assert made.last_cross_subject_dropped == 3
+    qids = sorted(q.qid for q in got)
+    assert qids == [
+        "popqa-4",
+        "popqa-5",
+    ], "cross-subject group must drop whole; same-subject dups stay"
+
+
 def test_deduplicate_merges_alias_lists_and_keeps_first_qid() -> None:
     rows = [
         Question(

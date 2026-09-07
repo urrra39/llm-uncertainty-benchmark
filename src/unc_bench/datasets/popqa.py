@@ -23,6 +23,7 @@ from unc_bench.datasets.base import (
     clean_alias_list,
     gold_in_question,
 )
+from unc_bench.normalize import normalize_answer
 from unc_bench.types import Question
 
 # The repo ships one file, test.tsv, holding all 14k items.
@@ -96,6 +97,10 @@ class PopQABuilder(DatasetBuilder):
         #: filter, and rows it inspected. Zero until run.
         self.last_gold_leakage_dropped = 0
         self.last_gold_leakage_inspected = 0
+        #: Rows dropped (and duplicate-question groups dropped) by the last
+        #: `load_candidates` call's cross-entity merge guard. Zero until run.
+        self.last_cross_subject_dropped = 0
+        self.last_cross_subject_groups = 0
 
     def load_candidates(self) -> list[Question]:
         path = cached_download(POPQA_URL, self.local_path)
@@ -110,6 +115,42 @@ class PopQABuilder(DatasetBuilder):
 
         frame = self._restrict_to_relations(frame)
         frame = self._restrict_to_popular(frame)
+
+        # Cross-entity merge guard (round 11, C2). Deduplication collapses rows
+        # that share a normalized question text and unions their alias lists —
+        # a fuller gold list is better for a row that really is the same item.
+        # But an AMBIGUOUS question can appear once per subject ("What is the
+        # capital of Georgia?" exists for the country AND the US state), and
+        # collapsing those unions aliases across two distinct entities. The
+        # survivor then lists both Tbilisi and Atlanta as acceptable and cannot
+        # be answered wrongly: it carries no information and quietly inflates
+        # the correct class. So a normalized question that maps to more than one
+        # Wikidata subject QID is dropped whole — it is unscoreable, not
+        # something to rescue by keeping the lower id. The guard runs here, on
+        # the rows the builder will hand to dedup, and asserts afterwards that
+        # no remaining duplicate question still spans subjects, so the generic
+        # alias-merging dedup can never union distinct entities again.
+        subject_col = "subj_id" if "subj_id" in frame.columns else "subj"
+        frame = frame.assign(_nq=frame["question"].map(normalize_answer))
+        n_subjects = frame.groupby("_nq")[subject_col].nunique()
+        ambiguous_nq = set(n_subjects[n_subjects > 1].index)
+        self.last_cross_subject_dropped = int(frame["_nq"].isin(ambiguous_nq).sum())
+        self.last_cross_subject_groups = len(ambiguous_nq)
+        if ambiguous_nq:
+            print(
+                f"[popqa] dropped {self.last_cross_subject_dropped} rows in "
+                f"{self.last_cross_subject_groups} ambiguous duplicate-question "
+                "group(s) whose Wikidata subject QIDs differ (merging their "
+                "aliases would union distinct entities)",
+                flush=True,
+            )
+        frame = frame.loc[~frame["_nq"].isin(ambiguous_nq)].drop(columns=["_nq"])
+        if "subj_id" in frame.columns and len(frame):
+            again = frame.assign(_nq=frame["question"].map(normalize_answer))
+            assert int(again.groupby("_nq")["subj_id"].nunique().max()) <= 1, (
+                "cross-subject duplicate questions survived the merge guard; "
+                "alias merging would union distinct Wikidata entities"
+            )
 
         out: list[Question] = []
         for row in frame.itertuples(index=False):
