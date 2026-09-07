@@ -693,5 +693,59 @@ def test_label_plan_counts_shared_rows_once() -> None:
     assert plan["rows_to_label"] == 59
     assert plan["fuzzy_coverage_after"] == [59, 73]
     assert plan["sample_coverage_after"] == [53, 100]
-    assert len(plan["file_order"]) == 59
-    assert "unmeasured" in plan["wall_clock"]
+    order = plan["file_order"]
+    assert isinstance(order, list) and len(order) == 59
+    assert "unmeasured" in str(plan["wall_clock"])
+
+
+def test_label_human_logs_timing_and_prefills_nothing(tmp_path: Path) -> None:
+    """Every verdict commits exactly one timing entry; the file gains no
+    value the human did not type."""
+    import io
+    import json as _json
+    from contextlib import redirect_stdout
+
+    import pandas as pd
+
+    from unc_bench.stages.label_human import run_loop
+
+    target = tmp_path / "sample.csv"
+    target.write_text(
+        "qid,dataset,question,gold_answers,model_answer,machine_label,human_label\n"
+        'q1,popqa,What is X?,X|Y,X,correct,\n',
+        encoding="utf-8",
+    )
+    clock = iter([100.0, 112.5])
+    with redirect_stdout(io.StringIO()):
+        summary = run_loop(
+            target,
+            input_fn=lambda _prompt: "i",
+            clock=lambda: next(clock),
+        )
+    assert summary["median_seconds_per_row"] == 12.5
+    timing = _json.loads((tmp_path / "sample.timing.json").read_text(encoding="utf-8"))
+    assert timing["rows"]["q1"]["seconds"] == 12.5
+    assert timing["rows"]["q1"]["agreed_with_machine"] is False
+    frame = pd.read_csv(target, dtype=str, keep_default_na=False)
+    assert str(frame.loc[0, "human_label"]).strip() == "incorrect"
+
+
+def test_label_quality_populates_on_coverage_above_zero(tmp_path: Path) -> None:
+    """D2: the analyze-stage block carries kappa, interval and ceiling once
+    labels exist — verified on a synthetic tmp file, never a committed one."""
+    from unc_bench.analysis.report import _label_quality
+
+    target = tmp_path / "filled.csv"
+    target.write_text(
+        "qid,machine_label,heuristic_verdict,human_label\n"
+        "q1,correct,correct,correct\n"
+        "q2,correct,correct,incorrect\n"
+        "q3,incorrect,incorrect,incorrect\n",
+        encoding="utf-8",
+    )
+    block = _label_quality(target)
+    assert block["human_labels_present"] is True
+    assert block["coverage"] == 1.0
+    assert block["machine_kappa"] == block["machine_kappa"]
+    assert len(block["machine_kappa_ci"]) == 2
+    assert block["oracle_ceiling"] == block["oracle_ceiling"]
