@@ -74,10 +74,42 @@ def render(results_path: str | None = None, csv_path: str | None = None) -> str:
             f"{random_entry['point']:.3f} "
             f"[{random_entry['ci_low']:.3f}, {random_entry['ci_high']:.3f}]).",
             f"Label quality: {labelled}/{total} human-labelled "
-            f"({csv_display} ROW:human_label) — "
-            "the correctness of the label set is unmeasured.",
+            f"({csv_display} ROW:human_label) — {_error_floor()}.",
         ]
     )
+
+
+def _error_floor() -> str:
+    """Label correctness measured only from below, when it has been measured.
+
+    The code sweep in scripts/audit_label_errors.py proves a minimum number of
+    machine labels wrong; that floor is the honest companion to a human-label
+    count of zero. Without the sweep the old sentence stands: correctness is
+    unmeasured, not merely partially measured. Reads the committed audit JSON
+    so the header cannot drift from the artifact it cites.
+    """
+    path = REPO_ROOT / "data" / "label_error_audit.json"
+    payload: dict[str, object] = {}
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                payload = loaded
+        except (OSError, json.JSONDecodeError):
+            payload = {}
+    bound = payload.get("lower_bound_machine_label_error")
+    if isinstance(bound, dict) and bound.get("n"):
+        try:
+            count = int(bound["count"])
+            n = int(bound["n"])
+            rate = float(bound["rate"])
+        except (KeyError, TypeError, ValueError):
+            return "the correctness of the label set is unmeasured"
+        return (
+            f"lower bound on machine-label error {count}/{n} ({rate:.1%}) proven by "
+            "code (data/label_error_audit.json); human labels are the only upper bound"
+        )
+    return "the correctness of the label set is unmeasured"
 
 
 def main() -> int:

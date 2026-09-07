@@ -9,7 +9,7 @@
 > Status, generated from `results_run2b.json` (`scripts/render_readme_header.py`):
 > Primary run: run2b_clean (n=120, 71 incorrect / 49 correct) [results_run2b.json#run_name, views.primary.n, views.primary.n_incorrect, views.primary.n_correct].
 > VALIDITY FAILED: per_dataset_class_counts, labeling_protocol_validated, human_label_coverage as recorded in results_run2b.json#validity_gates (t_random pooled, results_run2b.json#views.primary.signals.t_random: 0.523 [0.416, 0.628]).
-> Label quality: 0/100 human-labelled (data/human_validation_sample_run2b.csv ROW:human_label) — the correctness of the label set is unmeasured.
+> Label quality: 0/100 human-labelled (data/human_validation_sample_run2b.csv ROW:human_label) — lower bound on machine-label error 6/120 (5.0%) proven by code (data/label_error_audit.json); human labels are the only upper bound.
 
 ## Run #2b (primary, pending the human gate)
 
@@ -34,7 +34,13 @@ scored — the divergence is closed with real numbers.
 
 Two honest caveats travel with every number below. First, **labels are
 heuristic**: no judge credentials exist in an offline environment, so 47 rows
-settled by exact match and 73 by the fuzzy containment rule, with no kappa.
+settled by exact match and 73 by the fuzzy containment rule, with no kappa —
+and the rule's error is now measured only from below, not unbounded:
+`scripts/audit_label_errors.py` proves 6 of 120 labels wrong (2 subject-echo
+false positives, 4 verbatim-correct answers rejected on the length gap), with
+per-row evidence in `data/label_error_audit.json` (a lower bound, because a
+code sweep cannot see semantic errors a human would). Human labels are the
+only upper bound (labelling block below).
 Second, **three validity gates fail**: `per_dataset_class_counts` (both
 columns below the ≥30 floor — see the banner on the table),
 `labeling_protocol_validated` and `human_label_coverage` (both 0.0), so by
@@ -122,9 +128,12 @@ established: identical numbers, no information, no Holm penalty.
   a NULL-POWER contrast: fuzzy and strict are the same label set here, so
   0.000 with interval [0.0, 0.0] is true by construction and the interval is
   degenerate (marked as such in `data/label_rule_sensitivity.json`, which
-  refuses to report a rule-out from it). What remains unbounded is
-  containment-vs-TRUTH error: 73 of 120 labels (61%) come from the fuzzy
-  rule, and only human labels bound that error. "Confirmed strongly" is
+  refuses to report a rule-out from it). Containment-vs-TRUTH error is now
+  measured from below rather than unbounded: `scripts/audit_label_errors.py`
+  proves 6 of 120 labels wrong — 2 subject-echo false positives and 4
+  verbatim-correct answers rejected on the length gap, all six inside the 73
+  fuzzy-decided rows — and only human labels bound that error from above
+  (`data/label_error_audit.json`). "Confirmed strongly" is
   withdrawn; the supported reading is "moved up under heuristic labels,
   mechanism unattributed". Under stratified intervals the move does not
   separate it from the group either: `a_mean_logprob` sits at 0.615
