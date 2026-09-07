@@ -39,10 +39,9 @@ Second, **three validity gates fail**: `per_dataset_class_counts` (both
 columns below the ≥30 floor — see the banner on the table),
 `labeling_protocol_validated` and `human_label_coverage` (both 0.0), so by
 the project's own rule the ranking is not yet publishable. It is shown here
-as a measurement with that status attached, not as a finding.
-`data/human_validation_sample_run2b.csv` (100
-rows, 49 correct / 51 incorrect, `human_label` empty) is ready for the hand
-labelling that opens the gates.
+as a measurement with that status attached, not as a finding. What to label,
+in what order, and which gate each file opens is generated below — read it,
+not the file names around it.
 
 <!-- LABELLING:BEGIN -->
 To open the gates, label 59 rows, shared-first: `data/fuzzy_decided_rows.csv` (59 of 73 for `human_label_coverage`), then `data/human_validation_sample_run2b.csv` to 53 of 100 for `labeling_protocol_validated`. Wall clock: 59 rows x per-row rate (unmeasured; roughly 19-39 min at 20-40 s/row). Gate names: `human_label_coverage`, `labeling_protocol_validated`.

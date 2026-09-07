@@ -446,6 +446,7 @@ def check_cross_document(results: dict[str, Any], problems: list[str]) -> None:
     for gate in ("labeling_protocol_validated", "human_label_coverage"):
         if gate not in defects_text:
             problems.append(f"docs/OPEN_DEFECTS.md does not name the {gate} gate")
+    check_audit_response_structure(problems)
 
     # The withdrawal bound is arithmetic over committed artifacts, not prose:
     # alias-decided echo rows in the observed 100 plus all 20 unobserved rows.
@@ -551,13 +552,13 @@ OPEN_DEFECTS: tuple[dict[str, str], ...] = (
     },
     {
         "id": "D36",
-        "title": "No per-config lock file; concurrent generate halves throughput",
-        "status": "open",
+        "title": "No per-config lock file; concurrent generate halved throughput",
+        "status": "closed by per-config lock with stale takeover (tested)",
         "measurement_to_close": (
             "second invocation against the same config refuses to start; "
             "covered by a test that launches two runs"
         ),
-        "blocks": "operator time, not correctness",
+        "blocks": "nothing further",
     },
     {
         "id": "HUMAN-COVERAGE",
@@ -720,6 +721,7 @@ def check_readme_scope(problems: list[str]) -> None:
         "beside the tables",
         "The tables stay as the record",
         "The ranking below is publishable",
+        "is ready for the hand labelling that opens the gates",
     ):
         if stale in readme:
             problems.append(f"README.md contains stale scope phrasing: {stale!r}")
@@ -805,6 +807,28 @@ def _check_superlatives(text: str, problems: list[str]) -> None:
             f"unqualified superlative {match.group(1)!r} near: ...{window.strip()[:90]}..."
         )
 
+def check_audit_response_structure(problems: list[str]) -> None:
+    """AUDIT_RESPONSE.md must stay navigable: no repeated round heading, one
+    settled-refusals section, and no restated refusals outside it."""
+    import re as _re
+
+    text = (REPO_ROOT / "AUDIT_RESPONSE.md").read_text(encoding="utf-8")
+    headings = _re.findall(r"^# Round \d+.*$", text, flags=_re.MULTILINE)
+    if len(headings) != len(set(headings)):
+        problems.append("AUDIT_RESPONSE.md has a repeated round heading")
+    if text.count("## Settled refusals") != 1:
+        problems.append("AUDIT_RESPONSE.md must contain exactly one Settled refusals section")
+    for round_no in ("7", "8", "9"):
+        section = text.split(f"# Round {round_no}:", 1)
+        if len(section) < 2:
+            continue
+        body = section[1].split("# Round ", 1)[0]
+        if "## Refused with reason" in body and "See [Settled refusals]" not in body:
+            problems.append(
+                f"Round {round_no} restates refusals instead of pointing at Settled refusals"
+            )
+
 
 if __name__ == "__main__":
     sys.exit(main())
+

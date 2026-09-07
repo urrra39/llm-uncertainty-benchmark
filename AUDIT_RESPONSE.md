@@ -99,18 +99,6 @@ evidence is.
 
 ---
 
-# Round 4: closing the audit gap (in progress)
-
-## Withdrawal bound
-
-Worst case from committed artifacts: 14 alias-decided echo rows observed in
-100 plus all 20 unobserved rows, so up to **34 of 120 labels (28%)** could
-flip. That bound exceeds every interval in the run and withdraws the ranking
-(see README "Run #2 and why its ranking is withdrawn"). Item-by-item
-dispositions for round 4 follow as each part lands.
-
----
-
 # Round 4: closing the audit gap + run #2b (executed)
 
 ## Withdrawal bound
@@ -162,6 +150,27 @@ dispositions for round 4 follow as each part lands.
   gate names, recovered-κ status and reconciliation note; audit_docs runs in
   CI; README header generated from the primary results file (now run #2b's,
   honestly showing VALIDITY FAILED on the two human gates).
+
+---
+
+## Settled refusals
+
+Each stated once, with the round that settled it and its evidence. Later
+rounds point here instead of restating. Rounds are numbered by audit round;
+"settled in round N" means first argued with evidence there.
+
+- **E4 numbers stay; attribution stays withdrawn (settled round 6).** The
+  0.514 → 0.740 move is measured directional evidence under stated labelers;
+  deleting it would delete evidence. The causal claim was withdrawn, replaced
+  with the null-power admission.
+- **No length-bias defect (settled round 5).** Generous branch fired zero
+  times in 120 rows; differential bias exactly 0.000. A defect needs a
+  measurement.
+- **No partial clustering raise (settled round 7).** Full-audit rerun
+  executed instead: 4/120, Wilson [0.013, 0.083]. The earlier downgrade
+  stands as correct on its evidence (R18).
+- **No "27 vs 30" reconciliation (settled round 5).** Registry recounted in
+  code: 27 signals. No committed file, document or table counts 30 signals.
 
 ---
 
@@ -356,17 +365,7 @@ Tallies: 27 registered; 22 distinct scored in run #2b; 5 duplicates scored along
 
 ## Refused with reason
 
-- **Withdrawing the E4 numbers.** Refused: the move is measured directional
-  evidence under stated labelers; what was withdrawn is the causal
-  attribution, replaced with the null-power admission. Deleting measured
-  numbers would violate invariant 3.
-- **Filing a length-bias defect (P1.2 conditional).** Refused with measurement:
-  the generous branch fired zero times, differential bias exactly 0.000.
-- **Re-running family B at full audit as "partial raise".** Not split:
-  full-audit rerun executed instead (4/120, Wilson [0.013, 0.083]),
-  deterministic recompute confirmed (top 0.799, PopQA a_mean 0.740 unchanged).
-- **P3.5's "27 vs 30" (repeated).** Registry recounted in code: 27. No
-  referent for 30 anywhere committed.
+See [Settled refusals](#settled-refusals).
 
 ## Done (with evidence, not prose)
 
@@ -410,16 +409,7 @@ Tallies: 27 registered; 22 distinct scored in run #2b; 5 duplicates scored along
 
 ## Refused with reason
 
-- **Withdrawing the E4 numbers.** The directional move is measured evidence
-  under stated labelers; only its causal attribution was withdrawn. Deleting
-  measured numbers would violate invariant 3.
-- **Filing a length-bias defect.** Generous branch fired zero times;
-  differential bias exactly 0.000. No measurement, no defect.
-- **A "partial raise" of the clustering audit.** Binary choice honored:
-  full-audit rerun executed instead (4/120, Wilson [0.013, 0.083]),
-  deterministic recompute confirmed. The earlier downgrade stands as correct
-  on its evidence (R18).
-- **P3.5's "27 vs 30" (third refusal).** Registry recounted in code: 27.
+See [Settled refusals](#settled-refusals).
 
 ## Done (measured results, not prose)
 
@@ -457,10 +447,7 @@ Tallies: 27 registered; 22 distinct scored in run #2b; 5 duplicates scored along
 
 ## Refused with reason
 
-- None this round. Every instruction checked out against the artifacts,
-  including the ones I expected to refuse (the 0.719 pooled value, the
-  four PopQA values and the 22-row sort all verified; the 59-row minimum
-  recomputed from the overlap).
+See [Settled refusals](#settled-refusals).
 
 ## Done (measured results)
 

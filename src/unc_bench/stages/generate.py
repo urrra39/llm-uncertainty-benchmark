@@ -22,6 +22,8 @@ UNKNOWN at exactly the position where P(True) is read off the True/False pair.
 from __future__ import annotations
 
 import gc
+import os
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -242,8 +244,67 @@ def _one_question(
     }
 
 
+def _lock_path(artifacts_dir: Path) -> Path:
+    return Path(artifacts_dir) / ".generate.lock"
+
+
+def _pid_alive(pid: int) -> bool:
+    """Whether a PID exists, without signaling it. False on any error rather
+    than crashing the stage on an unparsable lock file."""
+    try:
+        os.kill(pid, 0)
+    except (OSError, ValueError, OverflowError):
+        return False
+    return True
+
+
+def acquire_generate_lock(artifacts_dir: Path) -> Path:
+    """Refuse a second concurrent generate against one config (defect D36).
+
+    Two processes each asking torch for both cores halved the measured rate;
+    stages are resumable but the overlap cost real wall clock. A lock holding
+    a live PID refuses to start; a stale one (dead PID, e.g. after a kill) is
+    taken over with the previous PID named, so a crash cannot wedge the run
+    forever. Returns the lock path; the caller releases it in a finally.
+    """
+    path = _lock_path(artifacts_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        try:
+            previous = int(path.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            previous = -1
+        if previous > 0 and _pid_alive(previous):
+            raise RuntimeError(
+                f"another generate holds {path} (pid {previous}); refusing to "
+                "compete for the same cores — wait for it or remove the lock "
+                "if that process is gone"
+            )
+        print(f"[generate] taking over stale lock from pid {previous}", flush=True)
+    path.write_text(str(os.getpid()), encoding="utf-8")
+    return path
+
+
+def release_generate_lock(path: Path) -> None:
+    """Release our own lock; a foreign PID means someone else took over."""
+    try:
+        if path.exists() and path.read_text(encoding="utf-8").strip() == str(os.getpid()):
+            path.unlink()
+    except OSError:
+        pass
+
+
 def run(cfg: Config, *, limit: int | None = None) -> int:
     """Generate for every question not already in the checkpoint."""
+    lock = acquire_generate_lock(cfg.paths.artifacts_dir)
+    try:
+        return _run_locked(cfg, limit=limit)
+    finally:
+        release_generate_lock(lock)
+
+
+def _run_locked(cfg: Config, *, limit: int | None = None) -> int:
+    """The former body of `run`, executed under the generate lock."""
     paths = StagePaths.of(cfg)
     dataset = read_checkpoint(paths.dataset)
     if dataset is None:
@@ -267,6 +328,8 @@ def run(cfg: Config, *, limit: int | None = None) -> int:
     )
     if not todo:
         return len(already)
+
+    cache = ResponseCache(cfg.paths.cache_dir)
 
     cache = ResponseCache(cfg.paths.cache_dir)
     client = build_client(cfg.model_under_test, cache)
