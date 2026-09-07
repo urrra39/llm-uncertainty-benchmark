@@ -723,6 +723,15 @@ def check_readme_scope(problems: list[str]) -> None:
     ):
         if stale in readme:
             problems.append(f"README.md contains stale scope phrasing: {stale!r}")
+    # Any README row-count for labelling must equal label-plan's output.
+    from unc_bench.stages.label_human import DEFAULT_TARGET, RUN_CSVS, label_plan
+
+    plan = label_plan(RUN_CSVS["run2b"], DEFAULT_TARGET)
+    for match in re.finditer(r"label (\d+) rows", readme):
+        if int(match.group(1)) != plan["rows_to_label"]:
+            problems.append(
+                f"README labelling count {match.group(1)} != plan output {plan['rows_to_label']}"
+            )
     _check_superlatives(readme, problems)
     history_at = readme.find("## History of withdrawn runs")
     primary_text = readme[:history_at] if history_at >= 0 else readme

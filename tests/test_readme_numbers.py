@@ -119,13 +119,15 @@ def test_indistinguishable_band_is_computed_not_hand_counted() -> None:
     lead = signals["b_disagreement_rate"]
     lo, hi = lead["ci_low"], lead["ci_high"]
     assert (round(lo, 3), round(hi, 3)) == (0.658, 0.830)
-    band = sorted(
+    band = {
         name for name, entry in signals.items() if entry["ci_low"] <= hi and entry["ci_high"] >= lo
-    )
+    }
     assert len(band) == 23
     dropped = set(_primary()["views"]["primary"]["significance"].get("rank_equivalent_dropped", []))
+    assert len(band - dropped) == 18
     text = _readme_primary()
     assert "23 of 27 signals have" in text
+    assert "18 of 22 distinct scored signals" in text
     separator = "below this line: stratified interval entirely below the leader's"
     assert separator in text
     above, _, _ = text.partition(separator)
@@ -141,3 +143,25 @@ def test_indistinguishable_band_is_computed_not_hand_counted() -> None:
         "t_random",
         "a_first_token_margin",
     }
+
+
+def test_tension_paragraph_matches_generated() -> None:
+    """A1: the null-vs-rejections paragraph is generated from the file."""
+    import subprocess
+    import sys
+
+    repo = Path(__file__).resolve().parents[1]
+    generated = subprocess.run(
+        [sys.executable, "scripts/render_tension_paragraph.py"],
+        capture_output=True,
+        text=True,
+        cwd=repo,
+        check=False,
+    )
+    assert generated.returncode == 0
+    text = (repo / "README.md").read_text(encoding="utf-8")
+    start = text.find("<!-- TENSION:BEGIN -->")
+    end = text.find("<!-- TENSION:END -->")
+    assert start >= 0 and end > start
+    embedded = text[start : end + len("<!-- TENSION:END -->")] + "\n"
+    assert embedded == ("<!-- TENSION:BEGIN -->\n" + generated.stdout + "<!-- TENSION:END -->\n")

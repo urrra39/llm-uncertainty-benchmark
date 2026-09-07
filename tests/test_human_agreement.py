@@ -747,3 +747,27 @@ def test_label_quality_populates_on_coverage_above_zero(tmp_path: Path) -> None:
     assert block["machine_kappa"] == block["machine_kappa"]
     assert len(block["machine_kappa_ci"]) == 2
     assert block["oracle_ceiling"] == block["oracle_ceiling"]
+
+
+def test_labelling_block_matches_generated() -> None:
+    """A3: the README labelling block equals the generator output verbatim."""
+    import subprocess
+    import sys
+
+    repo = Path(__file__).resolve().parents[1]
+    generated = subprocess.run(
+        [sys.executable, "scripts/render_labelling_status.py"],
+        capture_output=True,
+        text=True,
+        cwd=repo,
+        check=False,
+    )
+    assert generated.returncode == 0
+    text = (repo / "README.md").read_text(encoding="utf-8")
+    start = text.find("<!-- LABELLING:BEGIN -->")
+    end = text.find("<!-- LABELLING:END -->")
+    assert start >= 0 and end > start
+    embedded = text[start : end + len("<!-- LABELLING:END -->")] + "\n"
+    assert embedded == (
+        "<!-- LABELLING:BEGIN -->\n" + generated.stdout + "<!-- LABELLING:END -->\n"
+    )

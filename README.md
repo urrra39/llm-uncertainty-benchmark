@@ -16,9 +16,14 @@
 **Null result, stated first: at n=120 with stratified bootstrap intervals,
 this benchmark cannot separate the top group.** 23 of 27 signals have
 stratified intervals overlapping the leader's [0.658, 0.830] end to end —
-the count is computed from interval overlaps in `results_run2b.json`, not
-hand-counted, and the table below marks the band. Same headline run #2 had,
+18 of 22 distinct scored signals, plus the 5 rank-equivalent duplicates that
+overlap by construction — the counts are computed from interval overlaps in
+`results_run2b.json`, not hand-counted, and the table below marks the band. Same headline run #2 had,
 now with the intervals to prove it rather than assert it.
+
+<!-- TENSION:BEGIN -->
+Why the null leads while rejections print below: the two tests answer different questions. Marginal-interval overlap asks whether two point estimates can be told apart on their own — the conservative read, and why the null leads. The paired bootstrap on AUROC differences asks whether one signal beats another on the same rows, exploiting their correlation; that is the test with the power to reject, and it is what rejects the trivial baselines. Here: 23 signals share the leader's band [0.658, 0.830], while `a_first_token_logprob`, `a_first_token_margin`, `a_mean_top5_entropy`, `c_verbal_confidence`, `t_random` are significantly worse.
+<!-- TENSION:END -->
 
 Run #2b re-ran run #2's exact configuration (Qwen2.5-0.5B-Instruct, same
 decoding, prompts, sampling, NLI, n=120) with the decontaminated dataset:
@@ -38,6 +43,10 @@ as a measurement with that status attached, not as a finding.
 `data/human_validation_sample_run2b.csv` (100
 rows, 49 correct / 51 incorrect, `human_label` empty) is ready for the hand
 labelling that opens the gates.
+
+<!-- LABELLING:BEGIN -->
+To open the gates, label 59 rows, shared-first: `data/fuzzy_decided_rows.csv` (59 of 73 for `human_label_coverage`), then `data/human_validation_sample_run2b.csv` to 53 of 100 for `labeling_protocol_validated`. Wall clock: 59 rows x per-row rate (unmeasured; roughly 19-39 min at 20-40 s/row). Gate names: `human_label_coverage`, `labeling_protocol_validated`.
+<!-- LABELLING:END -->
 
 The three classical gates pass: `t_random` scores 0.445 [0.296, 0.598] on
 PopQA and 0.571 [0.384, 0.752] on TriviaQA (both contain 0.50), classes are
