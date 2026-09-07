@@ -619,9 +619,9 @@ def test_label_human_skip_and_quit_write_nothing(tmp_path: Path) -> None:
     target = tmp_path / "sample.csv"
     target.write_text(
         "qid,dataset,question,gold_answers,model_answer,machine_label,human_label\n"
-        'q1,popqa,What is X?,X|Y,X,correct,\n'
-        'q2,popqa,What is Z?,Z,W,incorrect,\n'
-        'q3,popqa,What is W?,W,V,correct,\n',
+        "q1,popqa,What is X?,X|Y,X,correct,\n"
+        "q2,popqa,What is Z?,Z,W,incorrect,\n"
+        "q3,popqa,What is W?,W,V,correct,\n",
         encoding="utf-8",
     )
     answers = iter(["s", "i", "q"])
@@ -649,7 +649,7 @@ def test_label_human_reprompts_on_garbage(tmp_path: Path) -> None:
     target = tmp_path / "sample.csv"
     target.write_text(
         "qid,dataset,question,gold_answers,model_answer,machine_label,human_label\n"
-        'q1,popqa,What is X?,X|Y,X,correct,\n',
+        "q1,popqa,What is X?,X|Y,X,correct,\n",
         encoding="utf-8",
     )
     answers = iter(["maybe", "yes please", "c"])

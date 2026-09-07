@@ -420,9 +420,7 @@ def render_report(report: HumanValidationReport) -> str:
     return "\n".join(lines)
 
 
-def _render_rule_accuracy(
-    report: HumanValidationReport, add: Callable[[str], None]
-) -> None:
+def _render_rule_accuracy(report: HumanValidationReport, add: Callable[[str], None]) -> None:
     """The fuzzy rule scored against humans, printed whenever computable.
 
     Runs automatically inside every human-agreement report: no new command is

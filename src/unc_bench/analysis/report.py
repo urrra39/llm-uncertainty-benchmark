@@ -599,8 +599,11 @@ def _stratified_block(
     if "dataset" not in frame.columns:
         return {"available": False, "reason": "the analysis frame carries no dataset column"}
     sources = sorted(str(d) for d in frame["dataset"].unique())
-    codes = frame["dataset"].astype(str).map({s: i for i, s in enumerate(sources)}).to_numpy(
-        dtype=np.int64
+    codes = (
+        frame["dataset"]
+        .astype(str)
+        .map({s: i for i, s in enumerate(sources)})
+        .to_numpy(dtype=np.int64)
     )
     rows = stratified_bootstrap_auroc(
         columns,

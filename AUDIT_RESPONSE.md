@@ -349,3 +349,57 @@ dispositions for round 4 follow as each part lands.
 
 Tallies: 27 registered; 22 distinct scored in run #2b; 5 duplicates scored alongside.
 <!-- SIGNAL_TABLE:END -->
+
+---
+
+# Round 7: gate mapping, stratified intervals, human path (executed)
+
+## Refused with reason
+
+- **Withdrawing the E4 numbers.** Refused: the move is measured directional
+  evidence under stated labelers; what was withdrawn is the causal
+  attribution, replaced with the null-power admission. Deleting measured
+  numbers would violate invariant 3.
+- **Filing a length-bias defect (P1.2 conditional).** Refused with measurement:
+  the generous branch fired zero times, differential bias exactly 0.000.
+- **Re-running family B at full audit as "partial raise".** Not split:
+  full-audit rerun executed instead (4/120, Wilson [0.013, 0.083]),
+  deterministic recompute confirmed (top 0.799, PopQA a_mean 0.740 unchanged).
+- **P3.5's "27 vs 30" (repeated).** Registry recounted in code: 27. No
+  referent for 30 anywhere committed.
+
+## Done (with evidence, not prose)
+
+- **A1–A4.** Gate/label mapping remade so every gate reads run-owned files:
+  protocol gate reads the run's own sample (0.50), coverage gate reads the
+  run's fuzzy rows (0.80). `docs/LABEL_GATE_MAP.md` generated from
+  `GATE_SOURCES` plus resolved config paths, pinned by test. Mapping test
+  both directions. Minimum honest cost recomputed: 59 rows (~20 min at an
+  explicitly unmeasured per-row rate; the runbook's old "measured 20s" never
+  was measured and now says so).
+- **B1.** Paired stratified bootstrap (one shared draw sequence, seed
+  recorded) populates the stratified column; sort does not survive
+  (leader [0.658, 0.830] overlaps seven intervals) and the table says so
+  beside the ranking.
+- **B2.** Generated signal table (27/22/5) embedded in this file, pinned.
+- **B4 triage.** README's remaining uncomputeds: label quality + ranking
+  status (needs human, Part D), clustering audit (computed this round).
+- **D1.** Skip/quit/garbage-path tests added; spec verified item by item.
+- **D2.** Rule accuracy renders automatically with labels (tested present
+  and absent); attenuation/gates/header flip on analyze re-run (mechanism
+  verified, nothing to trigger it yet).
+- **D4.** Three outcome paragraphs pre-written in pre-registration.
+- **C1–C5.** Verified against current files (margins, diagnostics, design
+  arithmetic, D27 open at width 1, prereg complete with E4 prediction).
+- **E1.** `docs/CEILING.md` states the cap first.
+- **E4.** Description string (P5.3, unchanged and still unpasted by the
+  owner): "Run #2b (n=120, CPU): no uncertainty signal established above
+  chance on 60-row subsets; decontaminated validity run, heuristic labels,
+  humans pending. Withdrawn run #2 inside."
+
+## What is still unmeasured (flatly)
+
+- 59+ human labels (fuzzy file first, shared rows next). Nothing downstream moves without these.
+- Any second opinion on run #2b rows; T4/fp16 determinism and batch invariance.
+- Run #3's base rate at 3B scale; run #2's per-dataset intervals (lost permanently).
+- Whether the E4 move survives human labels (the decomposition hook is built and waiting).
