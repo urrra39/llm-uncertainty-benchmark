@@ -76,6 +76,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="fuzzy_decided (rows the rule decided; default), sample, or a .csv path",
     )
 
+    subparsers.add_parser(
+        "label-plan", help="print the minimum labelling order that greens every label gate"
+    )
+
     analyze = subparsers.add_parser("analyze", help="stage 5: write the run's results file")
     _add_config(analyze)
     analyze.add_argument(
@@ -162,6 +166,16 @@ def main(argv: list[str] | None = None) -> int:
         del differences
         return 0
 
+    if command == "label-plan":
+        from unc_bench.stages.label_human import DEFAULT_TARGET, RUN_CSVS, label_plan
+
+        plan = label_plan(RUN_CSVS["run2b"], DEFAULT_TARGET)
+        print(f"rows to label: {plan['rows_to_label']}")
+        print(f"fuzzy coverage after: {plan['fuzzy_coverage_after']}")
+        print(f"sample coverage after: {plan['sample_coverage_after']}")
+        print(f"wall clock: {plan['wall_clock']}")
+        return 0
+
     cfg = _load(args)
 
     if command == "build-dataset":
@@ -195,6 +209,16 @@ def main(argv: list[str] | None = None) -> int:
         from unc_bench.stages.label_human import resolve_csv, run_loop
 
         run_loop(resolve_csv(args.run, args.target))
+        return 0
+
+    if command == "label-plan":
+        from unc_bench.stages.label_human import DEFAULT_TARGET, RUN_CSVS, label_plan
+
+        plan = label_plan(RUN_CSVS["run2b"], DEFAULT_TARGET)
+        print(f"rows to label: {plan['rows_to_label']}")
+        print(f"fuzzy coverage after: {plan['fuzzy_coverage_after']}")
+        print(f"sample coverage after: {plan['sample_coverage_after']}")
+        print(f"wall clock: {plan['wall_clock']}")
         return 0
 
     if command == "analyze":

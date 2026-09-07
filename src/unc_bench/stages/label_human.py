@@ -44,6 +44,61 @@ DEFAULT_TARGET = Path("data/fuzzy_decided_rows.csv")
 VALID_VERDICTS = ("correct", "incorrect")
 
 
+def label_plan(
+    sample_csv: str | Path, fuzzy_csv: str | Path
+) -> dict[str, object]:
+    """The minimum labelling order that greens every label gate (Part B4).
+
+    Protocol gate needs 50/100 sample rows; coverage gate needs 59/73 fuzzy
+    rows. Rows in both files count toward both gates, so the plan labels
+    shared rows first: 53 shared, then 6 more fuzzy rows, totalling 59.
+    Unlabelled counts assume a fresh start; already-labelled rows are
+    subtracted, never re-planned. Pure function of the two committed files.
+    """
+    import pandas as pd
+
+    sample = pd.read_csv(sample_csv, dtype=str, keep_default_na=False)
+    fuzzy = pd.read_csv(fuzzy_csv, dtype=str, keep_default_na=False)
+    sample_qids = [str(q) for q in sample["qid"]]
+    fuzzy_qids = [str(q) for q in fuzzy["qid"]]
+    sample_done = {
+        str(q)
+        for q, h in zip(sample["qid"], sample["human_label"], strict=True)
+        if str(h).strip()
+    }
+    fuzzy_done = {
+        str(q) for q, h in zip(fuzzy["qid"], fuzzy["human_label"], strict=True) if str(h).strip()
+    }
+    shared = [q for q in fuzzy_qids if q in set(sample_qids)]
+    shared_todo = [q for q in shared if q not in fuzzy_done and q not in sample_done]
+    fuzzy_only = [q for q in fuzzy_qids if q not in set(sample_qids) and q not in fuzzy_done]
+    sample_only = [q for q in sample_qids if q not in set(fuzzy_qids) and q not in sample_done]
+    order = shared_todo + fuzzy_only + sample_only
+    # Gates need 59 fuzzy rows and 50 sample rows; shared rows serve both.
+    # Take shared first, then fuzzy-only to 59 fuzzy, then sample-only to 50.
+    plan: list[str] = []
+    fuzzy_count = len(fuzzy_done)
+    sample_count = len(sample_done)
+    for qid in order:
+        if fuzzy_count >= 59 and sample_count >= 50:
+            break
+        plan.append(qid)
+        if qid in set(fuzzy_qids) - fuzzy_done:
+            fuzzy_count += 1
+        if qid in set(sample_qids) - sample_done:
+            sample_count += 1
+    return {
+        "rows_to_label": len(plan),
+        "file_order": plan,
+        "fuzzy_coverage_after": [fuzzy_count, 73],
+        "sample_coverage_after": [sample_count, 100],
+        "wall_clock": (
+            f"{len(plan)} rows x per-row rate (unmeasured; roughly "
+            f"{len(plan) * 20 // 60}-{len(plan) * 40 // 60} min at 20-40 s/row)"
+        ),
+    }
+
+
 def resolve_csv(run: str, target: str = "fuzzy_decided") -> Path:
     """Resolve the labelling target. `--run` picks the run, `--target` picks
     the population: `fuzzy_decided` (default: the rows the fuzzy rule

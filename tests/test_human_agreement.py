@@ -681,3 +681,17 @@ def test_rule_accuracy_section_appears_only_with_labels(tmp_path: Path) -> None:
     empty = tmp_path / "empty.csv"
     empty.write_text("qid,fuzzy_verdict,human_label\nq1,correct,\n", encoding="utf-8")
     assert "Fuzzy-rule" not in render_report(build_report(empty))
+
+
+def test_label_plan_counts_shared_rows_once() -> None:
+    """B4: 53 shared rows serve both gates; the minimum is 59, not 59+50."""
+    from unc_bench.stages.label_human import label_plan
+
+    plan = label_plan(
+        "data/human_validation_sample_run2b.csv", "data/fuzzy_decided_rows.csv"
+    )
+    assert plan["rows_to_label"] == 59
+    assert plan["fuzzy_coverage_after"] == [59, 73]
+    assert plan["sample_coverage_after"] == [53, 100]
+    assert len(plan["file_order"]) == 59
+    assert "unmeasured" in plan["wall_clock"]

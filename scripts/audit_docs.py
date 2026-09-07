@@ -786,7 +786,10 @@ def _check_superlatives(text: str, problems: list[str]) -> None:
         window = head[max(0, match.start() - 160) : match.end() + 160]
         if "?" in head[match.end() : match.end() + 60]:
             continue
-        if re.search(r"\[[0-9.]+, ?[0-9.]+\]|p_holm|p =|\(−?[0-9.]+,", window):
+        # Both hyphen-minus and U+2212 minus: prose uses either. The escape
+        # keeps the ambiguous codepoint out of the source (RUF001).
+        pat = r"\[[0-9.]+, ?[0-9.]+\]|p_holm|p =|\(-?[0-9.]+,|\(\u2212?[0-9.]+,"
+        if re.search(pat, window):
             continue
         problems.append(
             f"unqualified superlative {match.group(1)!r} near: ...{window.strip()[:90]}..."
