@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import csv
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -407,6 +408,7 @@ def render_report(report: HumanValidationReport) -> str:
     add("")
     add("  This measures label correctness against a human, which is a different")
     add("  quantity from the judge-versus-judge kappa in the results file.")
+    _render_rule_accuracy(report, add)
     if report.oracle_ceiling == report.oracle_ceiling:  # not NaN
         add("")
         add(
@@ -416,6 +418,31 @@ def render_report(report: HumanValidationReport) -> str:
             "labels (symmetric-flip model: optimistic, so the true ceiling is lower)."
         )
     return "\n".join(lines)
+
+
+def _render_rule_accuracy(
+    report: HumanValidationReport, add: Callable[[str], None]
+) -> None:
+    """The fuzzy rule scored against humans, printed whenever computable.
+
+    Runs automatically inside every human-agreement report: no new command is
+    needed once labels exist. Absent (not zero) when the file carries no rule
+    verdicts or no human labels — the E4 rule-out this provides cannot run
+    before humans do.
+    """
+    rows = read_validation_csv(report.path)
+    scored = rule_accuracy(rows)
+    if scored is None or scored.n_compared == 0:
+        return
+    add("")
+    add(f"  Fuzzy-rule accuracy vs human ({scored.n_compared} decided rows):")
+    add(
+        f"    precision {scored.precision:.4f} "
+        f"[{scored.precision_ci[0]:.4f}, {scored.precision_ci[1]:.4f}], "
+        f"recall {scored.recall:.4f} "
+        f"[{scored.recall_ci[0]:.4f}, {scored.recall_ci[1]:.4f}]"
+    )
+    add("    Low precision here bounds how much of any move the rule explains.")
 
 
 def run(path: str | Path) -> HumanValidationReport:

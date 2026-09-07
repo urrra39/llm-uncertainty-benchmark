@@ -143,6 +143,25 @@ sits inside an alias, so part of any movement may be labeler change rather
 than decontamination. The comparison is valid only as a direction check, and
 is labelled as such everywhere it appears.
 
+## E4 outcome lines, pre-written (D4)
+
+When human labels land, the fuzzy-rule accuracy report decides which
+paragraph below replaces the E4 bullet. Exactly one will be pasted; the other
+two stay here as the record that the alternatives were live possibilities.
+
+- **Rule accurate** (precision ≥ 0.90 with the lower interval bound above
+  0.80): "Human labels confirm the fuzzy rule (precision X [l, h] on N
+  fuzzy-decided rows); the E4 move stands as decontamination, with the
+  judge-vs-heuristic caveat retained."
+- **Rule unreliable** (precision below 0.80 or interval spanning chance):
+  "Human labels reject the fuzzy rule (precision X [l, h]); E4 is withdrawn
+  on the same footing as run #2, and the heuristic-labelled tables join it
+  in the withdrawn document. The measured rule error, not a rescued ranking,
+  is the finding."
+- **Mixed** (rule accurate on one dataset / verdict class and not another):
+  "Human labels split the rule's verdicts (numbers); E4 is reported
+  per-subset with the failing subset withdrawn, and no pooled claim is made."
+
 ## Gates and stopping
 
 Same five gates (random-baseline CI, ≥30 per class per subset where

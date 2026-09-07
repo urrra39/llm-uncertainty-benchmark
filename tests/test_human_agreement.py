@@ -604,3 +604,80 @@ def test_gate_paths_are_labellable_targets_and_vice_versa() -> None:
     assert gate_files <= writable, f"gates read unwritable files: {gate_files - writable}"
     for name in writable:
         assert name in gate_files, f"labellable target {name} earns zero gate credit"
+
+
+def test_label_human_skip_and_quit_write_nothing(tmp_path: Path) -> None:
+    """Skip leaves the row for later; quit saves prior verdicts first."""
+    import io
+    import json as _json
+    from contextlib import redirect_stdout
+
+    import pandas as pd
+
+    from unc_bench.stages.label_human import run_loop
+
+    target = tmp_path / "sample.csv"
+    target.write_text(
+        "qid,dataset,question,gold_answers,model_answer,machine_label,human_label\n"
+        'q1,popqa,What is X?,X|Y,X,correct,\n'
+        'q2,popqa,What is Z?,Z,W,incorrect,\n'
+        'q3,popqa,What is W?,W,V,correct,\n',
+        encoding="utf-8",
+    )
+    answers = iter(["s", "i", "q"])
+    with redirect_stdout(io.StringIO()):
+        summary = run_loop(target, input_fn=lambda _prompt: next(answers))
+    # q1 skipped (blank), q2 labelled incorrect, then quit
+    assert summary["labelled_this_session"] == 1
+    assert summary["quit_early"] is True
+    frame = pd.read_csv(target, dtype=str, keep_default_na=False)
+    assert str(frame.loc[0, "human_label"]).strip() == ""
+    assert str(frame.loc[1, "human_label"]).strip() == "incorrect"
+    timing = _json.loads((tmp_path / "sample.timing.json").read_text(encoding="utf-8"))
+    assert "q2" in timing["rows"] and "q1" not in timing["rows"]
+
+
+def test_label_human_reprompts_on_garbage(tmp_path: Path) -> None:
+    """Unrecognised input re-prompts instead of writing or skipping."""
+    import io
+    from contextlib import redirect_stdout
+
+    import pandas as pd
+
+    from unc_bench.stages.label_human import run_loop
+
+    target = tmp_path / "sample.csv"
+    target.write_text(
+        "qid,dataset,question,gold_answers,model_answer,machine_label,human_label\n"
+        'q1,popqa,What is X?,X|Y,X,correct,\n',
+        encoding="utf-8",
+    )
+    answers = iter(["maybe", "yes please", "c"])
+    with redirect_stdout(io.StringIO()) as buffer:
+        summary = run_loop(target, input_fn=lambda _prompt: next(answers))
+    assert summary["labelled_this_session"] == 1
+    assert "unrecognised" in buffer.getvalue()
+    frame = pd.read_csv(target, dtype=str, keep_default_na=False)
+    assert str(frame.loc[0, "human_label"]).strip() == "correct"
+
+
+def test_rule_accuracy_section_appears_only_with_labels(tmp_path: Path) -> None:
+    """D2 automaticity: the section prints itself once labels exist, and is
+    absent (not zero) before — no new command needed either way."""
+    from unc_bench.analysis.human_agreement import build_report, render_report
+
+    target = tmp_path / "fuzzy.csv"
+    target.write_text(
+        "qid,fuzzy_verdict,human_label\n"
+        "q1,correct,correct\n"
+        "q2,correct,incorrect\n"
+        "q3,incorrect,incorrect\n",
+        encoding="utf-8",
+    )
+    text = render_report(build_report(target))
+    assert "Fuzzy-rule accuracy vs human (3 decided rows)" in text
+    assert "precision 0.5000" in text
+
+    empty = tmp_path / "empty.csv"
+    empty.write_text("qid,fuzzy_verdict,human_label\nq1,correct,\n", encoding="utf-8")
+    assert "Fuzzy-rule" not in render_report(build_report(empty))
