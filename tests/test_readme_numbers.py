@@ -66,6 +66,10 @@ def test_every_table_cell_is_in_the_file() -> None:
             universe.add(f"{entry['auroc']:.3f}")
             universe.add(f"{entry['auroc_ci']['ci_low']:.3f}")
             universe.add(f"{entry['auroc_ci']['ci_high']:.3f}")
+    for entry in payload["views"]["primary"]["stratified"]["signals"].values():
+        universe.add(f"{entry['point']:.3f}")
+        universe.add(f"{entry['ci_low']:.3f}")
+        universe.add(f"{entry['ci_high']:.3f}")
     for _, _popqa, _trivia, s in _table_rows():
         universe.add(f"{s:.3f}")
     text = _readme_primary()

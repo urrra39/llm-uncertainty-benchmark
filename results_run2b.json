@@ -1526,12 +1526,19 @@
       "view": "with_abstentions"
     }
   },
-  "generated_at_utc": "2026-09-06T17:56:58+00:00",
+  "generated_at_utc": "2026-09-07T13:33:47+00:00",
   "is_pilot": false,
   "labels": {
     "counts": {
       "correct": 49,
       "incorrect": 71
+    },
+    "fuzzy_quality": {
+      "coverage": 0.0,
+      "human_labels_present": false,
+      "n_labelled": 0,
+      "n_rows": 73,
+      "reason": "no human labels present"
     },
     "heuristic_fallback_rows": 73,
     "judge_parse_failures": 0,
@@ -1817,18 +1824,18 @@
         "requirement": ">= 30 rows in each class of each dataset"
       },
       {
-        "detail": "the protocol has never been validated: label the prior sample first (docs/HUMAN_LABELING.md), or the new run's human labels rest on untested instructions",
+        "detail": "the protocol has never been validated on this run's rows: label the run's own sample first (docs/HUMAN_LABELING.md), or the human labels rest on untested instructions",
         "name": "labeling_protocol_validated",
         "observed": "coverage 0.000",
         "passed": false,
-        "requirement": ">= 0.50 of the protocol sample labelled"
+        "requirement": ">= 0.50 of the run's own sample labelled"
       },
       {
-        "detail": "no human has verified any label, so the label set's correctness is unmeasured; fill the run's validation CSV (docs/HUMAN_LABELING.md)",
+        "detail": "no human has checked the fuzzy rule's 73 verdicts, so the label set's correctness is unmeasured; label data/fuzzy_decided_rows.csv (docs/HUMAN_LABELING.md)",
         "name": "human_label_coverage",
         "observed": "coverage 0.000",
         "passed": false,
-        "requirement": ">= 0.80 of validation rows labelled"
+        "requirement": ">= 0.80 of fuzzy-decided rows labelled"
       }
     ],
     "ranking_publishable": false
@@ -13722,6 +13729,315 @@
         "reference": "a_total_logprob",
         "test": "paired stratified bootstrap on the AUROC difference",
         "test_detail": "10000 resamples, identical resample indices applied to both signals, two-sided achieved significance level, Holm-Bonferroni across 21 distinct comparisons at alpha=0.05 (26 in the full family)"
+      },
+      "stratified": {
+        "available": true,
+        "datasets": [
+          "popqa",
+          "triviaqa"
+        ],
+        "method": "sample-size-weighted mean of per-dataset AUROCs; paired bootstrap with one shared draw sequence across signals",
+        "resamples": 10000,
+        "seed": 987654321,
+        "signals": {
+          "a_first_token_logprob": {
+            "ci_high": 0.6706579371491056,
+            "ci_low": 0.4382480476400314,
+            "n": 120,
+            "point": 0.555977852852853,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_first_token_margin": {
+            "ci_high": 0.5993235082908995,
+            "ci_low": 0.3733756089649432,
+            "n": 120,
+            "point": 0.4870944313879096,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_length_normalized_logprob": {
+            "ci_high": 0.8177127960161248,
+            "ci_low": 0.6425736368161639,
+            "n": 120,
+            "point": 0.7335304054054054,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_max_top5_entropy": {
+            "ci_high": 0.7623734893181225,
+            "ci_low": 0.5599686133144013,
+            "n": 120,
+            "point": 0.6631271216869042,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_mean_logprob": {
+            "ci_high": 0.7208114534371327,
+            "ci_low": 0.5074833835193889,
+            "n": 120,
+            "point": 0.614944428123776,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_mean_top5_entropy": {
+            "ci_high": 0.6798827359968664,
+            "ci_low": 0.476900592848283,
+            "n": 120,
+            "point": 0.5786340008486748,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_min_logprob": {
+            "ci_high": 0.7844658347205901,
+            "ci_low": 0.5839626736111112,
+            "n": 120,
+            "point": 0.6863106312834575,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_perplexity": {
+            "ci_high": 0.7208114534371327,
+            "ci_low": 0.5074833835193889,
+            "n": 120,
+            "point": 0.614944428123776,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_total_logprob": {
+            "ci_high": 0.8226668584345215,
+            "ci_low": 0.6522741321484528,
+            "n": 120,
+            "point": 0.7405809341950645,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_disagreement_rate": {
+            "ci_high": 0.8303997696745659,
+            "ci_low": 0.6583500492680181,
+            "n": 120,
+            "point": 0.7472412970035253,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_disagreement_rate_samples_only": {
+            "ci_high": 0.7979298634572073,
+            "ci_low": 0.5976781808982896,
+            "n": 120,
+            "point": 0.7009426206097402,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_distinct_count": {
+            "ci_high": 0.8136366198059471,
+            "ci_low": 0.634597381858761,
+            "n": 120,
+            "point": 0.7269368553335944,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_distinct_count_samples_only": {
+            "ci_high": 0.7953258880483743,
+            "ci_low": 0.5972815121507378,
+            "n": 120,
+            "point": 0.6991667278691736,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_distinct_fraction": {
+            "ci_high": 0.8136366198059471,
+            "ci_low": 0.634597381858761,
+            "n": 120,
+            "point": 0.7269368553335944,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_distinct_fraction_samples_only": {
+            "ci_high": 0.7953258880483743,
+            "ci_low": 0.5972815121507378,
+            "n": 120,
+            "point": 0.6991667278691736,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_mean_pairwise_f1": {
+            "ci_high": 0.8053782850445553,
+            "ci_low": 0.604193506516027,
+            "n": 120,
+            "point": 0.7083399636049094,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_mean_pairwise_f1_samples_only": {
+            "ci_high": 0.7877655678776603,
+            "ci_low": 0.5779327476253427,
+            "n": 120,
+            "point": 0.6860188993341167,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_semantic_entropy": {
+            "ci_high": 0.7711451983573248,
+            "ci_low": 0.577007607981623,
+            "n": 120,
+            "point": 0.6759398664969318,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_semantic_entropy_normalized": {
+            "ci_high": 0.7711451983573248,
+            "ci_low": 0.577007607981623,
+            "n": 120,
+            "point": 0.6759398664969318,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_semantic_entropy_normalized_samples_only": {
+            "ci_high": 0.7569064861396722,
+            "ci_low": 0.5419025385779802,
+            "n": 120,
+            "point": 0.6510676777320799,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_semantic_entropy_samples_only": {
+            "ci_high": 0.7569064861396722,
+            "ci_low": 0.5419025385779802,
+            "n": 120,
+            "point": 0.6510676777320799,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "c_p_true_plain": {
+            "ci_high": 0.7853426753859837,
+            "ci_low": 0.5374318229574684,
+            "n": 120,
+            "point": 0.6613624494059277,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "c_p_true_with_samples": {
+            "ci_high": 0.7553442539006399,
+            "ci_low": 0.5389955342570832,
+            "n": 120,
+            "point": 0.6499206407494451,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "c_verbal_confidence": {
+            "ci_high": 0.6337884759759761,
+            "ci_low": 0.41904678115615623,
+            "n": 120,
+            "point": 0.5252001321974148,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "t_answer_length": {
+            "ci_high": 0.7097211894299189,
+            "ci_low": 0.5389208671987203,
+            "n": 120,
+            "point": 0.6264969113134875,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "t_question_length": {
+            "ci_high": 0.6287748431175741,
+            "ci_low": 0.41867363712217653,
+            "n": 120,
+            "point": 0.5258881503786395,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "t_random": {
+            "ci_high": 0.6289885418706749,
+            "ci_low": 0.38775284285644335,
+            "n": 120,
+            "point": 0.5082694787178483,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          }
+        }
       },
       "verbal_confidence_health": {
         "available": true,
@@ -25638,6 +25954,315 @@
         "reference": "a_total_logprob",
         "test": "paired stratified bootstrap on the AUROC difference",
         "test_detail": "10000 resamples, identical resample indices applied to both signals, two-sided achieved significance level, Holm-Bonferroni across 21 distinct comparisons at alpha=0.05 (26 in the full family)"
+      },
+      "stratified": {
+        "available": true,
+        "datasets": [
+          "popqa",
+          "triviaqa"
+        ],
+        "method": "sample-size-weighted mean of per-dataset AUROCs; paired bootstrap with one shared draw sequence across signals",
+        "resamples": 10000,
+        "seed": 987654321,
+        "signals": {
+          "a_first_token_logprob": {
+            "ci_high": 0.6706579371491056,
+            "ci_low": 0.4382480476400314,
+            "n": 120,
+            "point": 0.555977852852853,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_first_token_margin": {
+            "ci_high": 0.5993235082908995,
+            "ci_low": 0.3733756089649432,
+            "n": 120,
+            "point": 0.4870944313879096,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_length_normalized_logprob": {
+            "ci_high": 0.8177127960161248,
+            "ci_low": 0.6425736368161639,
+            "n": 120,
+            "point": 0.7335304054054054,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_max_top5_entropy": {
+            "ci_high": 0.7623734893181225,
+            "ci_low": 0.5599686133144013,
+            "n": 120,
+            "point": 0.6631271216869042,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_mean_logprob": {
+            "ci_high": 0.7208114534371327,
+            "ci_low": 0.5074833835193889,
+            "n": 120,
+            "point": 0.614944428123776,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_mean_top5_entropy": {
+            "ci_high": 0.6798827359968664,
+            "ci_low": 0.476900592848283,
+            "n": 120,
+            "point": 0.5786340008486748,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_min_logprob": {
+            "ci_high": 0.7844658347205901,
+            "ci_low": 0.5839626736111112,
+            "n": 120,
+            "point": 0.6863106312834575,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_perplexity": {
+            "ci_high": 0.7208114534371327,
+            "ci_low": 0.5074833835193889,
+            "n": 120,
+            "point": 0.614944428123776,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "a_total_logprob": {
+            "ci_high": 0.8226668584345215,
+            "ci_low": 0.6522741321484528,
+            "n": 120,
+            "point": 0.7405809341950645,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_disagreement_rate": {
+            "ci_high": 0.8303997696745659,
+            "ci_low": 0.6583500492680181,
+            "n": 120,
+            "point": 0.7472412970035253,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_disagreement_rate_samples_only": {
+            "ci_high": 0.7979298634572073,
+            "ci_low": 0.5976781808982896,
+            "n": 120,
+            "point": 0.7009426206097402,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_distinct_count": {
+            "ci_high": 0.8136366198059471,
+            "ci_low": 0.634597381858761,
+            "n": 120,
+            "point": 0.7269368553335944,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_distinct_count_samples_only": {
+            "ci_high": 0.7953258880483743,
+            "ci_low": 0.5972815121507378,
+            "n": 120,
+            "point": 0.6991667278691736,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_distinct_fraction": {
+            "ci_high": 0.8136366198059471,
+            "ci_low": 0.634597381858761,
+            "n": 120,
+            "point": 0.7269368553335944,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_distinct_fraction_samples_only": {
+            "ci_high": 0.7953258880483743,
+            "ci_low": 0.5972815121507378,
+            "n": 120,
+            "point": 0.6991667278691736,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_mean_pairwise_f1": {
+            "ci_high": 0.8053782850445553,
+            "ci_low": 0.604193506516027,
+            "n": 120,
+            "point": 0.7083399636049094,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_mean_pairwise_f1_samples_only": {
+            "ci_high": 0.7877655678776603,
+            "ci_low": 0.5779327476253427,
+            "n": 120,
+            "point": 0.6860188993341167,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_semantic_entropy": {
+            "ci_high": 0.7711451983573248,
+            "ci_low": 0.577007607981623,
+            "n": 120,
+            "point": 0.6759398664969318,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_semantic_entropy_normalized": {
+            "ci_high": 0.7711451983573248,
+            "ci_low": 0.577007607981623,
+            "n": 120,
+            "point": 0.6759398664969318,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_semantic_entropy_normalized_samples_only": {
+            "ci_high": 0.7569064861396722,
+            "ci_low": 0.5419025385779802,
+            "n": 120,
+            "point": 0.6510676777320799,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "b_semantic_entropy_samples_only": {
+            "ci_high": 0.7569064861396722,
+            "ci_low": 0.5419025385779802,
+            "n": 120,
+            "point": 0.6510676777320799,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "c_p_true_plain": {
+            "ci_high": 0.7853426753859837,
+            "ci_low": 0.5374318229574684,
+            "n": 120,
+            "point": 0.6613624494059277,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "c_p_true_with_samples": {
+            "ci_high": 0.7553442539006399,
+            "ci_low": 0.5389955342570832,
+            "n": 120,
+            "point": 0.6499206407494451,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "c_verbal_confidence": {
+            "ci_high": 0.6337884759759761,
+            "ci_low": 0.41904678115615623,
+            "n": 120,
+            "point": 0.5252001321974148,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "t_answer_length": {
+            "ci_high": 0.7097211894299189,
+            "ci_low": 0.5389208671987203,
+            "n": 120,
+            "point": 0.6264969113134875,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "t_question_length": {
+            "ci_high": 0.6287748431175741,
+            "ci_low": 0.41867363712217653,
+            "n": 120,
+            "point": 0.5258881503786395,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          },
+          "t_random": {
+            "ci_high": 0.6289885418706749,
+            "ci_low": 0.38775284285644335,
+            "n": 120,
+            "point": 0.5082694787178483,
+            "resamples": 10000,
+            "weights": {
+              "popqa": 0.5,
+              "triviaqa": 0.5
+            }
+          }
+        }
       },
       "verbal_confidence_health": {
         "available": true,

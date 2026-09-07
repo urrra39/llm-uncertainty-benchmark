@@ -16,6 +16,7 @@ failure `signals.base` exists to prevent, so nothing here re-derives it.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -769,4 +770,131 @@ def holm_bonferroni(p_values: Sequence[float]) -> list[float]:
         adjusted = (m - rank) * values[i]
         running = max(running, adjusted)
         out[i] = float(min(1.0, running))
+    return out
+
+
+@dataclass(frozen=True, slots=True)
+class StratifiedAuroc:
+    """One signal's sample-size-weighted mean AUROC with a paired interval."""
+
+    name: str
+    point: float
+    low: float
+    high: float
+    weights: dict[str, float]
+    n: int
+    resamples: int
+
+    def as_dict(self) -> dict[str, float | int | str | dict[str, float]]:
+        return {
+            "point": self.point,
+            "ci_low": self.low,
+            "ci_high": self.high,
+            "weights": dict(self.weights),
+            "n": self.n,
+            "resamples": self.resamples,
+        }
+
+
+def stratified_bootstrap_auroc(
+    columns: dict[str, FloatArray],
+    y: BoolArray,
+    groups: npt.NDArray[np.int64],
+    group_names: list[str],
+    *,
+    resamples: int,
+    seed: int,
+    level: float = 0.95,
+) -> list[StratifiedAuroc]:
+    """Sample-size-weighted mean of per-dataset AUROCs, with one shared draw.
+
+    Each resample draws, within every dataset, positives and negatives
+    separately (the same stratification as the pooled interval), and every
+    signal is scored on the SAME drawn rows — that sharing is what makes the
+    resulting intervals comparable across signals rather than independent
+    guesses. A signal's AUROC on a draw uses its own usable rows inside the
+    drawn set (NaN means not measured, never a number). Weights are subset
+    sizes over total rows, fixed across resamples so the interval measures
+    discrimination rather than weight jitter.
+    """
+    names = list(columns)
+    codes = np.unique(groups)
+    sizes = {int(c): int(np.count_nonzero(groups == c)) for c in codes}
+    total = sum(sizes.values())
+    weights = {group_names[int(c)]: sizes[int(c)] / total for c in codes}
+
+    point: dict[str, float] = {}
+    for name in names:
+        scores = columns[name]
+        keep = usable_mask(scores)
+        weighted: list[tuple[float, float]] = []
+        for code in codes:
+            mask = keep & (groups == code)
+            value = auroc(scores[mask], y[mask])
+            if math.isfinite(value):
+                weighted.append((value, float(sizes[int(code)])))
+        if weighted:
+            point[name] = math.fsum(v * w for v, w in weighted) / math.fsum(w for _, w in weighted)
+        else:
+            point[name] = float("nan")
+
+    rng = np.random.default_rng(seed)
+    draws: dict[str, list[float]] = {name: [] for name in names}
+    for _ in range(resamples):
+        idx_parts: list[npt.NDArray[np.int64]] = []
+        for code in codes:
+            members = np.flatnonzero(groups == code)
+            y_sub = y[members]
+            pos = members[np.flatnonzero(y_sub)]
+            neg = members[np.flatnonzero(~y_sub)]
+            if pos.size == 0 or neg.size == 0:
+                idx_parts = []
+                break
+            idx_parts.append(
+                np.concatenate(
+                    [
+                        pos[rng.integers(0, pos.size, size=pos.size)],
+                        neg[rng.integers(0, neg.size, size=neg.size)],
+                    ]
+                )
+            )
+        if not idx_parts:
+            continue
+        idx = np.concatenate(idx_parts)
+        for name in names:
+            scores = columns[name]
+            keep = usable_mask(scores)
+            use = idx[keep[idx]]
+            if use.size == 0:
+                continue
+            parts: list[tuple[float, float]] = []
+            for code in codes:
+                mask = (groups[use] == code) & np.isfinite(scores[use])
+                got = auroc(scores[use][mask], y[use][mask])
+                if math.isfinite(got):
+                    parts.append((got, sizes[int(code)]))
+            if parts:
+                draws[name].append(
+                    math.fsum(v * w for v, w in parts) / math.fsum(w for _, w in parts)
+                )
+    alpha = (1.0 - level) / 2.0
+    out = []
+    for name in names:
+        finite = [v for v in draws[name] if math.isfinite(v)]
+        if finite:
+            low = float(np.quantile(finite, alpha))
+            high = float(np.quantile(finite, 1.0 - alpha))
+        else:
+            low, high = float("nan"), float("nan")
+        out.append(
+            StratifiedAuroc(
+                name=name,
+                point=point[name],
+                low=low,
+                high=high,
+                weights=weights,
+                n=int(np.count_nonzero(usable_mask(columns[name]))),
+                resamples=len(finite),
+            )
+        )
     return out

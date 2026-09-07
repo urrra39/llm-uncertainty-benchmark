@@ -489,3 +489,37 @@ def test_wilson_interval_covers_and_shrinks() -> None:
     assert low < 0.5 < high
     low, high = wilson_interval(0, 0)
     assert math.isnan(low) and math.isnan(high)
+
+
+def test_stratified_point_is_size_weighted() -> None:
+    """Hand-computed: popqa AUROC 1.0, triviaqa 0.5, equal sizes -> 0.75."""
+    from unc_bench.analysis.metrics import stratified_bootstrap_auroc
+
+    scores = _f([0.9, 0.8, 0.7, 0.1, 0.9, 0.1, 0.8, 0.2])
+    labels = _b([True, True, True, False, True, True, False, False])
+    groups = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=np.int64)
+    (out,) = stratified_bootstrap_auroc(
+        {"s": scores}, labels, groups, ["popqa", "triviaqa"], resamples=200, seed=5
+    )
+    assert out.point == 0.75
+    assert out.weights == {"popqa": 0.5, "triviaqa": 0.5}
+    assert out.low <= out.point <= out.high
+
+
+def test_stratified_shares_draws_across_signals() -> None:
+    """Identical columns must yield identical intervals: same indices."""
+    from unc_bench.analysis.metrics import stratified_bootstrap_auroc
+
+    rng = np.random.default_rng(9)
+    scores = _f(list(rng.normal(size=40)))
+    labels = _b(([True, False] * 10) + ([True, False] * 10))
+    groups = np.array([0] * 20 + [1] * 20, dtype=np.int64)
+    first, second = stratified_bootstrap_auroc(
+        {"a": scores, "b": scores.copy()},
+        labels,
+        groups,
+        ["popqa", "triviaqa"],
+        resamples=300,
+        seed=5,
+    )
+    assert (first.low, first.high) == (second.low, second.high)

@@ -568,6 +568,7 @@ def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[st
         # D3, D8, D9, D10: computed on the same frozen rows as the table above.
         "significance": significance_table(columns, y, ranked, cfg, clusters),
         "per_dataset": per_dataset_auroc(frame, names, y, cfg, clusters),
+        "stratified": _stratified_block(frame, columns, y, cfg),
         "cluster_bootstrap": {
             "enabled": clusters is not None,
             "n_clusters": int(len(set(clusters.tolist()))) if clusters is not None else 0,
@@ -580,6 +581,46 @@ def _analyze_view(frame: pd.DataFrame, names: list[str], cfg: Config) -> dict[st
             "names": corr_names,
             "spearman": [[None if not np.isfinite(v) else float(v) for v in row] for row in corr],
         },
+    }
+
+
+def _stratified_block(
+    frame: pd.DataFrame, columns: dict[str, Any], y: Any, cfg: Config
+) -> dict[str, Any]:
+    """Sample-size-weighted pooled AUROC with paired bootstrap intervals (B1).
+
+    One shared draw sequence across all signals: every signal is scored on the
+    same resampled rows, so the intervals are comparable rather than
+    independent guesses. Null (with reason) when the frame carries no dataset
+    column to stratify on.
+    """
+    from unc_bench.analysis.metrics import stratified_bootstrap_auroc
+
+    if "dataset" not in frame.columns:
+        return {"available": False, "reason": "the analysis frame carries no dataset column"}
+    sources = sorted(str(d) for d in frame["dataset"].unique())
+    codes = frame["dataset"].astype(str).map({s: i for i, s in enumerate(sources)}).to_numpy(
+        dtype=np.int64
+    )
+    rows = stratified_bootstrap_auroc(
+        columns,
+        y,
+        codes,
+        sources,
+        resamples=cfg.analysis.bootstrap_resamples,
+        seed=cfg.analysis.bootstrap_seed,
+        level=cfg.analysis.ci_level,
+    )
+    return {
+        "available": True,
+        "method": (
+            "sample-size-weighted mean of per-dataset AUROCs; paired bootstrap "
+            "with one shared draw sequence across signals"
+        ),
+        "seed": cfg.analysis.bootstrap_seed,
+        "resamples": cfg.analysis.bootstrap_resamples,
+        "datasets": sources,
+        "signals": {row.name: row.as_dict() for row in rows},
     }
 
 

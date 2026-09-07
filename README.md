@@ -59,34 +59,36 @@ pass, three fail — the ranking is unpublished until all pass):
 Selection rule, stated so curation cannot hide in it: all 22 distinct scored
 signals (5 rank-equivalent duplicates in the appendix), sorted by stratified
 AUROC descending, PopQA AUROC breaking ties. Rendered order is asserted in
-tests against `results_run2b.json`. Stratified means carry no interval: the
-per-row values needed for one were committed, but no stratified bootstrap was
-run for run #2b — that estimator arrives with run #3.
+tests against `results_run2b.json`. Stratified means carry paired bootstrap
+intervals from one shared draw sequence across signals — and the sort order
+does not survive them: the leader's [0.658, 0.830] overlaps the next seven
+intervals end to end, so the ranking above is an ordering of point estimates,
+not an ordering the data supports.
 
 | signal | PopQA (23/37) | TriviaQA (48/12) | stratified |
 |---|---|---|---|
-| `b_disagreement_rate` | 0.768 [0.646, 0.882] | 0.727 [0.592, 0.847] | 0.747 |
-| `a_total_logprob` | 0.825 [0.711, 0.922] | 0.656 [0.514, 0.790] | 0.741 |
-| `a_length_normalized_logprob` | 0.811 [0.690, 0.914] | 0.656 [0.516, 0.790] | 0.734 |
-| `b_distinct_count` | 0.742 [0.619, 0.857] | 0.712 [0.567, 0.842] | 0.727 |
-| `b_mean_pairwise_f1` | 0.751 [0.627, 0.868] | 0.666 [0.495, 0.821] | 0.708 |
-| `b_disagreement_rate_samples_only` | 0.729 [0.604, 0.850] | 0.673 [0.504, 0.826] | 0.701 |
-| `b_distinct_count_samples_only` | 0.724 [0.600, 0.843] | 0.674 [0.505, 0.826] | 0.699 |
-| `a_min_logprob` | 0.765 [0.635, 0.881] | 0.608 [0.446, 0.766] | 0.686 |
-| `b_mean_pairwise_f1_samples_only` | 0.726 [0.600, 0.847] | 0.646 [0.465, 0.809] | 0.686 |
-| `b_semantic_entropy` | 0.656 [0.525, 0.783] | 0.696 [0.539, 0.838] | 0.676 |
-| `a_max_top5_entropy` | 0.760 [0.631, 0.877] | 0.566 [0.399, 0.726] | 0.663 |
-| `c_p_true_plain` | 0.795 [0.660, 0.912] | 0.528 [0.311, 0.733] | 0.661 |
-| `b_semantic_entropy_samples_only` | 0.638 [0.508, 0.766] | 0.664 [0.481, 0.828] | 0.651 |
-| `c_p_true_with_samples` | 0.736 [0.593, 0.861] | 0.564 [0.391, 0.732] | 0.650 |
-| `t_answer_length` | 0.603 [0.498, 0.709] | 0.650 [0.513, 0.774] | 0.626 |
-| `a_mean_logprob` | 0.740 [0.609, 0.861] | 0.490 [0.319, 0.661] | 0.615 |
-| `a_mean_top5_entropy` | 0.722 [0.586, 0.845] | 0.436 [0.283, 0.594] | 0.579 |
-| `a_first_token_logprob` | 0.595 [0.441, 0.743] | 0.517 [0.340, 0.694] | 0.556 |
-| `t_question_length` | 0.499 [0.392, 0.611] | 0.553 [0.371, 0.730] | 0.526 |
-| `c_verbal_confidence` | 0.504 [0.368, 0.639] | 0.547 [0.383, 0.707] | 0.525 |
-| `t_random` | 0.445 [0.296, 0.598] | 0.571 [0.384, 0.752] | 0.508 |
-| `a_first_token_margin` | 0.592 [0.434, 0.744] | 0.382 [0.222, 0.552] | 0.487 |
+| `b_disagreement_rate` | 0.768 [0.646, 0.882] | 0.727 [0.592, 0.847] | 0.747 [0.658, 0.830] |
+| `a_total_logprob` | 0.825 [0.711, 0.922] | 0.656 [0.514, 0.790] | 0.741 [0.652, 0.823] |
+| `a_length_normalized_logprob` | 0.811 [0.690, 0.914] | 0.656 [0.516, 0.790] | 0.734 [0.643, 0.818] |
+| `b_distinct_count` | 0.742 [0.619, 0.857] | 0.712 [0.567, 0.842] | 0.727 [0.635, 0.814] |
+| `b_mean_pairwise_f1` | 0.751 [0.627, 0.868] | 0.666 [0.495, 0.821] | 0.708 [0.604, 0.805] |
+| `b_disagreement_rate_samples_only` | 0.729 [0.604, 0.850] | 0.673 [0.504, 0.826] | 0.701 [0.598, 0.798] |
+| `b_distinct_count_samples_only` | 0.724 [0.600, 0.843] | 0.674 [0.505, 0.826] | 0.699 [0.597, 0.795] |
+| `a_min_logprob` | 0.765 [0.635, 0.881] | 0.608 [0.446, 0.766] | 0.686 [0.584, 0.784] |
+| `b_mean_pairwise_f1_samples_only` | 0.726 [0.600, 0.847] | 0.646 [0.465, 0.809] | 0.686 [0.578, 0.788] |
+| `b_semantic_entropy` | 0.656 [0.525, 0.783] | 0.696 [0.539, 0.838] | 0.676 [0.577, 0.771] |
+| `a_max_top5_entropy` | 0.760 [0.631, 0.877] | 0.566 [0.399, 0.726] | 0.663 [0.560, 0.762] |
+| `c_p_true_plain` | 0.795 [0.660, 0.912] | 0.528 [0.311, 0.733] | 0.661 [0.537, 0.785] |
+| `b_semantic_entropy_samples_only` | 0.638 [0.508, 0.766] | 0.664 [0.481, 0.828] | 0.651 [0.542, 0.757] |
+| `c_p_true_with_samples` | 0.736 [0.593, 0.861] | 0.564 [0.391, 0.732] | 0.650 [0.539, 0.755] |
+| `t_answer_length` | 0.603 [0.498, 0.709] | 0.650 [0.513, 0.774] | 0.626 [0.539, 0.710] |
+| `a_mean_logprob` | 0.740 [0.609, 0.861] | 0.490 [0.319, 0.661] | 0.615 [0.507, 0.721] |
+| `a_mean_top5_entropy` | 0.722 [0.586, 0.845] | 0.436 [0.283, 0.594] | 0.579 [0.477, 0.680] |
+| `a_first_token_logprob` | 0.595 [0.441, 0.743] | 0.517 [0.340, 0.694] | 0.556 [0.438, 0.671] |
+| `t_question_length` | 0.499 [0.392, 0.611] | 0.553 [0.371, 0.730] | 0.526 [0.419, 0.629] |
+| `c_verbal_confidence` | 0.504 [0.368, 0.639] | 0.547 [0.383, 0.707] | 0.525 [0.419, 0.634] |
+| `t_random` | 0.445 [0.296, 0.598] | 0.571 [0.384, 0.752] | 0.508 [0.388, 0.629] |
+| `a_first_token_margin` | 0.592 [0.434, 0.744] | 0.382 [0.222, 0.552] | 0.487 [0.373, 0.599] |
 
 Five rank-equivalent duplicates (`b_distinct_fraction`,
 `b_semantic_entropy_normalized`, `a_perplexity`,
