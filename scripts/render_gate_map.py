@@ -2,9 +2,11 @@
 
 One row per human-label gate naming the exact file it reads, the coverage
 denominator, the threshold and what labelling unlocks. Generated from
-`GATE_SOURCES` in analysis/validity.py plus the run #2b config's resolved
-paths — never by hand — so the document cannot drift from the code. Checked
-by test_gate_map_matches_generated (regeneration must be a no-op):
+`GATE_SOURCES` in analysis/validity.py plus a run's config's resolved
+paths — never by hand — so the document cannot drift from the code. The
+config is the published run's: run #2b's published record is the fixed-label
+set, so the map reads configs/run2b_fixedlabels.yaml. Checked by
+test_gate_map_matches_generated (regeneration must be a no-op):
 
     uv run python scripts/render_gate_map.py
 """
@@ -17,7 +19,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def render(config_name: str = "configs/run2b_clean.yaml") -> str:
+def render(config_name: str = "configs/run2b_fixedlabels.yaml") -> str:
     sys.path.insert(0, str(REPO_ROOT / "src"))
     from unc_bench.analysis.validity import GATE_SOURCES
     from unc_bench.config import Config

@@ -403,7 +403,7 @@ def test_readme_header_matches_generated_block() -> None:
     )
     assert generated.returncode == 0
     readme = (repo / "README.md").read_text(encoding="utf-8")
-    assert "run2b_clean" in generated.stdout
+    assert "run2b_fixedlabels" in generated.stdout
     for line in generated.stdout.strip().splitlines():
         if line.strip():
             assert line.strip() in readme
@@ -423,7 +423,7 @@ def test_signal_table_matches_generated() -> None:
         check=False,
     )
     assert generated.returncode == 0
-    text = (repo / "AUDIT_RESPONSE.md").read_text(encoding="utf-8")
+    text = (repo / "docs" / "AUDIT_RESPONSE.md").read_text(encoding="utf-8")
     start = text.find("<!-- SIGNAL_TABLE:BEGIN -->")
     end = text.find("<!-- SIGNAL_TABLE:END -->")
     assert start >= 0 and end > start
@@ -438,7 +438,7 @@ def test_round10_dispositions_carry_verbatim_quotes() -> None:
     item, so a reader can verify which item it answers."""
     import re as _re
 
-    text = (Path(__file__).resolve().parents[1] / "AUDIT_RESPONSE.md").read_text()
+    text = (Path(__file__).resolve().parents[1] / "docs" / "AUDIT_RESPONSE.md").read_text()
     section = text.split("# Round 10:", 1)[1].split("# ", 1)[0]
     # Join wrapped bullet lines so multi-line dispositions check whole.
     bullets: list[str] = []

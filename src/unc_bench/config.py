@@ -346,6 +346,13 @@ class PathsSpec(Frozen):
     #: predates the fuzzy population file; the coverage gate then reads the
     #: file as absent rather than as zero.
     fuzzy_decided_csv: Path | None = None
+    #: Which labels checkpoint inside artifacts_dir the analysis reads. One
+    #: artifacts directory can therefore carry several label sets for the same
+    #: generations (run #2b keeps `labels.parquet`, the pre-fix set, and
+    #: `labels_fixed.parquet`, the corrected set, in one place); a config that
+    #: re-analyzes a finished run's rows under a different label set names that
+    #: checkpoint here instead of copying the whole run directory.
+    labels_checkpoint: Path = Path("labels.parquet")
 
 
 class PromptSpec(Frozen):

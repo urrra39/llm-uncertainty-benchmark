@@ -1,12 +1,15 @@
 """Cross-check every number the documentation quotes against the results files.
 
-Five documents — `README.md`, `docs/WITHDRAWN_RUN2.md`, `docs/LIMITATIONS.md`,
-`docs/DECISIONS.md` and `data/README.md` — restate runs' numbers in prose.
-Prose drifts. This script re-derives each quoted figure from the committed
-results files and reports a mismatch, so a disagreement is found by reading
-the file rather than by remembering. Two result files: `results_run2b.json is
-primary; `results_run2_withdrawn.json` is the withdrawn record, checked
-against the withdrawn document only.
+The documents — `README.md`, `docs/WITHDRAWN_RUN2.md`,
+`docs/LIMITATIONS.md`, `docs/DECISIONS.md`, `docs/AUDIT_RESPONSE.md` and
+`data/README.md` — restate runs' numbers in prose. Prose drifts. This script
+re-derives each quoted figure from the committed results files and reports a
+mismatch, so a disagreement is found by reading the file rather than by
+remembering. Three result files: `results_run2b_fixedlabels.json` is primary
+(run #2b under the corrected labels); `results_run2b.json` is the archived
+pre-fix comparison the README's sensitivity section quotes;
+`results_run2_withdrawn.json` is the withdrawn record, checked against the
+withdrawn document only.
 
 It is a diagnostic, not a test: it prints and exits non-zero on a mismatch. Run
 it by hand after editing any of the documents, and CI runs it on every push:
@@ -25,14 +28,20 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = (
     REPO_ROOT / "README.md",
-    REPO_ROOT / "docs" / "WITHDRAWN_RUN2.md",
-    REPO_ROOT / "docs" / "LIMITATIONS.md",
+    REPO_ROOT / "docs" / "AUDIT_RESPONSE.md",
     REPO_ROOT / "docs" / "DECISIONS.md",
+    REPO_ROOT / "docs" / "LIMITATIONS.md",
+    REPO_ROOT / "docs" / "WITHDRAWN_RUN2.md",
     REPO_ROOT / "data" / "README.md",
 )
 
 #: The primary results file. Every ranking README quotes must be traceable here.
-PRIMARY_RESULTS = REPO_ROOT / "results_run2b.json"
+#: Run #2b's published record is the FIXED-label analyze (the corrected no-judge
+#: rule); the pre-fix set is the Round-11 comparison, pinned separately.
+PRIMARY_RESULTS = REPO_ROOT / "results_run2b_fixedlabels.json"
+#: The pre-fix run #2b record, quoted only as the labelled sensitivity
+#: comparison in the README's Round-11 section.
+PREFIX_RESULTS = REPO_ROOT / "results_run2b.json"
 #: The withdrawn record. WITHDRAWN_RUN2.md's numbers must be traceable here.
 WITHDRAWN_RESULTS = REPO_ROOT / "results_run2_withdrawn.json"
 
@@ -456,7 +465,7 @@ def check_cross_document(results: dict[str, Any], problems: list[str]) -> None:
         bound = int(echo["n_echo_decided_by_subject_in_alias_list"]) + (
             int(results["views"]["primary"]["n"]) - int(echo["n_rows"])
         )
-        for doc in ("README.md", "docs/DECISIONS.md", "AUDIT_RESPONSE.md"):
+        for doc in ("README.md", "docs/DECISIONS.md", "docs/AUDIT_RESPONSE.md"):
             text = (REPO_ROOT / doc).read_text(encoding="utf-8")
             if str(bound) not in text:
                 problems.append(
@@ -515,23 +524,87 @@ def check_cross_document(results: dict[str, Any], problems: list[str]) -> None:
             except Exception as exc:  # reporting the failure is the point
                 problems.append(f"{label} names {target.name}, which fails to load: {exc}")
 
-    # Pilot-gate thresholds must be identical across shipped configs. The
-    # remediation audit claimed error_rate_low moved 0.35 -> 0.25 in run #3's
-    # config; git history shows 0.25 since introduction and pilot_gate.py
-    # documents 25-65%, so the claim is refused with evidence and this check
-    # pins the equality instead: any future drift must arrive with a DECISIONS
-    # entry citing both values.
-    bands = {}
-    for config_name in ("default.yaml", "pilot.yaml", "run2.yaml", "run3_gpu.yaml"):
-        target = REPO_ROOT / "configs" / config_name
-        if not target.exists():
-            continue
-        bands[config_name] = (
-            Config.load(target).pilot_gate.error_rate_low,
-            Config.load(target).pilot_gate.error_rate_high,
+    # Pilot-gate thresholds: the band is part of the config-to-run contract and
+    # the documents must not drift from it. Enforced in check_gate_band, below.
+
+    check_gate_band(problems)
+
+
+#: The shipped pilot-gate band. Every config and the code default agree on
+#: error-rate [0.25, 0.65]; the docs must state run bands as 25-65% and must
+#: not print the superseded 35-65% figure (R9 refused that claim: the 0.35
+#: value never existed in any config or in git history).
+GATE_BAND_LOW = 0.25
+GATE_BAND_HIGH = 0.65
+
+#: Stale band spellings the documents must not carry. One historical claim is
+#: allowed only where it is explicitly marked as the refused/old figure; none
+#: of the audited documents currently does that, so the check is a hard ban.
+#: The en dash is spelled with an escape to keep the ambiguous codepoint out of
+#: the source (RUF001); docs legitimately use either spelling of the hyphen.
+_endash = "\u2013"
+STALE_BAND_TOKENS = (f"35{_endash}65", "35-65", "35% floor", f"35{_endash}65%")
+
+#: Config -> the results file that config's analyze stage writes. A config is
+#: the run's specification, so its results_json is part of the record: if a
+#: config's declared output drifts from this table (or a claimed-current
+#: results file disappears), the docs that quote that run drift with it.
+CONFIG_RESULTS_MAP: dict[str, tuple[str, str]] = {
+    # config name -> (results_json, run_name)
+    "run2.yaml": ("results_run2_withdrawn.json", "run2_easy_mix"),
+    "run2b_clean.yaml": ("results_run2b.json", "run2b_clean"),
+    "run2b_fixedlabels.yaml": ("results_run2b_fixedlabels.json", "run2b_fixedlabels"),
+    "run3_gpu.yaml": ("results_run3.json", "run3_gpu_balanced"),
+}
+
+
+def check_gate_band(problems: list[str]) -> None:
+    """The pilot-gate band is part of every config's contract: all shipped
+    configs must agree on the error-rate band, the code default must match,
+    and no audited document may state a different band for a run."""
+    from unc_bench.config import Config
+
+    bands: dict[str, tuple[float, float]] = {}
+    for config_path in sorted((REPO_ROOT / "configs").glob("*.yaml")):
+        cfg = Config.load(config_path)
+        bands[config_path.name] = (
+            cfg.pilot_gate.error_rate_low,
+            cfg.pilot_gate.error_rate_high,
         )
     if len(set(bands.values())) > 1:
         problems.append(f"pilot-gate bands differ across configs: {bands}")
+    if (GATE_BAND_LOW, GATE_BAND_HIGH) not in bands.values():
+        problems.append(
+            f"no shipped config carries the canonical band "
+            f"{GATE_BAND_LOW}-{GATE_BAND_HIGH}; a deliberate change must arrive "
+            "with a DECISIONS entry"
+        )
+    for path in DOCS:
+        label = str(path.relative_to(REPO_ROOT))
+        text = path.read_text(encoding="utf-8")
+        for token in STALE_BAND_TOKENS:
+            if token in text:
+                problems.append(f"{label} carries the stale gate band {token!r}")
+
+    # Config-to-run mapping: each named config must still declare the results
+    # file and run_name the documents quote, and a current/superseded run's
+    # results file must exist on disk (run #3's is absent by design).
+    absent_by_design = {"run3_gpu.yaml"}
+    for name, (results_name, run_name) in CONFIG_RESULTS_MAP.items():
+        target = REPO_ROOT / "configs" / name
+        if not target.exists():
+            problems.append(f"CONFIG_RESULTS_MAP names {name}, which does not exist")
+            continue
+        cfg = Config.load(target)
+        if str(cfg.paths.results_json) != results_name:
+            problems.append(
+                f"configs/{name} declares results_json {cfg.paths.results_json}, "
+                f"pinned {results_name}"
+            )
+        if cfg.run_name != run_name:
+            problems.append(f"configs/{name} declares run_name {cfg.run_name}, pinned {run_name}")
+        if name not in absent_by_design and not (REPO_ROOT / results_name).exists():
+            problems.append(f"configs/{name} declares {results_name}, which is absent")
 
 
 #: Open defects as structured data. `docs/OPEN_DEFECTS.md` is rendered from
@@ -575,18 +648,23 @@ OPEN_DEFECTS: tuple[dict[str, str], ...] = (
     {
         "id": "RUN2B-LABELSET",
         "title": (
-            "Run #2b's committed label set is the pre-fix containment rule; the "
-            "code sweep fixes a 6/120 (5.0%) demonstrable-error floor "
-            "(data/label_error_audit.json)"
+            "Run #2b's published table is computed from the corrected label set "
+            "(data/run2b/labels_fixed.parquet -> results_run2b_fixedlabels.json); "
+            "the pre-fix containment-rule set is archived as the comparison "
+            "(results_run2b.json)"
         ),
-        "status": "open",
+        "status": (
+            "code sweep closed (relabel committed and primary); human-coverage "
+            "half open, tracked by HUMAN-COVERAGE"
+        ),
         "measurement_to_close": (
-            "relabel run #2b under the fixed no-judge rule (labels_fixed.parquet) "
-            "and, for publishability, >= 0.80 human coverage of the run's "
-            "fuzzy-decided rows (docs/HUMAN_LABELING.md)"
+            "the code sweep's six demonstrable errors are corrected in the "
+            "published label set; what remains open is the HUMAN-COVERAGE gate: "
+            ">= 0.80 human coverage of the run's fixed-label fuzzy-decided rows "
+            "(data/fuzzy_decided_rows_fixed.csv, docs/HUMAN_LABELING.md)"
         ),
-        "blocks": "reading run #2b's AUROC table as a measured label set rather "
-        "than a measurement pending its label gates",
+        "blocks": "nothing further on the code-sweep half; validity_gates.all_passed "
+        "for the run still waits on the human gates (HUMAN-COVERAGE)",
     },
     {
         "id": "RUN2-ARTIFACTS",
@@ -627,30 +705,68 @@ def render_open_defects() -> str:
     return "\n".join(lines)
 
 
-#: Run #2b's per-dataset table as README prints it: PopQA, TriviaQA.
-RUN2B_PER_DATASET = {
-    "b_disagreement_rate": (0.768, 0.727),
-    "a_total_logprob": (0.825, 0.656),
-    "a_length_normalized_logprob": (0.811, 0.656),
-    "b_distinct_count": (0.742, 0.712),
-    "b_mean_pairwise_f1": (0.751, 0.666),
-    "b_disagreement_rate_samples_only": (0.729, 0.673),
-    "a_mean_logprob": (0.740, 0.490),
-    "c_p_true_plain": (0.795, 0.528),
-    "t_question_length": (0.499, 0.553),
-    "c_verbal_confidence": (0.504, 0.547),
-    "t_random": (0.445, 0.571),
+#: Run #2b's FIXED-label per-dataset table as README prints it: PopQA, TriviaQA.
+#: Point estimates only; the README's cells carry the CIs from the same file.
+FIXED_PER_DATASET = {
+    "b_mean_pairwise_f1": (0.709, 0.701),
+    "c_p_true_plain": (0.828, 0.568),
+    "b_disagreement_rate": (0.722, 0.660),
+    "b_mean_pairwise_f1_samples_only": (0.687, 0.682),
+    "b_distinct_count": (0.701, 0.655),
+    "a_length_normalized_logprob": (0.747, 0.602),
+    "b_disagreement_rate_samples_only": (0.692, 0.647),
+    "a_total_logprob": (0.759, 0.573),
+    "b_distinct_count_samples_only": (0.683, 0.643),
+    "a_min_logprob": (0.706, 0.589),
+    "b_semantic_entropy": (0.619, 0.665),
+    "a_mean_logprob": (0.698, 0.571),
+    "b_semantic_entropy_samples_only": (0.603, 0.663),
+    "a_max_top5_entropy": (0.703, 0.543),
+    "c_p_true_with_samples": (0.727, 0.505),
+    "a_first_token_logprob": (0.582, 0.616),
+    "a_mean_top5_entropy": (0.680, 0.511),
+    "t_question_length": (0.499, 0.657),
+    "t_answer_length": (0.562, 0.503),
+    "c_verbal_confidence": (0.504, 0.550),
+    "t_random": (0.481, 0.570),
+    "a_first_token_margin": (0.580, 0.452),
+}
+
+#: The fixed-label stratified sort key the README's primary table is ordered by.
+FIXED_STRATIFIED = {
+    "b_mean_pairwise_f1": 0.705,
+    "c_p_true_plain": 0.699,
+    "b_disagreement_rate": 0.691,
+    "b_mean_pairwise_f1_samples_only": 0.684,
+    "b_distinct_count": 0.678,
+    "a_length_normalized_logprob": 0.675,
+    "b_disagreement_rate_samples_only": 0.670,
+    "a_total_logprob": 0.667,
+    "b_distinct_count_samples_only": 0.663,
+    "a_min_logprob": 0.648,
+    "b_semantic_entropy": 0.642,
+    "a_mean_logprob": 0.635,
+    "b_semantic_entropy_samples_only": 0.633,
+    "a_max_top5_entropy": 0.623,
+    "c_p_true_with_samples": 0.617,
+    "a_first_token_logprob": 0.599,
+    "a_mean_top5_entropy": 0.596,
+    "t_question_length": 0.577,
+    "t_answer_length": 0.533,
+    "c_verbal_confidence": 0.527,
+    "t_random": 0.525,
+    "a_first_token_margin": 0.517,
 }
 
 
 def check_primary_table(results: dict[str, Any], problems: list[str]) -> None:
-    """README's run #2b numbers against the primary results file."""
+    """README's run #2b fixed-label numbers against the primary results file."""
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     view = results["views"]["primary"]
-    if (view["n"], view["n_incorrect"], view["n_correct"]) != (120, 71, 49):
-        problems.append("primary class counts moved from 71 incorrect / 49 correct")
+    if (view["n"], view["n_incorrect"], view["n_correct"]) != (119, 68, 51):
+        problems.append("primary class counts moved from 68 incorrect / 51 correct at n=119")
     block = view["per_dataset"]
-    for name, (popqa, triviaqa) in RUN2B_PER_DATASET.items():
+    for name, (popqa, triviaqa) in FIXED_PER_DATASET.items():
         for source, want in (("popqa", popqa), ("triviaqa", triviaqa)):
             entry = block["datasets"][source]["signals"].get(name)
             if entry is None:
@@ -661,17 +777,43 @@ def check_primary_table(results: dict[str, Any], problems: list[str]) -> None:
                 problems.append(f"{name} {source} AUROC: primary file {got}, pinned {want}")
             if f"{want:.3f}" not in readme:
                 problems.append(f"README does not print {name} {source} {want:.3f}")
-    # Pooled leader, verdict shape, significance shape, ablation shape.
-    top = view["ranking"][0]
-    if top != "a_total_logprob":
-        problems.append(f"primary pooled leader moved: {top}")
-    if round(view["signals"][top]["auroc"]["point"], 3) != 0.799:
-        problems.append("primary pooled leader moved from 0.799")
+    # The table's sort order: stratified descending, PopQA breaking ties. The
+    # rendered order is pinned by tests/test_readme_numbers.py; here we pin the
+    # sort key and the band facts the prose states.
+    stratified = view["stratified"]["signals"]
+    top = max(stratified, key=lambda n: stratified[n]["point"])
+    if top != "b_mean_pairwise_f1":
+        problems.append(f"primary stratified leader moved: {top}")
+    lead = stratified[top]
+    if (round(lead["point"], 3), round(lead["ci_low"], 3), round(lead["ci_high"], 3)) != (
+        0.705,
+        0.601,
+        0.802,
+    ):
+        problems.append("primary stratified leader moved from 0.705 [0.601, 0.802]")
+    for name, want in FIXED_STRATIFIED.items():
+        got = round(stratified[name]["point"], 3)
+        if got != want:
+            problems.append(f"stratified {name}: primary file {got}, pinned {want}")
+    # Band: every scored signal's interval overlaps the leader's, so the README
+    # prints no below-the-line separator.
+    band = {
+        name
+        for name, e in stratified.items()
+        if e["ci_low"] <= lead["ci_high"] and e["ci_high"] >= lead["ci_low"]
+    }
+    if len(band) != len(stratified):
+        problems.append(
+            f"primary band is {len(band)} of {len(stratified)}; README says all overlap"
+        )
+    # Significance: paired bootstrap, Holm over 21 distinct, one survivor.
     sig = view["significance"]
     if sig["n_comparisons"] != 21:
         problems.append(f"primary distinct comparisons moved: {sig['n_comparisons']}")
-    if sum(1 for c in sig["comparisons"] if c.get("significant_holm_distinct")) != 5:
-        problems.append("primary significant-after-Holm count moved from 5")
+    surviving = sorted(c["name"] for c in sig["comparisons"] if c.get("significant_holm_distinct"))
+    if surviving != ["a_first_token_margin"]:
+        problems.append(f"primary Holm survivors moved: {surviving}")
+    # Ablation, cost, gates (unchanged by the relabel).
     by_n = {int(k): v for k, v in results["ablation"]["by_n"].items()}
     for n, want in ((1, 0.641), (2, 0.700), (3, 0.742), (5, 0.765)):
         got = round(by_n[n]["signals"]["b_distinct_count"]["point"], 3)
@@ -683,8 +825,42 @@ def check_primary_table(results: dict[str, Any], problems: list[str]) -> None:
     gates = {g["name"]: g for g in results["validity_gates"]["gates"]}
     if results["validity_gates"]["all_passed"]:
         problems.append("primary gates unexpectedly all pass (human gates should fail)")
-    if gates["human_label_coverage"]["observed"] != "coverage 0.000":
-        problems.append("primary human gate observed moved from coverage 0.000")
+    for gate in ("labeling_protocol_validated", "human_label_coverage"):
+        if gates[gate]["observed"] != "coverage 0.000":
+            problems.append(f"primary {gate} observed moved from coverage 0.000")
+
+
+def check_prefixed_comparison(problems: list[str]) -> None:
+    """The README's Round-11 sensitivity section quotes pre-fix run #2b numbers
+    as the object of the labeler measurement. Those must trace to the archived
+    pre-fix results file, which is frozen; if it drifts, this fails."""
+    if not PREFIX_RESULTS.exists():
+        problems.append("results_run2b.json is absent (the pre-fix comparison file)")
+        return
+    prefixed = json.loads(PREFIX_RESULTS.read_text(encoding="utf-8"))
+    view = prefixed["views"]["primary"]
+    if (view["n"], view["n_incorrect"], view["n_correct"]) != (120, 71, 49):
+        problems.append("pre-fix class counts moved from 71 incorrect / 49 correct at n=120")
+    # The README's sensitivity section quotes the pre-fix stratified leader by
+    # value; pin it to the frozen pre-fix file.
+    stratified = view["stratified"]["signals"]
+    got = stratified["b_disagreement_rate"]
+    if round(got["point"], 3) != 0.747:
+        problems.append("pre-fix b_disagreement_rate stratified moved from 0.747")
+    if (round(got["ci_low"], 3), round(got["ci_high"], 3)) != (0.658, 0.830):
+        problems.append("pre-fix b_disagreement_rate stratified CI moved from [0.658, 0.830]")
+    # The six proven label errors, from the audit file, are the round's anchor.
+    audit_path = REPO_ROOT / "data" / "label_error_audit.json"
+    if audit_path.exists():
+        audit = json.loads(audit_path.read_text(encoding="utf-8"))
+        confirmed = sorted(audit.get("confirmed_error_qids", []))
+        if len(confirmed) != 6:
+            problems.append(f"label-error audit qids moved: {confirmed}")
+        bound = audit.get("lower_bound_machine_label_error", {})
+        if (bound.get("count"), bound.get("n")) != (6, 120):
+            problems.append("label-error lower bound moved from 6/120")
+    else:
+        problems.append("data/label_error_audit.json is absent")
 
 
 def check_readme_scope(problems: list[str]) -> None:
@@ -722,13 +898,17 @@ def check_readme_scope(problems: list[str]) -> None:
                 )
 
     # Withdrawn-run fingerprints that occur nowhere in the primary run's
-    # tables: the pooled leader, the pooled question-length number, the
-    # run #1 random baseline, and run #2's exact class counts. Point estimates
-    # that also occur as run #2b interval endpoints (e.g. 0.514) are NOT
-    # fingerprinted by value — deltas against withdrawn baselines are checked
-    # structurally below instead. A bare fingerprint outside history fails;
-    # the same number explicitly attributed to run #2 in prose ("in run #2",
-    # "withdrawn") is a historical comparison, not a quoted ranking.
+    # tables: the pooled question-length number, the run #1 random baseline,
+    # and run #2's exact class counts. Run #2's pooled leader (0.704) and
+    # t_question_length (0.684) are deliberately NOT value-fingerprinted:
+    # 0.684 is now a legitimate fixed-label stratified point estimate
+    # (b_mean_pairwise_f1_samples_only), the R16 collision the structural
+    # delta checks exist for. Point estimates that also occur as run #2b
+    # interval endpoints (e.g. 0.514) are NOT fingerprinted by value either —
+    # deltas against withdrawn baselines are checked structurally below. A
+    # bare fingerprint outside history fails; the same number explicitly
+    # attributed to run #2 in prose ("in run #2", "withdrawn") is a historical
+    # comparison, not a quoted ranking.
     # Stale-scope phrasing fails too: the split moved every table, so
     # references to tables "below"/"beside" and futures that already happened
     # are dangling.
@@ -753,7 +933,7 @@ def check_readme_scope(problems: list[str]) -> None:
     _check_superlatives(readme, problems)
     history_at = readme.find("## History of withdrawn runs")
     primary_text = readme[:history_at] if history_at >= 0 else readme
-    for fingerprint in ("0.704", "0.684", "0.746", "63 incorrect / 57 correct"):
+    for fingerprint in ("0.746", "63 incorrect / 57 correct"):
         start = 0
         while True:
             at = primary_text.find(fingerprint, start)
@@ -787,8 +967,10 @@ def main() -> int:
     check_calibration(withdrawn, problems)
     check_misc(withdrawn, problems)
     check_cross_document(withdrawn, problems)
-    # The primary run: README's run #2b numbers against the primary file.
+    # The primary run: README's run #2b fixed-label numbers against the file.
     check_primary_table(results, problems)
+    # The pre-fix comparison the README's sensitivity section quotes.
+    check_prefixed_comparison(problems)
     check_readme_scope(problems)
 
     if not problems:
@@ -825,16 +1007,16 @@ def _check_superlatives(text: str, problems: list[str]) -> None:
 
 
 def check_audit_response_structure(problems: list[str]) -> None:
-    """AUDIT_RESPONSE.md must stay navigable: no repeated round heading, one
-    settled-refusals section, and no restated refusals outside it."""
+    """docs/AUDIT_RESPONSE.md must stay navigable: no repeated round heading,
+    one settled-refusals section, and no restated refusals outside it."""
     import re as _re
 
-    text = (REPO_ROOT / "AUDIT_RESPONSE.md").read_text(encoding="utf-8")
+    text = (REPO_ROOT / "docs" / "AUDIT_RESPONSE.md").read_text(encoding="utf-8")
     headings = _re.findall(r"^# Round \d+.*$", text, flags=_re.MULTILINE)
     if len(headings) != len(set(headings)):
-        problems.append("AUDIT_RESPONSE.md has a repeated round heading")
+        problems.append("docs/AUDIT_RESPONSE.md has a repeated round heading")
     if text.count("## Settled refusals") != 1:
-        problems.append("AUDIT_RESPONSE.md must contain exactly one Settled refusals section")
+        problems.append("docs/AUDIT_RESPONSE.md must contain exactly one Settled refusals section")
     for round_no in ("7", "8", "9"):
         section = text.split(f"# Round {round_no}:", 1)
         if len(section) < 2:

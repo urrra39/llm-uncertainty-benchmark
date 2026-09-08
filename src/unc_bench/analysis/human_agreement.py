@@ -180,6 +180,18 @@ def _normalize(value: str | None) -> str:
     return (value or "").strip().lower()
 
 
+def _disagreeing_qids(rows: list[dict[str, str]], machine_column: str) -> list[str]:
+    """qids where the machine column and the human column disagree, in file
+    order. Called by the report so a disagreement is traceable to its row."""
+    out: list[str] = []
+    for row in rows:
+        human = _normalize(row.get(HUMAN_COLUMN))
+        machine = _normalize(row.get(machine_column))
+        if human in HUMAN_LABELS and machine in HUMAN_LABELS and machine != human:
+            out.append(str(row.get("qid", "?")))
+    return out
+
+
 def kappa_bootstrap_ci(
     machine: list[str],
     human: list[str],
@@ -364,6 +376,7 @@ def render_report(report: HumanValidationReport) -> str:
     """The report as text. Printed by `unc-bench human-agreement`."""
     lines: list[str] = []
     add = lines.append
+    rows = read_validation_csv(report.path)
 
     add(f"Human validation: {report.path}")
     add(f"  rows {report.n_rows}, labelled {report.n_labelled}, unlabelled {report.n_unlabelled}")
@@ -404,6 +417,11 @@ def render_report(report: HumanValidationReport) -> str:
                 add(f"    note: {scored.kappa_note}")
         add(f"    expected agreement by chance {scored.expected_agreement:.4f}")
         add(f"    pooled minority assignments {scored.minority_count}")
+        disagreeing = _disagreeing_qids(rows, scored.machine_column)
+        if disagreeing:
+            shown = ", ".join(disagreeing[:10])
+            more = f" (+{len(disagreeing) - 10} more)" if len(disagreeing) > 10 else ""
+            add(f"    disagrees on rows: {shown}{more}")
 
     add("")
     add("  This measures label correctness against a human, which is a different")

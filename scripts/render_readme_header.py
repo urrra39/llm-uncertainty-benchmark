@@ -5,7 +5,8 @@ label-quality status, and whether the gates passed. This script derives that
 block from the primary results file plus the committed validation CSV, so
 the header cannot drift from the artifacts. Checked by
 `test_readme_header_matches_generated` (regeneration must be a no-op).
-Defaults to the primary run's file, `results_run2b.json`:
+Defaults to the primary run's file — run #2b under the fixed labels,
+`results_run2b_fixedlabels.json` — and to that run's validation CSV:
 
     uv run python scripts/render_readme_header.py [--results results.json]
 """
@@ -19,7 +20,7 @@ from contextlib import suppress
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_RESULTS = "results_run2b.json"
+DEFAULT_RESULTS = "results_run2b_fixedlabels.json"
 FALLBACK_RESULTS = "results.json"
 
 
@@ -45,9 +46,13 @@ def render(results_path: str | None = None, csv_path: str | None = None) -> str:
         csv_file = REPO_ROOT / csv_path
     else:
         csv_file = REPO_ROOT / (
-            "data/human_validation_sample_run2b.csv"
-            if target.stem != "results"
-            else "data/human_validation_sample.csv"
+            "data/human_validation_sample_run2b_fixed.csv"
+            if target.stem == "results_run2b_fixedlabels"
+            else (
+                "data/human_validation_sample_run2b.csv"
+                if target.stem != "results"
+                else "data/human_validation_sample.csv"
+            )
         )
     labelled = 0
     total = 0

@@ -1,11 +1,12 @@
 # Limitations
 
 Written against run #2 (n=120, `configs/run2.yaml`) and run #2b (n=120,
-`configs/run2b_clean.yaml`). Run #1 is discarded; run #2's ranking is
-withdrawn (see README); run #2b is primary but its human gates fail, so its
-ranking is a measurement, not yet a publishable finding. Items 1–14 describe
-run #2; items 15–17 the contamination found after it; items 18+ the limits of
-run #2b itself.
+`configs/run2b_clean.yaml`, published under the fixed-label analyze in
+`configs/run2b_fixedlabels.yaml`). Run #1 is discarded; run #2's ranking is
+withdrawn (see README); run #2b's ranking is a measurement, not yet a
+publishable finding, because its human gates fail. Items 1–14 describe run
+#2; items 15–17 the contamination found after it; items 18+ the limits of run
+#2b and of the fixed-label relabel that produced its published numbers.
 
 1. **n=120 is small.** AUROC confidence intervals are roughly ±0.09 wide. The
    top six signals are statistically indistinguishable from each other. The
@@ -20,8 +21,12 @@ run #2b itself.
 3. **The base rate landed in range partly by luck.** The 40-row pilot projected
    36.6% correct; the full run measured 50.0% on the heuristic labeler and 47.5%
    (57/120) after judging. The projection was 13 points off.
-   The gate (35–65%) was not met by either pilot iteration; the full run met the
-   40–60% target anyway. See docs/DECISIONS.md.
+   Neither pilot iteration met the gate — the shipped band is an error-rate band
+   of 25–65% (`configs/run2.yaml`; 25–65% in every config and in
+   `pilot_gate.py`), and the iterations measured 90% and 72.5% error, i.e. the
+   questions were too hard. The full run's 50% error landed inside the band
+   anyway, and at the centre of the session's 40–60% correctness target. See
+   docs/DECISIONS.md.
 
 4. **The dataset is deliberately easy and therefore unrepresentative.** PopQA is
    restricted to lookup-style relations (run #2's five: `capital`, `country`,
@@ -93,7 +98,7 @@ run #2b itself.
     cuts `c_verbal_confidence`'s ECE from 0.445 to 0.104 — the best post-Platt
     ECE of the three probability-valued signals — while its AUROC stays at 0.484,
     below chance. Platt is monotone and cannot change AUROC. The reliability
-    diagrams (`figures/reliability.png`) should not be read as a ranking of
+    diagrams (`figures/withdrawn_run2/reliability.png`) should not be read as a ranking of
     usefulness.
 
 13. **The 90/30 dataset split is a design flaw, and it is the mechanism behind
@@ -122,10 +127,10 @@ run #2b itself.
 
     The 90/30 weighting was deliberate but was chosen for a different objective:
     the pilot measured PopQA at 41.7% correct against TriviaQA's 21.4%, so the
-    mix was weighted toward PopQA to lift the pooled base rate into the gate's
-    35–65% band. It was chosen to fix the base rate, not to balance the subsets,
-    and the interaction with per-dataset estimation was not considered. See
-    `docs/DECISIONS.md`.
+    mix was weighted toward PopQA to pull the pooled error rate down into the
+    gate's 25–65% band (the run's shipped band; see item 3). It was chosen to
+    fix the base rate, not to balance the subsets, and the interaction with
+    per-dataset estimation was not considered. See `docs/DECISIONS.md`.
 
 14. **No human has verified any label, and the reported κ does not measure
     correctness.** Every one of the 120 labels is machine-assigned: 54 by
@@ -167,14 +172,14 @@ run #2b itself.
     narrow. Run #3 deduplicates on normalized question text with alias-list
     merging and resamples question clusters.
 
-17. **The fourth validity gate fails and will keep failing until a human
-    labels.** `human_label_coverage` records 0.0 today. That is not a footnote:
-    it means `validity_gates.all_passed` is false for every future run until
-    `data/human_validation_sample.csv` reaches 0.80 coverage per
-    `docs/HUMAN_LABELING.md` — the ranking is unpublished until then by the
-    project's own rule.
+17. **The human-label gates fail and will keep failing until a human labels.**
+    `labeling_protocol_validated` and `human_label_coverage` both record 0.0
+    today. That is not a footnote: `validity_gates.all_passed` is false for
+    every future run until the run's own validation sample and fuzzy-decided
+    rows reach coverage per `docs/HUMAN_LABELING.md` — the ranking is
+    unpublished until then by the project's own rule.
 
-15. **Semantic entropy mixes two decoding temperatures, and the clustering is
+18. **Semantic entropy mixes two decoding temperatures, and the clustering is
     order-dependent.** The scored answer set is `[greedy(T=0),
     *samples(T=0.7)]`, so the entropy is computed over a distribution that mixes
     a mode-seeking draw with stochastic draws. Farquhar et al. estimate the
@@ -183,29 +188,39 @@ run #2b itself.
     entropy downward in a way that varies with row difficulty, and that deviation
     is a property of this pipeline rather than of the published method.
     Separately, clustering assigns each answer against the first member of each
-    cluster, which is order-dependent in principle; no audit of greedy versus
-    exhaustive assignment is stored, so the "agree on every case observed" claim
-    cannot be rechecked from committed artifacts.
+    cluster, which is order-dependent in principle; the audit that does exist
+    (4 disagreements in 120 rows) covers the committed run only.
 
-18. **Run #2b labels are heuristic, not judged.** No judge credentials exist
-    offline, so 47 rows settled by exact match and 73 by fuzzy containment,
-    with no kappa. Containment has its own echo-shaped bias (a subject inside
-    an alias scores correct), so the E4 comparison across labelers is a
-    direction check only. The human gates fail until
-    `data/human_validation_sample_run2b.csv` is labelled.
-19. **Run #2b is still small and still imbalanced.** 60 rows per subset with
-    base rates of 38% (PopQA) and 80% (TriviaQA) incorrect; the analytic
-    half-width at 30/30 is 0.145, so only large effects separate. It is a
-    validity run by design (see its pre-registration), not a ranking study.
+19. **Run #2b is still small and still imbalanced.** PopQA 60 rows at 38%
+    incorrect and TriviaQA 59 rows at 76% incorrect under the fixed labels (the
+    pre-fix set measured TriviaQA 80%); the analytic half-width at 30/30 is
+    0.145, so only large effects separate. It is a validity run by design (see
+    its pre-registration), not a ranking study.
+
 20. **Run #2b's N-ablation does not saturate at N=3.** AUROC climbs 0.641 /
     0.700 / 0.742 / 0.765 at N=1/2/3/5; N=1 is significantly below N=5 but
-    N=3 vs N=5 is indistinguishable. "Use N=3" survives as cost advice.
+    N=3 vs N=5 is indistinguishable. "Use N=3" survives as cost advice. The
+    ablation artifact predates the fixed relabel (it was not recomputed under
+    the fixed labels: that would require the NLI stage, and the only
+    recomputation this repository allowed was `analyze`), so those four numbers
+    carry the pre-fix label set.
 
-21. **Run #2b has no inter-labeler agreement statistic of any kind.** Its
-    labels come from one deterministic rule (exact match, else containment),
-    so there is no second opinion to agree or disagree with — no kappa, no
-    disagreement rate, nothing. Do not read the run #2 judge-versus-judge κ of
-    0.849 as covering run #2b; it does not. The remedy is either the human
-    column (agreement against the machine) or a credentialed rerun with
-    `unc-bench label --require-judges`, which aborts instead of silently
-    falling back when no judge is reachable. Both are unrun and say so.
+21. **Run #2b's labels are machine-assigned under a rule no human has checked,
+    and there is no inter-labeler statistic of any kind.** The fixed no-judge
+    rule settled 47 rows by exact match and 72 by the fuzzy rule, and left one
+    row (`triviaqa-jp_1520`) ambiguous and queued for a human. One deterministic
+    rule cannot be scored against itself — no kappa exists for run #2b — and the
+    run #2 judge-versus-judge κ of 0.849 over 66 rows does not cover run #2b.
+    The pre-fix rule's error is measured from below (6/120, 5.0%,
+    `data/label_error_audit.json`); the fixed rule corrects exactly those six,
+    and its residue needs the human column to bound from above. The remedy is
+    either the human column (agreement against the machine) or a credentialed
+    rerun with `unc-bench label --require-judges`, which aborts instead of
+    silently falling back when no judge is reachable. Both are unrun and say so.
+
+22. **The pre-fix label set is retained as a labelled comparison, not as the
+    result.** The containment-rule labels (`results_run2b.json`,
+    `configs/run2b_clean.yaml`) and the corrected set
+    (`results_run2b_fixedlabels.json`) are both committed; the published table
+    is the corrected one. Any prose that quotes the pre-fix table as the
+    primary result is stale.

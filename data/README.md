@@ -12,6 +12,37 @@ number.
 The sample is 100 of the run's 120 rows (79 PopQA, 21 TriviaQA), balanced 50/50
 on the machine label so a labeller sees an equal number of each verdict.
 
+### Run #2b's files, and which are the gate targets
+
+Run #2b ships two label sets for the same 120 rows. The **published** one is
+the fixed set — the labels produced by the corrected no-judge rule
+(`data/run2b/labels_fixed.parquet`, analysed into
+`results_run2b_fixedlabels.json`). The pre-fix set (`data/run2b/labels.parquet`,
+`results_run2b.json`) is the Round-11 object of measurement and is retained as
+a labelled sensitivity comparison, not as the primary result.
+
+The human-label files follow the same split. The **gate targets** for the
+published set are the fixed files, which carry the corrected machine verdicts
+and an empty `human_label`:
+
+- `data/human_validation_sample_run2b_fixed.csv` — 100 rows balanced on the
+  fixed machine label. Labelling it opens `labeling_protocol_validated`.
+- `data/fuzzy_decided_rows_fixed.csv` — the 73 rows the fixed rule decided
+  without exact match (one rule-ambiguous row ships with a blank
+  `fuzzy_verdict`, queued for a human and never coerced). Labelling it opens
+  `human_label_coverage`.
+
+The pre-fix snapshots — `data/human_validation_sample_run2b.csv` and
+`data/fuzzy_decided_rows.csv` — stay committed as the evidence the Round-11
+measurement and the `scripts/audit_label_errors.py` sweep were made against.
+Their `human_label` column is also empty; labelling them would measure the old
+rule, which is no longer the published label set. The gate-target files above
+(`..._fixed.csv`) and run #2's `data/human_validation_sample.csv` are ordered
+highest-value first — the rule-unresolved and rule-moved rows at the very
+front, then the fuzzy-decided rows, then exact-match rows (and, in run #2's
+sample, the heuristic-vs-judge disagreement rows first) — so if a labelling
+session stops partway, the rows already seen are the ones that matter most.
+
 ### Columns
 
 | column | meaning |

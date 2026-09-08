@@ -210,9 +210,9 @@ def human_label_gate(coverage: float | None) -> Gate:
             "human labels bound the fuzzy rule's error, which bounds what any "
             "AUROC against those labels can mean"
             if ok
-            else "no human has checked the fuzzy rule's 73 verdicts, so the "
-            "label set's correctness is unmeasured; label data/fuzzy_decided_rows.csv "
-            "(docs/HUMAN_LABELING.md)"
+            else "no human has checked the fuzzy rule's verdicts, so the label "
+            "set's correctness is unmeasured; label the run's fuzzy-decided "
+            "rows (docs/HUMAN_LABELING.md names the exact file for the run)"
         ),
     )
 

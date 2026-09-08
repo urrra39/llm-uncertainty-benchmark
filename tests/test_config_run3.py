@@ -180,7 +180,16 @@ def test_run3_inherits_run2s_frozen_blocks(cfg: Config) -> None:
     assert cfg.sampling == run2.sampling
     assert cfg.nli == run2.nli
     assert cfg.few_shot == run2.few_shot
-    assert cfg.judges == run2.judges
+    # The judges match run #2's in every respect except cross_validation_n,
+    # deliberately raised 120 -> 600 so a credentialed n=600 run keeps run #2's
+    # property that every primary-judged row is also second-judged (kappa
+    # denominator == judged count, D11). Rationale recorded in
+    # docs/PREREGISTRATION.md. Judge names, thresholds and seeds are inherited.
+    assert (
+        cfg.judges.model_copy(update={"cross_validation_n": run2.judges.cross_validation_n})
+        == run2.judges
+    )
+    assert cfg.judges.cross_validation_n == 600
     assert cfg.split == run2.split
     assert cfg.dataset_seed == run2.dataset_seed
     # The analysis block matches except the cluster-bootstrap switch: with

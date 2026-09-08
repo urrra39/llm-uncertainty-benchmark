@@ -103,7 +103,9 @@ paths:
   raw_dir: data/raw
   cache_dir: data/cache
   artifacts_dir: data/run2
-  figures_dir: figures
+  # Run #2's committed figures live under figures/withdrawn_run2/ so the
+  # figures/ root is not ambiguous about which run is current.
+  figures_dir: figures/withdrawn_run2
   results_json: results_run2_withdrawn.json
   human_validation_csv: data/human_validation_sample.csv
 

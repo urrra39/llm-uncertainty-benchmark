@@ -125,7 +125,7 @@ def test_caches_and_downloads_stay_ignored(path: str) -> None:
     "path",
     [
         "results_run2_withdrawn.json",
-        "figures/auroc.png",
+        "figures/withdrawn_run2/auroc.png",
         "data/README.md",
         "configs/run3_gpu.yaml",
     ],

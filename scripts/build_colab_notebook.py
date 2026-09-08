@@ -441,7 +441,7 @@ Two things to do by hand afterwards, because neither should be automated:
 
 - The runtime band in the first cell is arithmetic, not a measurement. No stage
   of this pipeline has been timed on a T4.
-- Whether the widened PopQA relation set lands inside the pilot gate's 35-65%
+- Whether the widened PopQA relation set lands inside the pilot gate's 25-65%
   base-rate band is **unverified**. `religion`, `place of birth` and `occupation`
   have never been generated against. Run #2's own 40-row pilot missed its full
   run's base rate by 13 points, so treat the projection with the same suspicion.

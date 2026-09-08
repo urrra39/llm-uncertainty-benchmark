@@ -3,6 +3,56 @@
 Running log. Newest entries at the bottom of each section. Every non-obvious
 choice gets one line of rationale so I can argue with myself later.
 
+Decision IDs restart per session (D-numbers repeat across sessions; the R-numbers
+are unique). This index maps each section to what it decides; jump to the
+current state via the last sections.
+
+- **Pre-run sessions** (sections 1–7 of the file, up to "Session 7"): the
+  environment probe, the pipeline build, and run #1 — n=100, discarded (tag
+  `run1-n100`). D1–D15 and D34–D37 live here; the "Status at the end of this
+  session" blocks mark the session boundaries.
+- **Session 3 (D34–D37):** five stages with family B split off from generation;
+  measured TriviaQA throughput; two concurrent generate processes halving the
+  rate; a per-config lock (D36, closed); the two-question smoke test.
+- **Session 4 (D20–D28):** run #1's design and its failure — n=100 by
+  throughput, the measured base rate, scope cuts, the second-judge κ trap
+  (D26), and the two numbers that undermined the run (D27).
+- **Run #2, session 5 (D1–D15, D1(a)–D1(c)):** repairing run #1's base rate
+  with the relation filter and the 90/30 split; the two pilot iterations; the
+  defect fixes (paired bootstrap, AUPRC, ECE, N-ablation, cost, κ denominator,
+  frozen analysis set); the "not run" list.
+- **Post-run corrections, session 6 (D16–D21):** rank-equivalent signal pairs,
+  the semantic-entropy tie, deduplicated Holm, the split rationale, and the
+  human-validation file made usable but not filled.
+- **Session 7 (D22–D27):** preparing run #3 — dataset filters measured not
+  guessed, model choice (3B fp16), batched generation and where it is safe,
+  per-dataset bootstrap CIs, device detection, and the measured padding defect
+  that pins `generation_batch_size` to 1. Run #3's config did not exist at the
+  end of this session.
+- **Session 8:** the four-document audit; the corrected runtime estimate; run
+  #3's config, notebook and artifact tracking verified without a GPU.
+- **Remediation session (Parts A–D of the external audit, R1–R7):** the echo
+  pathology measured, the leakage finding, the bootstrap calibration refusal,
+  D27 reopened, and what was deliberately not done.
+- **Round 4 (R8–R13):** run #2 withdrawn with a bound; the pilot-gate
+  accusation refused (R9 — the 0.35 band never existed); run #3's relations
+  chosen by measurement; run #2b executed on CPU.
+- **Round 6 (R14–R17):** withdrawn baselines marked inline; the auditor's
+  numbers verified (two failed); fingerprint collisions; the E4 sign-bug trail.
+- **Round 8 (R18):** the 16-row downgrade stands as correct on the evidence
+  then available.
+- **Round 11 (R19–R28):** the labeler's six errors reproduced and fixed; the
+  containment rule retired; the fixed relabel measured (R22–R23); the human
+  targets written (R24); the cross-subject gold-merge guard (R25); the
+  single-template PopQA column (R26); gates after the relabel (R27); the
+  pre-registered E4 outcome paragraphs waiting on a human report (R28).
+- **Round 12 (R29–R35):** the publication pass — fixed-label analyze as the
+  reproducible published record, gate-band prose reconciled to 25–65%,
+  run #3's judge cross-validation raised to full coverage, the pilot failure
+  path pre-registered, duplicate artifacts consolidated, the human-label path
+  retargeted to the fixed set, and RUN2B-LABELSET closed on the code-sweep
+  half.
+
 ## Environment probe (before any code)
 
 I probed the machine before committing to a model path, because the whole design
@@ -657,22 +707,29 @@ the substitution.
 
 ### Pilot iterations (the gate allowed two)
 
-| iteration | mix | measured correct | abstention | gate 35–65% |
-|---|---|---|---|---|
-| 1 | popularity-decile PopQA + easy TriviaQA | 10.0% (PopQA 7.7%, TriviaQA 11.1%) | 0.0% | failed low |
-| 2 | relation-filtered PopQA + stricter TriviaQA | 27.5% pooled (PopQA 41.7%, TriviaQA 21.4%) | 0.0% | failed low |
+The gate is an ERROR-rate band — a model too often wrong (above the ceiling) is
+as unusable as one never wrong (below the floor). The shipped band is 25–65%
+(`error_rate_low: 0.25` / `error_rate_high: 0.65`, present in every config and
+in `pilot_gate.py` since introduction; R9). The pilots below were measured in
+correct-rate terms and are converted to error here (error = 1 − correct):
 
-Two iterations is the maximum the brief allows. Iteration 2 still sat below the
-35% floor, so per the brief I proceeded to the full run at the best mix achieved
-rather than spending a third pilot. The final mix weights toward the stronger
-dataset: 90 PopQA rows and 30 TriviaQA rows.
+| iteration | mix | measured correct | = error | abstention | gate 25–65% |
+|---|---|---|---|---|---|
+| 1 | popularity-decile PopQA + easy TriviaQA | 10.0% (PopQA 7.7%, TriviaQA 11.1%) | ~90% | 0.0% | failed high (too hard) |
+| 2 | relation-filtered PopQA + stricter TriviaQA | 27.5% pooled (PopQA 41.7%, TriviaQA 21.4%) | ~72.5% | 0.0% | failed high (too hard) |
+
+Two iterations is the maximum the brief allows. Iteration 2 was still above the
+65% ceiling, so per the brief I proceeded to the full run at the best mix
+achieved rather than spending a third pilot. The final mix weights toward the
+stronger dataset: 90 PopQA rows and 30 TriviaQA rows.
 
 The pilot's per-dataset rates projected 36.6% pooled for that mix. **The full
 120-row run measured exactly 50.0% (60 correct / 60 incorrect) on the heuristic
-labeler and 57 correct / 63 incorrect after judging** — the centre of D1's
-40–60% target, and well above the projection. The 40-row pilot's per-dataset
-rates were simply noisy estimates; that the projection was 13 points low is
-itself a caution about reading a 40-row pilot too precisely.
+labeler and 57 correct / 63 incorrect after judging** — 50% error, inside the
+25–65% band and at the centre of D1's 40–60% target, and well above the
+projection. The 40-row pilot's per-dataset rates were simply noisy estimates;
+that the projection was 13 points low is itself a caution about reading a
+40-row pilot too precisely.
 
 To be explicit about what this means: the base rate landed in the target range,
 but it landed there partly by luck, not because the pilot predicted it.
@@ -710,7 +767,7 @@ the target stayed at 120.
   (0.7611 both) and against a constant signal (returns the base rate).
 - **D5** — ECE before and after Platt scaling, fitted on the train split only.
   The per-signal **reliability diagrams are now drawn**
-  (`figures/reliability.png`): one panel per probability-valued signal, both
+  (`figures/withdrawn_run2/reliability.png`): one panel per probability-valued signal, both
   curves against the diagonal, both ECE values in the panel legend. Only the
   three signals the report marks `is_probability_valued` are plotted; the panel
   set is derived from that flag rather than hardcoded, so a logprob cannot end
@@ -900,11 +957,13 @@ dataset.
 ### D20. Why the split ended up 90/30
 
 Recorded, not reconstructed. The pilot-iteration notes above show iteration 2
-measuring PopQA at 41.7% incorrect against TriviaQA at 21.4%, both below the
-35% gate floor. The note states the reason for the weighting directly: "The
-final mix weights toward the stronger dataset: 90 PopQA rows and 30 TriviaQA
-rows," where "stronger" means the higher measured error rate, and the projected
-pooled rate for that mix was 36.6%, just over the floor.
+measuring PopQA at 41.7% correct (58.3% error) against TriviaQA at 21.4%
+correct (78.6% error). Weighting toward PopQA is weighting toward the subset
+whose error rate is inside the band: the projected pooled error for a 75/25
+mix is 0.75 × 58.3% + 0.25 × 78.6% = 63.4%, just under the 65% ceiling. The
+session note put this in correct-rate terms — "the final mix weights toward
+the stronger dataset: 90 PopQA rows and 30 TriviaQA rows", whose projected
+pooled correct rate was 36.6% — which is the same arithmetic mirrored.
 
 So the split was chosen deliberately, but it was chosen to pull the *pooled base
 rate* into the validity gate, not to produce comparable subsets. Subset
@@ -1047,6 +1106,12 @@ The 300 PopQA rows do not fit run #2's filter. Measured against the real
 | run #2: 5 relations, popularity quantile 0.9 | **243** |
 | run #3: 8 relations, popularity quantile 0.9 | **389** |
 
+> Superseded, with the date of the revision: the round-4 session (R10) moved
+> run #3 to **quantile 0.5 with seven relations** and re-measured the pool at
+> 2074 unique questions (6.91×); the C2 cross-subject guard (round 11, R25)
+> left **2036 unique (6.79×)**. This D22 table records session 7's measurement
+> of the abandoned quantile-0.9 configuration.
+
 243 is below 300, so `DatasetBuilder.build` would raise
 `asked for 300 questions but only 243 are usable` — correctly, rather than
 silently drawing fewer. The three relations added are `religion`,
@@ -1074,7 +1139,7 @@ Both numbers were measured in this session by loading the real corpora through
 `PopQABuilder` and `TriviaQABuilder`. Neither is inherited from a previous note.
 
 **What is not established:** whether the widened PopQA slice lands inside the
-35–65% base-rate gate. Run #2's own experience is the caution here — its 40-row
+25–65% base-rate gate. Run #2's own experience is the caution here — its 40-row
 pilot projected 36.6% and the full run measured 50.0%, a 13-point miss — and the
 three added relations have never been generated against. `configs/run3_gpu.yaml`
 therefore ships with the pilot gate configured, and the notebook runs the full
@@ -1247,6 +1312,10 @@ The four items above were closed in session 8, recorded below. The padding
 defect D27 remains open and is worked around, not fixed.
 
 ### Status at the end of session 8
+
+> The config described below is the session-8 state. Round 4 (R10) later
+> revised run #3 to quantile 0.5 with seven relations (see the D22 table note);
+> `configs/run3_gpu.yaml` as shipped reflects that revision.
 
 **Landed and verified:**
 
@@ -1579,7 +1648,12 @@ run below closes the divergence with 27/27 scored.
   X?" because the 90th-percentile slice of the four relations is ~92% capital.
   LIMITATIONS/README/config comments now say so; the run2b config is not
   changed (a completed run is not re-specified after the fact); run #3's slice
-  was verified genuinely diverse (7 relations, 2191 unique).
+  was verified genuinely diverse. The 2191-unique figure written then predated
+  the C2 cross-subject guard and the leakage drop; re-measured through the
+  committed builder at run #3's settings (quantile 0.5, seven relations,
+  `drop_gold_in_question`, C2 on) the pool is **2036 unique questions** after
+  collapsing 42 near-duplicate groups — a 6.79× margin for 300 draws, matching
+  `configs/run3_gpu.yaml`'s comment.
 - **R27. Gates after A3 (C3):** pooled 68/51@119 (base 0.571), PopQA 23/37
   (0.383), TriviaQA 45/14 (0.763). random-baseline PASS 0.538 [0.433, 0.639];
   minimum_rows_per_class PASS; abstention PASS; per_dataset_class_counts FAIL
@@ -1592,3 +1666,63 @@ run below closes the divergence with 27/27 scored.
   0.691) and E4's a_mean_logprob PopQA becomes 0.698 [0.553, 0.833], still above
   chance. The three pre-written E4 outcome paragraphs are conditioned on the
   human fuzzy-rule accuracy report; none is pasted before Part D exists.
+
+## Round-12 session (publication pass)
+
+A publication pass over the whole repository. No generation, no judging, no
+new measurement: the only recomputation was `analyze` (permitted) and the
+derived figures/CSVs re-rendered from committed artifacts.
+
+- **R29. The fixed-label analyze is the published record, and it is
+  reproducible.** `unc-bench analyze --config configs/run2b_fixedlabels.yaml`
+  re-run against `data/run2b/` + `data/run2b/labels_fixed.parquet` reproduces
+  `results_run2b_fixedlabels.json` bit-identically apart from the timestamp
+  (D13-style). The published table is the corrected label set; the pre-fix
+  set (`results_run2b.json`) is retained as a labelled sensitivity comparison.
+  A new `paths.labels_checkpoint` key lets an artifacts directory carry
+  several label sets without copying the run (run2b keeps both `labels.parquet`
+  and `labels_fixed.parquet` in one place), which removed the duplicate
+  `data/run2b_fixedlabels/` directory.
+- **R30. The gate-band prose is reconciled to the shipped band.** The shipped
+  pilot gate is an error-rate band of 0.25–0.65 in every config and in
+  `pilot_gate.py` since introduction (R9). Older prose that quoted the run #2
+  gate with a 35-percent floor described the pilot iterations in correct-rate
+  terms and contradicted the configs; it is rewritten in error-rate terms (run
+  #2's two pilots measured ~90% and ~72.5% error, both above the 65% ceiling —
+  "failed high (too hard)", matching the remedy applied). The corrected pilot
+  table and the D20 split note are in place above; `LIMITATIONS`,
+  `PREREGISTRATION` and the Colab notebook now state the shipped 25–65% band
+  everywhere, and the docs audit bans the stale 35-percent figures
+  mechanically.
+- **R31. Run #3's judge cross-validation is raised to full coverage.** At
+  n=600 the inherited `cross_validation_n: 120` would second-judge a fifth of
+  the run; it is raised to 600 so every primary-judged row is second-judged and
+  the κ denominator equals the judged count (D11's property, as in run #2).
+  Rationale recorded in `docs/PREREGISTRATION.md`; `test_config_run3` now pins
+  the deliberate difference from run #2's judges block.
+- **R32. Run #3's pilot failure path is pre-registered.** Because the PopQA
+  slice got harder (quantile 0.9→0.5) while the model got stronger (0.5B→3B),
+  the two pilot iterations could both miss the band. The contingency is now in
+  `docs/PREREGISTRATION.md`: the subset ratio is the only knob, moves by 150
+  rows per iteration toward the dataset whose error rate is inside the band,
+  two iterations maximum, and the full run proceeds at the best mix with the
+  gate failure recorded as the result if both miss.
+- **R33. The duplicate run directory and CSV snapshots are consolidated.**
+  `data/run2b_fixedlabels/` was a byte-copy of `data/run2b/` with only the
+  label artifacts swapped; it is deleted (R29's `labels_checkpoint` makes the
+  re-analysis read the canonical store). The CSV pairs (`fuzzy_decided_rows`
+  and `human_validation_sample_run2b`) remain in both pre-fix and `_fixed`
+  forms because their verdicts differ — the pre-fix snapshots are Round-11
+  evidence, the `_fixed` files are the published set's human targets.
+- **R34. The human-label path targets the published (fixed) set and is ordered
+  highest-value first.** `label-human --run run2b` resolves to
+  `data/fuzzy_decided_rows_fixed.csv`; the fixed sample carries the full
+  11-column schema (the two judge columns empty — no judge ran under the
+  heuristic labeler); and the gate-target CSVs plus run #2's sample are ordered
+  so the rule-unresolved row, the relabel-moved rows, the fuzzy-decided rows
+  and (in run #2's sample) the heuristic-vs-judge disagreements come first.
+  `docs/HUMAN_LABELING.md`, `docs/LABEL_GATE_MAP.md` (regenerated from
+  `configs/run2b_fixedlabels.yaml`) and the README name the same files.
+- **R35. RUN2B-LABELSET is closed on the code-sweep half.** The corrected label
+  set is the committed, published one; the human-coverage half remains open and
+  is tracked by HUMAN-COVERAGE. `docs/OPEN_DEFECTS.md` reflects the split.

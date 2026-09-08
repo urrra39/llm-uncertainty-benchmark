@@ -171,7 +171,13 @@ judges:
     name: claude-haiku-4-5
     api_key_env: GSK_API_KEY
     max_new_tokens: 8
-  cross_validation_n: 120
+  # 600, not run #2's 120: at n=600 a cap of 120 would second-judge a fifth of
+  # the run. Full coverage keeps run #2's property — every primary-judged row is
+  # also second-judged, so the kappa denominator equals the judged-row count by
+  # construction (D11). The cost is bounded: the secondary judge runs only on
+  # rows the primary judge was asked about, so this is a ceiling, not a budget.
+  # Rationale recorded in docs/PREREGISTRATION.md.
+  cross_validation_n: 600
   kappa_trust_threshold: 0.7
   secondary_seed: 4242
 

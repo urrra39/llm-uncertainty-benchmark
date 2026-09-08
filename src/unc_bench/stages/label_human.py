@@ -31,15 +31,21 @@ import pandas as pd
 #: Map from --run names to validation CSVs. Withdrawn runs are deliberately
 #: absent: labelling withdrawn rows earns no gate credit, so they are not a
 #: target. A direct .csv path still works as an escape hatch for anything.
+#:
+#: Run #2b's published (primary) label set is the FIXED one, so the gate files
+#: a human labels for run #2b are the *_fixed.csv targets, not the pre-fix
+#: snapshots (which remain committed as the object of the labeler measurement).
 RUN_CSVS = {
-    "run2b": Path("data/human_validation_sample_run2b.csv"),
+    "run2b": Path("data/human_validation_sample_run2b_fixed.csv"),
 }
 
 #: Default labelling target: the rows where the label risk actually lives.
-#: The 73 fuzzy-decided rows decided 61% of run #2b's labels under a rule no
-#: human has checked, so they outrank the 47 exact-match rows (a deterministic
-#: string comparison needs no human) in labelling value per minute.
-DEFAULT_TARGET = Path("data/fuzzy_decided_rows.csv")
+#: The 73 fuzzy-decided rows decide most of run #2b's labels under a rule no
+#: human has checked, so they outrank the exact-match rows (a deterministic
+#: string comparison needs no human) in labelling value per minute. The fixed
+#: set is the published one; data/fuzzy_decided_rows.csv is the pre-fix
+#: snapshot kept as evidence.
+DEFAULT_TARGET = Path("data/fuzzy_decided_rows_fixed.csv")
 
 VALID_VERDICTS = ("correct", "incorrect")
 
@@ -47,9 +53,10 @@ VALID_VERDICTS = ("correct", "incorrect")
 def label_plan(sample_csv: str | Path, fuzzy_csv: str | Path) -> dict[str, object]:
     """The minimum labelling order that greens every label gate (Part B4).
 
-    Protocol gate needs 50/100 sample rows; coverage gate needs 59/73 fuzzy
-    rows. Rows in both files count toward both gates, so the plan labels
-    shared rows first: 53 shared, then 6 more fuzzy rows, totalling 59.
+    Protocol gate needs 50 of the sample's 100 rows; coverage gate needs 59 of
+    the fuzzy file's 73 rows. Rows in both files count toward both gates, so
+    the plan labels shared rows first, then fuzzy-only rows until the coverage
+    floor, then sample-only rows if the protocol floor is not yet met.
     Unlabelled counts assume a fresh start; already-labelled rows are
     subtracted, never re-planned. Pure function of the two committed files.
     """

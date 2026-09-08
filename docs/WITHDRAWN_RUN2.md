@@ -295,7 +295,7 @@ then the supported reading is "no measurable gain from samples 4–5 in this
 single draw" — and N=1 here means "the first of the five", not an independent
 single-sample run.
 
-Figure: `figures/n_ablation.png`.
+Figure: `figures/withdrawn_run2/n_ablation.png`.
 
 ### Calibration
 
@@ -311,7 +311,7 @@ than the signal, so the other eighteen store null and are reported as such.
 | `c_p_true_with_samples` | 0.330 | 0.127 |
 | `c_verbal_confidence` | 0.445 | 0.104 |
 
-Reliability diagrams: **`figures/reliability.png`** — one panel per
+Reliability diagrams: **`figures/withdrawn_run2/reliability.png`** — one panel per
 probability-valued signal, showing the before-Platt and after-Platt curves
 against the diagonal, with both ECE values in each panel's legend. Marker area
 is proportional to bin count; empty bins are omitted rather than interpolated
@@ -326,18 +326,18 @@ AUROC at all; it only moves the numbers onto the right scale.
 
 ### Figures
 
-- **`figures/reliability.png`** — reliability diagrams, before and after Platt,
+- **`figures/withdrawn_run2/reliability.png`** — reliability diagrams, before and after Platt,
   for the three probability-valued signals (finding 4's calibration counterpart).
-- **`figures/risk_coverage.png`** — risk against coverage for the top five
+- **`figures/withdrawn_run2/risk_coverage.png`** — risk against coverage for the top five
   signals plus `t_random`. The operational picture: how much error you avoid by
   declining to answer the rows a signal flags.
-- **`figures/cost_vs_auroc.png`** — AUROC against measured cost with the Pareto
+- **`figures/withdrawn_run2/cost_vs_auroc.png`** — AUROC against measured cost with the Pareto
   frontier drawn explicitly. This is finding 2 as a picture.
-- **`figures/n_ablation.png`** — family-B AUROC against sample count. This is
+- **`figures/withdrawn_run2/n_ablation.png`** — family-B AUROC against sample count. This is
   finding 3 as a picture.
-- **`figures/auroc.png`** — all 21 signals with bootstrap CIs, grouped by
+- **`figures/withdrawn_run2/auroc.png`** — all 21 signals with bootstrap CIs, grouped by
   family. This is finding 1 as a picture: the intervals visibly overlap.
-- **`figures/correlation.png`** — Spearman correlation between every pair of
+- **`figures/withdrawn_run2/correlation.png`** — Spearman correlation between every pair of
   signals. Shows how much of a 21-row table is one measurement wearing many
   hats.
 

@@ -54,7 +54,7 @@ class StagePaths:
             generations=root / "generations.parquet",
             signals_actc=root / "signals_actc.parquet",
             signals_b=root / "signals_b.parquet",
-            labels=root / "labels.parquet",
+            labels=root / cfg.paths.labels_checkpoint,
             pilot_gate=root / "pilot_gate.json",
             timings=root / "timings.json",
         )

@@ -66,8 +66,49 @@ ranking unpublished. The order is the control.
 
 One run at the committed config. No re-filtering, no seed-hunting, no
 subset re-weighting after seeing labels. If the pilot gate fails
-(35–65% band), the run is a record of that failure, not an invitation to a
-third pilot: the gate permits two iterations and both are budgeted.
+(25–65% band, the band `configs/run3_gpu.yaml` ships), the run is a record of
+that failure, not an invitation to a third pilot: the gate permits two
+iterations and both are budgeted.
+
+## Pilot contingency, pre-registered (added when run #3's slice moved to quantile 0.5)
+
+Run #3's PopQA slice is harder than run #2b's (popularity quantile 0.9 → 0.5)
+at the same time as the subject model is stronger (0.5B → 3B). Those are two
+opposing forces on the base rate, and the config deliberately defers the
+question to the pilot gate rather than guessing. Because both pilot
+iterations could land outside the band, the failure path is fixed here, in
+advance, so it cannot become post-hoc tuning:
+
+- **Knob that moves: the popqa:triviaqa subset ratio only.** The question-set
+  construction (relations, quantile, filters) is frozen by this document;
+  changing it mid-pilot would alter what run #3 is a study of. The ratio is the
+  one lever run #2's own pilot used, and the mix stays within the balanced
+  design: never below 150 rows in either subset.
+- **Direction:** measured against the error-rate band [0.25, 0.65]. If the
+  pooled error sits above 0.65 (too hard), move 150 rows (25% of n) from the
+  higher-error subset to the lower-error one. If it sits below 0.25 (too
+  easy), move 150 rows the other way.
+- **Magnitude per iteration:** exactly 150 rows per move (300/300 → 450/150
+  worst case). No finer tuning within an iteration.
+- **Maximum iterations before proceeding anyway:** two. If the second pilot
+  still lands outside the band, the full run proceeds at the best mix with the
+  gate failure recorded in its results file as the primary result — the base
+  rate is then a documented finding, not a hidden tuning failure, and no
+  signal is read as a ranking against a degenerate base rate (run #1's
+  lesson). The two human gates and the class floor still apply unchanged.
+
+## Judge cross-validation at n=600 (added with the config pre-flight)
+
+`configs/run3_gpu.yaml` ships `judges.cross_validation_n: 120`, inherited from
+run #2 where 120 ≥ the 66 judged rows, so the second judge covered every row
+the primary judge saw (κ over the full judged set, D11). At n=600 that value
+would cap the second judge at 120 rows — a fifth of the run — and the
+judge-agreement κ would rest on that fifth. This was raised to **600** so a
+credentialed run #3 keeps run #2's property: every primary-judged row is
+second-judged, and the κ denominator equals the judged-row count by
+construction (D11's assertion). The extra cost is bounded: the secondary judge
+runs only on rows the primary judge was asked about, so `cross_validation_n`
+is a ceiling, not a budget. The heuristic (no-key) path is unaffected.
 
 ## Power
 
@@ -169,3 +210,15 @@ applicable, abstention < 0.10, protocol ≥ 0.50, run coverage ≥ 0.80). The
 POST-run human gate will fail until `data/human_validation_sample_run2b.csv`
 is labelled — expected, recorded, not a surprise. One execution at the
 committed config; no re-filtering after labels.
+
+## Addendum (Round 11 / publication pass): the gate targets moved to the fixed set
+
+This section pre-registered the run as executed. Round 11 re-labelled the run
+under the fixed no-judge rule, and the publication pass made that corrected
+set the published one (`results_run2b_fixedlabels.json`). A human gate on the
+published set therefore reads the FIXED-label targets, not the pre-fix files
+named above: `data/fuzzy_decided_rows_fixed.csv` for `human_label_coverage`
+and `data/human_validation_sample_run2b_fixed.csv` for
+`labeling_protocol_validated` (`configs/run2b_fixedlabels.yaml` resolves both).
+The pre-fix files above remain committed as the Round-11 evidence; labelling
+them measures the old rule, which is no longer the published set.

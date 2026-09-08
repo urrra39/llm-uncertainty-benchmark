@@ -339,6 +339,24 @@ def test_report_states_that_this_is_not_the_judge_versus_judge_kappa(
     assert "results file" in text
 
 
+def test_report_names_the_disagreeing_rows(tmp_path: Path) -> None:
+    """A disagreement is traceable to its row, not just counted."""
+    path = _write(
+        tmp_path / "v.csv",
+        [
+            _row("agree-1", "correct", "correct"),
+            _row("flip-1", "correct", "incorrect"),
+            _row("flip-2", "incorrect", "correct"),
+        ],
+    )
+    text = render_report(build_report(path))
+    assert "2 disagreement(s)" in text
+    assert "disagrees on rows: flip-1, flip-2" in text
+    # an agreeing row is not named as a disagreement
+    disagree_line = next(line for line in text.splitlines() if "disagrees on rows" in line)
+    assert "agree-1" not in disagree_line
+
+
 def test_a_file_without_the_human_column_raises(tmp_path: Path) -> None:
     path = tmp_path / "v.csv"
     path.write_text("qid,machine_label\na,correct\n", encoding="utf-8")
@@ -481,8 +499,8 @@ def test_label_human_rejects_unknown_runs() -> None:
     from unc_bench.stages.label_human import DEFAULT_TARGET, resolve_csv
 
     assert resolve_csv("run2b") == DEFAULT_TARGET
-    assert resolve_csv("run2b", "sample").name == "human_validation_sample_run2b.csv"
-    assert resolve_csv("run2b", "fuzzy_decided").name == "fuzzy_decided_rows.csv"
+    assert resolve_csv("run2b", "sample").name == "human_validation_sample_run2b_fixed.csv"
+    assert resolve_csv("run2b", "fuzzy_decided").name == "fuzzy_decided_rows_fixed.csv"
     with pytest.raises(ValueError, match="unknown run"):
         resolve_csv("run9")
     with pytest.raises(ValueError, match="unknown target"):
@@ -519,10 +537,12 @@ def test_label_human_ambiguous_leaves_blank_and_logs(tmp_path: Path) -> None:
 
 
 def test_fuzzy_decided_file_is_the_default_target_and_unlabelled() -> None:
-    """P0.3's population file ships with human_label empty everywhere."""
+    """P0.3's population file ships with human_label empty everywhere. The
+    default target is the fixed-label fuzzy file, because the published label
+    set is the fixed one."""
     import pandas as pd
 
-    frame = pd.read_csv("data/fuzzy_decided_rows.csv", dtype=str, keep_default_na=False)
+    frame = pd.read_csv("data/fuzzy_decided_rows_fixed.csv", dtype=str, keep_default_na=False)
     assert len(frame) == 73
     assert (frame["human_label"].str.strip() == "").all()
 
@@ -591,11 +611,13 @@ def test_gate_map_matches_generated() -> None:
 
 def test_gate_paths_are_labellable_targets_and_vice_versa() -> None:
     """A3: no gate reads a file label-human cannot write, and no enumerated
-    target earns zero gate credit."""
+    target earns zero gate credit. The gates that govern the published result
+    are the fixed-label config's (configs/run2b_fixedlabels.yaml); its gate
+    files are exactly the fixed-label targets label-human writes."""
     from unc_bench.config import Config
     from unc_bench.stages.label_human import DEFAULT_TARGET, RUN_CSVS
 
-    cfg = Config.load("configs/run2b_clean.yaml")
+    cfg = Config.load("configs/run2b_fixedlabels.yaml")
     gate_files = {
         Path(cfg.paths.human_validation_csv).name,
         Path(str(cfg.paths.fuzzy_decided_csv)).name,

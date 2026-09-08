@@ -6,6 +6,12 @@
 # and is excluded pending a human). Exists so `unc-bench analyze` can
 # produce a schema-identical results file for the labeler-variance delta
 # against results_run2b.json; the original numbers are not overwritten.
+#
+# The label set under analysis is the corrected checkpoint
+# `data/run2b/labels_fixed.parquet`, selected via `paths.labels_checkpoint`.
+# The artifacts themselves live in data/run2b/ (the canonical store); this
+# config adds no duplicate copy of them. Its human-label targets are the
+# FIXED-label CSVs, because a publishable ranking rests on the fixed set.
 run_name: run2b_fixedlabels
 
 # Baseline: run #2. Quantile unchanged (0.9); relations narrowed 5 -> 4 by
@@ -141,20 +147,24 @@ analysis:
   # with row-level exactly, so this is defence in depth.
   cluster_bootstrap: true
 
-# Run #2b writes into its own directory and its own results file, so run #2's
-# published numbers are untouched. Artifacts under data/run2b/ are TRACKED by
-# git (see .gitignore and tests/test_artifact_tracking.py): the per-row
-# signal values are committed, so every per-dataset bootstrap interval is
-# computable from a clone. This alone retires RUN2-ARTIFACTS for the run
-# that matters.
+# The fixed-label results are run #2b's published record after Round 11. Its
+# artifacts are the SAME rows as configs/run2b_clean.yaml — generations,
+# signals and dataset live once, in the canonical store data/run2b/ (TRACKED by
+# git; see .gitignore and tests/test_artifact_tracking.py). The only thing this
+# config changes is which label checkpoint is analysed
+# (labels_fixed.parquet, via paths.labels_checkpoint) and which CSVs gate the
+# human labels (the fixed-label targets, because a publishable ranking rests on
+# the fixed set). It writes its own results file, so run #2b's pre-fix numbers
+# in results_run2b.json are untouched.
 paths:
   raw_dir: data/raw
   cache_dir: data/cache
-  artifacts_dir: data/run2b_fixedlabels
+  artifacts_dir: data/run2b
+  labels_checkpoint: labels_fixed.parquet
   figures_dir: figures/run2b_fixedlabels
   results_json: results_run2b_fixedlabels.json
-  human_validation_csv: data/human_validation_sample_run2b.csv
-  fuzzy_decided_csv: data/fuzzy_decided_rows.csv
+  human_validation_csv: data/human_validation_sample_run2b_fixed.csv
+  fuzzy_decided_csv: data/fuzzy_decided_rows_fixed.csv
 
 # Frozen prompts, identical to run #2's. These strings are part of the cache
 # key, so editing them here would stop run #2b being comparable to run #2.

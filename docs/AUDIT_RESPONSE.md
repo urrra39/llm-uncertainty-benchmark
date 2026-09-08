@@ -4,6 +4,14 @@ Each item of the external audit maps to the commit that addressed it or to an
 explicit reasoned refusal. Silence is not a deliverable; disagreement with
 evidence is.
 
+> Appendix, not the record. This file preserves, item by item, how each
+> external-audit item and round was disposed of. Every decision or measurement
+> here that carries forward is logged in its decision form in
+> [DECISIONS.md](DECISIONS.md) (the R-numbers) and tracked in
+> [OPEN_DEFECTS.md](OPEN_DEFECTS.md); this file keeps the response context
+> around them. For the current state, read the README and DECISIONS.md, not
+> this appendix.
+
 ## Part A
 
 - **A1 (echo pathology).** Done. Evidence first:

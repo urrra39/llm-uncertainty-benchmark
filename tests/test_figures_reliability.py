@@ -248,11 +248,15 @@ def test_every_figure_referenced_by_the_readme_exists() -> None:
 
 def test_no_figure_on_disk_is_orphaned() -> None:
     # The mirror of the test above: a .png nothing points at is dead weight and
-    # the next reader cannot tell whether it is current.
+    # the next reader cannot tell whether it is current. Figures live per run in
+    # subdirectories (figures/withdrawn_run2/, figures/run2b/,
+    # figures/run2b_fixedlabels/), so the scan is recursive over every committed
+    # PNG rather than over the root only.
     root = Path(__file__).resolve().parents[1]
     referenced = _readme_figure_references()
-    for png in sorted((root / "figures").glob("*.png")):
-        assert f"figures/{png.name}" in referenced, f"orphaned figure: {png.name}"
+    for png in sorted((root / "figures").rglob("*.png")):
+        rel = png.relative_to(root).as_posix()
+        assert rel in referenced, f"orphaned figure: {rel}"
 
 
 def test_results_json_parses_and_is_the_published_run() -> None:

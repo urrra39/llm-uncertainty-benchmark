@@ -3,7 +3,7 @@
 Every registry entry, its status, and the run it was scored in — generated
 from the registry plus the two committed results files, so the counts README
 quotes ("27 registered", "22 distinct scored", "5 duplicates") cannot drift
-from the code. Embedded in AUDIT_RESPONSE.md between SIGNAL_TABLE markers;
+from the code. Embedded in docs/AUDIT_RESPONSE.md between SIGNAL_TABLE markers;
 pinned by test.
 """
 

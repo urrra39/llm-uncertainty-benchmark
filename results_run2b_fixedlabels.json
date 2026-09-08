@@ -1527,7 +1527,7 @@
       "view": "with_abstentions"
     }
   },
-  "generated_at_utc": "2026-09-07T18:32:29+00:00",
+  "generated_at_utc": "2026-09-08T08:13:35+00:00",
   "is_pilot": false,
   "labels": {
     "counts": {
@@ -1546,7 +1546,7 @@
     "judge_parse_failures": 0,
     "kappa": {
       "available": false,
-      "reason": "no judge credentials: fixed no-judge rule relabel (A3)"
+      "reason": "no second-judge overlap"
     },
     "label_quality": {
       "coverage": 0.0,
@@ -1834,7 +1834,7 @@
         "requirement": ">= 0.50 of the run's own sample labelled"
       },
       {
-        "detail": "no human has checked the fuzzy rule's 73 verdicts, so the label set's correctness is unmeasured; label data/fuzzy_decided_rows.csv (docs/HUMAN_LABELING.md)",
+        "detail": "no human has checked the fuzzy rule's verdicts, so the label set's correctness is unmeasured; label the run's fuzzy-decided rows (docs/HUMAN_LABELING.md names the exact file for the run)",
         "name": "human_label_coverage",
         "observed": "coverage 0.000",
         "passed": false,
