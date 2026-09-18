@@ -8,7 +8,7 @@ publishable finding, because its human gates fail. Items 1–14 describe run
 #2; items 15–17 the contamination found after it; items 18+ the limits of run
 #2b and of the fixed-label relabel that produced its published numbers.
 
-1. **n=120 is small.** AUROC confidence intervals are roughly ±0.09 wide. The
+1. **n=120 generated rows is small.** AUROC confidence intervals are roughly ±0.09 wide. The
    top six signals are statistically indistinguishable from each other. The
    benchmark can separate "clearly better than chance" from "not", and cannot
    separate the leaders from each other. Any claim that one family B signal
@@ -20,7 +20,7 @@ publishable finding, because its human gates fail. Items 1–14 describe run
 
 3. **The base rate landed in range partly by luck.** The 40-row pilot projected
    36.6% correct; the full run measured 50.0% on the heuristic labeler and 47.5%
-   (57/120) after judging. The projection was 13 points off.
+   (57/120 generated rows) after judging. The projection was 13 points off.
    Neither pilot iteration met the gate — the shipped band is an error-rate band
    of 25–65% (`configs/run2.yaml`; 25–65% in every config and in
    `pilot_gate.py`), and the iterations measured 90% and 72.5% error, i.e. the
@@ -163,7 +163,7 @@ publishable finding, because its human gates fail. Items 1–14 describe run
     looks-fine stratum and pushes PopQA AUROC toward 0.50 by construction.
     Run #3 removes the relation; run #2's numbers include it.
 
-16. **n=120 holds fewer than 120 independent items.** PopQA repeats questions
+16. **n=120 generated rows holds fewer than 120 independent items.** PopQA repeats questions
     with permuted alias lists — Rome three times, Jerusalem four, Delhi three
     in the visible sample alone — and greedy decoding at temperature 0 gives
     byte-identical outputs for identical prompts. Duplicate rows are perfectly
@@ -189,7 +189,7 @@ publishable finding, because its human gates fail. Items 1–14 describe run
     is a property of this pipeline rather than of the published method.
     Separately, clustering assigns each answer against the first member of each
     cluster, which is order-dependent in principle; the audit that does exist
-    (4 disagreements in 120 rows) covers the committed run only.
+    (4 disagreements in 120 generated rows) covers the committed run only.
 
 19. **Run #2b is still small and still imbalanced.** PopQA 60 rows at 38%
     incorrect and TriviaQA 59 rows at 76% incorrect under the fixed labels (the
@@ -211,7 +211,7 @@ publishable finding, because its human gates fail. Items 1–14 describe run
     row (`triviaqa-jp_1520`) ambiguous and queued for a human. One deterministic
     rule cannot be scored against itself — no kappa exists for run #2b — and the
     run #2 judge-versus-judge κ of 0.849 over 66 rows does not cover run #2b.
-    The pre-fix rule's error is measured from below (6/120, 5.0%,
+    The pre-fix rule's error is measured from below (6/120 generated rows, 5.0%,
     `data/label_error_audit.json`); the fixed rule corrects exactly those six,
     and its residue needs the human column to bound from above. The remedy is
     either the human column (agreement against the machine) or a credentialed

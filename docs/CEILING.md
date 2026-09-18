@@ -1,6 +1,6 @@
 # Ceiling: what this benchmark can and cannot weigh
 
-n=120 on Qwen2.5-0.5B-Instruct, one subject model, caps this benchmark's
+n=120 generated rows on Qwen2.5-0.5B-Instruct, one subject model, caps this benchmark's
 scientific weight regardless of execution quality. No amount of gating,
 bootstrapping or documentation raises it: at 60 rows per subset with base
 rates of 38% and 80% incorrect, the analytic half-width is about 0.145, so

@@ -9,7 +9,7 @@ with anything other than a real human's judgement would be fabrication. It is
 shipped empty and the tooling reports "no human labels present" rather than a
 number.
 
-The sample is 100 of the run's 120 rows (79 PopQA, 21 TriviaQA), balanced 50/50
+The sample is 100 of the run's 120 generated rows (79 PopQA, 21 TriviaQA), balanced 50/50
 on the machine label so a labeller sees an equal number of each verdict.
 
 ### Run #2b's files, and which are the gate targets

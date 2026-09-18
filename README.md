@@ -19,7 +19,7 @@ Three classical gates pass; the three failures in the block below are two human 
 > `uv run unc-bench human-agreement --csv data/human_validation_sample_run2b_fixed.csv`.
 > Full convention in [docs/HUMAN_LABELING.md](docs/HUMAN_LABELING.md).
 
-> **The honest ceiling, stated first.** n=120 on one 0.5B subject model caps
+> **The honest ceiling, stated first.** n=120 generated rows on one 0.5B subject model caps
 > this benchmark's scientific weight regardless of execution quality
 > ([docs/CEILING.md](docs/CEILING.md)). At 60 rows per subset with base rates
 > of 38% and 76% incorrect, the analytic half-width is about 0.145 per
@@ -42,7 +42,7 @@ numbers published here are computed from the **corrected** label set, under
 the fixed no-judge rule (`data/run2b/labels_fixed.parquet`); the pre-fix
 label set is archived as a labelled sensitivity comparison below.
 
-**Null result, stated first: at n=119 with stratified bootstrap intervals,
+**Null result, stated first: at n=119 analysis rows with stratified bootstrap intervals,
 nothing separates.** All 27 scored signals (22 distinct orderings plus 5
 rank-equivalent duplicates) have stratified intervals overlapping the
 leader's band [0.601, 0.802] end to end. No point estimate in the table is
@@ -103,7 +103,7 @@ these differing base rates). Findings, stated flatly:
   against its withdrawn run-#2 baseline (0.514, directional only) — above
   chance, but lower than the pre-fix 0.740, and the move is not established
   as decontamination rather than labeler change until the human gate reports.
-- **The clustering audit is small**: 4 disagreements in 120 rows audited
+- **The clustering audit is small**: 4 disagreements in 120 generated rows audited
   (rate 0.033, Wilson 95% [0.013, 0.083]); family-B numbers stand under
   either clusterer. Family-B cost is 6.0× calls measured at 6.01× tokens.
 
@@ -115,7 +115,7 @@ that run #3's 300/300 split exists to clear.
 |---|---|---|
 | random_baseline_ci_contains_chance | PASS | AUROC 0.538 [0.433, 0.639] |
 | minimum_rows_per_class | PASS | 68 incorrect, 51 correct |
-| abstention_rate_below_ceiling | PASS | 0/119 = 0.000 |
+| abstention_rate_below_ceiling | PASS | 0/119 analysis rows = 0.000 |
 | per_dataset_class_counts | FAIL | popqa 23/37; triviaqa 45/14 |
 | labeling_protocol_validated | FAIL | coverage 0.000 |
 | human_label_coverage | FAIL | coverage 0.000 |
@@ -217,7 +217,7 @@ is itself a measured finding about the *labels*, not about the signals.
 ## What the corrected labels changed (the sensitivity comparison)
 
 The pre-fix label set — the containment rule the Round-11 code sweep proved
-wrong on 6 of 120 rows (5.0%), a lower bound — remains committed as
+wrong on 6 of 120 generated-set rows (5.0%), a lower bound — remains committed as
 `results_run2b.json` (`configs/run2b_clean.yaml`); its figures
 (`figures/run2b/auroc.png`, `figures/run2b/correlation.png`,
 `figures/run2b/cost_vs_auroc.png`, `figures/run2b/n_ablation.png`,
@@ -226,12 +226,12 @@ archived beside it. The table above is computed
 from `results_run2b_fixedlabels.json`. Both label sets and both results files
 are committed; the comparison is the measurement, and the two runs are not
 scored on identical rows (the fixed set drops one rule-ambiguous row, so n is
-119), so no paired test spans them. `unc-bench compare-runs
+119 analysis rows), so no paired test spans them. `unc-bench compare-runs
 results_run2b.json results_run2b_fixedlabels.json` prints every signal side
-by side. The like-for-like deltas on the shared 119 rows
+by side. The like-for-like deltas on the shared 119 analysis rows
 (`data/labeler_variance_run2b.json`):
 
-- **Counts move 71 incorrect / 49 correct to 68 / 51 at n=119** (one row,
+- **Counts move 71 incorrect / 49 correct (120 generated rows) to 68 / 51 at n=119 analysis rows** (one row,
   `triviaqa-jp_1520`, becomes rule-ambiguous and is excluded, never coerced).
 - **The only pooled deltas whose interval excludes zero are the
   length-correlated signals**: `a_total_logprob` −0.066 [−0.130, −0.015]
@@ -362,7 +362,7 @@ shippable signal.
 ## Limitations
 
 Full account in [docs/LIMITATIONS.md](docs/LIMITATIONS.md). The ones that
-travel with every number here: n=120 is small (per-column half-width ~0.145
+travel with every number here: n=120 generated rows is small (per-column half-width ~0.145
 at 30/30); the subject model is one 0.5B model, so nothing generalizes by
 scale; labels are machine-assigned and unverified by any human; run #2b's
 PopQA column is one question template; generation reproducibility is

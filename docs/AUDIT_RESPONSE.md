@@ -101,7 +101,7 @@ evidence is.
   `t_question_length` at 0.524 once provenance is removed; per-dataset table
   stays primary; pooled table is explicitly not to be quoted.
 - **E5 (repo description).** Cannot be done from the working tree: the
-  description is a GitHub setting. Suggested replacement: "n=120 null result:
+  description is a GitHub setting. Suggested replacement: "n=120 generated-set null result:
   no uncertainty signal established above chance on PopQA; stratified table
   inside." Owner action required.
 
@@ -172,10 +172,10 @@ rounds point here instead of restating. Rounds are numbered by audit round;
   deleting it would delete evidence. The causal claim was withdrawn, replaced
   with the null-power admission.
 - **No length-bias defect (settled round 5).** Generous branch fired zero
-  times in 120 rows; differential bias exactly 0.000. A defect needs a
+  times in 120 generated rows; differential bias exactly 0.000. A defect needs a
   measurement.
 - **No partial clustering raise (settled round 7).** Full-audit rerun
-  executed instead: 4/120, Wilson [0.013, 0.083]. The earlier downgrade
+  executed instead: 4/120 generated rows, Wilson [0.013, 0.083]. The earlier downgrade
   stands as correct on its evidence (R18).
 - **No "27 vs 30" reconciliation (settled round 5).** Registry recounted in
   code: 27 signals. No committed file, document or table counts 30 signals.
@@ -246,7 +246,7 @@ rounds point here instead of restating. Rounds are numbered by audit round;
 | 60-row transient request | no committed config | UNRESOLVED, marked in D26 note |
 | 20 echo / 21 inverse rows | `data/echo_contamination_report.json` | demonstrated (20 of 21; exception named) |
 | 27 registry signals | `SignalSpec` registry, counted in code | demonstrated; "30" has no referent |
-| 34/120 withdrawal bound | echo report (14) + 20 unobserved, worst-cased | derived, pinned by audit |
+| 34/120 generated-set withdrawal bound | echo report (14) + 20 unobserved, worst-cased | derived, pinned by audit |
 
 ## What is still unmeasured (flatly)
 
@@ -571,7 +571,7 @@ Dispositions below: DONE / REFUSED-WITH-EVIDENCE / BLOCKED-ON-OWNER.
 
 - **PART 0.1, "Write scripts/audit_label_errors.py that reproduces all five as failing" (round 11).**
   DONE. Reproduces all five against the committed run artifacts and sweeps all
-  120 rows. The two systematic patterns are the rule's own fingerprint: the
+  120 generated rows. The two systematic patterns are the rule's own fingerprint: the
   fuzzy rule marked exactly TWO rows correct and both are subject-echo false
   positives (`popqa-5864218`, "Jamaica" inside "Kingston, Jamaica";
   `triviaqa-jp_1520`, "whale" inside "Unicorn Whale"); four verbatim-correct
@@ -596,17 +596,17 @@ Dispositions below: DONE / REFUSED-WITH-EVIDENCE / BLOCKED-ON-OWNER.
   because the five-case regression suite cannot pass on the echo guard alone:
   the "whale" false positive closes only with the answer-shorter containment
   removal, which is A2's span extraction — stated in DECISIONS, not hidden.
-  On the 120 rows the fixed rule moves exactly the six demonstrable errors and
+  On the 120 generated rows the fixed rule moves exactly the six demonstrable errors and
   nothing else (pinned).
 - **PART A3, "Re-label run #2b with the fixed rule. Commit BOTH label sets" (round 11).**
   DONE. `data/run2b/labels_fixed.parquet` committed beside the pre-fix
   `labels.parquet`; `results_run2b_fixedlabels.json` produced by the same
   `analyze` pipeline (mirror config/artifacts dir) so it is schema-identical;
   `data/labeler_variance_run2b.json` carries every per-signal AUROC under both
-  label sets with a like-for-like paired-bootstrap delta on the shared 119
+  label sets with a like-for-like paired-bootstrap delta on the shared 119 analysis rows
   rows, after validating the estimator reproduces every committed AUROC point
   and CI bound exactly. Old numbers are not overwritten — they are the object
-  of measurement. Counts move 71/49 → 68/51 at n=119 (one row rule-ambiguous,
+  of measurement. Counts move 71/49 → 68/51 at n=119 analysis rows (one row rule-ambiguous,
   excluded and counted).
 - **PART A4, "If the fixed labels move the ranking, the ranking moves. If they move E4, E4 moves." (round 11).**
   The movement is measured and published in the README round-11 section: pooled
@@ -621,7 +621,7 @@ Dispositions below: DONE / REFUSED-WITH-EVIDENCE / BLOCKED-ON-OWNER.
   editing the record after the fact on the wrong trigger. All three
   alternatives remain live until D.
 - **PART B1, "`a_total_logprob` ... Quantify the overlap: partial Spearman ... AUROC within length strata" (round 11).**
-  DONE. `data/length_confound_audit.json` scores every signal on the same 119
+  DONE. `data/length_confound_audit.json` scores every signal on the same 119 analysis rows
   rows under both label sets: Spearman with label and with answer length,
   rank-residualized partial Spearman given length, and within at/below- vs
   above-median-length AUROC with bootstrap intervals. `a_total_logprob`:
@@ -657,9 +657,9 @@ Dispositions below: DONE / REFUSED-WITH-EVIDENCE / BLOCKED-ON-OWNER.
   source and is genuinely diverse (2191 unique pre-leakage).
 - **PART C3, "Re-check the base rates and both class-count gates after C1+C2 and A3" (round 11).**
   DONE. After A3 (C1/C2 do not alter run #2b's historical row set): pooled
-  68/51 at n=119 (0.571); PopQA 23/37 (0.383); TriviaQA 45/14 (0.763).
+  68/51 at n=119 analysis rows (0.571); PopQA 23/37 (0.383); TriviaQA 45/14 (0.763).
   Gates: random-baseline PASS 0.538 [0.433, 0.639]; minimum_rows_per_class
-  PASS 68/51; abstention PASS 0/119; per_dataset_class_counts FAIL — minority
+  PASS 68/51; abstention PASS 0/119 analysis rows; per_dataset_class_counts FAIL — minority
   23 and 14, both under the ≥30 floor (D5's arithmetic is 23 and 14 under the
   fixed labels, not 23 and 12); the two human gates FAIL at 0.0.
 - **PART D (owner), "`unc-bench label-plan`, then `unc-bench label-human`" (round 11).**

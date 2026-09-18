@@ -13,12 +13,12 @@
 Twenty-one uncertainty signals from three families — token logprobs (1× cost),
 self-consistency over 5 samples (6× cost), and self-verification / P(True)
 (2× cost) — ranked by how well each predicts that Qwen2.5-0.5B-Instruct got a
-short factual question wrong. n=120 questions from PopQA and TriviaQA,
+short factual question wrong. n=120 generated questions from PopQA and TriviaQA,
 correctness labeled by exact match plus two LLM judges.
 
 **ALL THREE VALIDITY GATES PASS.** Random baseline `t_random` AUROC
 **0.508 [0.404, 0.611]** (CI contains 0.50, as it must). **63 incorrect / 57
-correct** (both classes ≥ 30). Abstention rate **0/120 = 0.000** (below the 0.10
+correct** (both classes ≥ 30). Abstention rate **0/120 generated rows = 0.000** (below the 0.10
 ceiling). The ranking below is publishable. Run #1's ranking was not; see the
 last section.
 
@@ -145,7 +145,7 @@ are now declared in code (`SignalSpec.rank_equivalent_to`, asserted empirically
 at analysis time so a configuration change that breaks an equivalence fails
 loudly) and listed once in the appendix below rather than in the ranking.
 Each pair below was verified by measuring the Spearman rank correlation over
-the 120 frozen rows and finding it exactly **+1.000** (`views.primary.correlation`
+the 120 generated rows and finding it exactly **+1.000** (`views.primary.correlation`
 in `results.json`; reproduce with `unc-bench audit`):
 
 | pair | relationship | measured Spearman |
@@ -226,7 +226,7 @@ not choose for you.
 ### Verdict on significance
 
 **No winner (withdrawn).** In run #2, `b_distinct_count` led `b_distinct_fraction` by 0.000 AUROC and
-their CIs are identical at n=120, because the two are the same signal: they
+their CIs are identical at n=120 generated rows, because the two are the same signal: they
 differ by a constant divisor — the answer-set size, which is `n_samples + 1 = 6`
 on every row — and their measured Spearman correlation is exactly +1.000. The
 leader's nearest *distinct* competitor is `b_disagreement_rate` at 0.701.
@@ -315,7 +315,7 @@ Reliability diagrams: **`figures/withdrawn_run2/reliability.png`** — one panel
 probability-valued signal, showing the before-Platt and after-Platt curves
 against the diagonal, with both ECE values in each panel's legend. Marker area
 is proportional to bin count; empty bins are omitted rather than interpolated
-across, because at n=120 over 10 bins several bins hold nothing and a smooth
+across, because at n=120 generated rows over 10 bins several bins hold nothing and a smooth
 curve through them would be drawn from data that does not exist.
 
 Recalibration helps all three, and helps `c_verbal_confidence` most
@@ -396,7 +396,7 @@ Family B must run as its own pass: the NLI model and the generator do not fit in
 > as committed, pre-registered in `docs/PREREGISTRATION.md`.
 
 Every number in this README is run #2: Qwen2.5-0.5B-Instruct, 2 CPU cores, ~2 GB
-RAM, n=120, PopQA 90 / TriviaQA 30. That configuration is what the hardware
+RAM, n=120 generated rows, PopQA 90 / TriviaQA 30. That configuration is what the hardware
 allowed, and two of its limitations are consequences of the hardware rather than
 of the design — the small n, and the 90/30 split that is the mechanism behind
 finding 4 and behind the pooled table's distortion (limitation 13).
@@ -457,7 +457,7 @@ bidirectional-entailment clustering: `MoritzLaurer/DeBERTa-v3-base-mnli`.
 
 ## Dataset card
 
-120 questions: **90 PopQA** restricted to the top popularity decile *and* to five
+120 generated questions: **90 PopQA** restricted to the top popularity decile *and* to five
 lookup-style Wikidata relations (`capital`, `country`, `capital of`, `sport`,
 `color`); **30 TriviaQA** restricted to high-alias-count (≥20 aliases) short
 (≤20 word) questions. TriviaQA ships no popularity field, so alias count and

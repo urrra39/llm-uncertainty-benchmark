@@ -405,6 +405,55 @@ def check_misc(results: dict[str, Any], problems: list[str]) -> None:
             problems.append(f"Spearman {left} vs {right}: {value}")
 
 
+def check_count_labels(problems: list[str]) -> None:
+    """Every 119/120 count carries its set label; every ratio re-derives.
+
+    119 is the frozen analysis set (120 generated and labeled rows minus the
+    one rule-ambiguous exclusion); 120 is a generated-and-labeled set (run #2b
+    pre-exclusion, or run #2's own 120). A bare count is ambiguous between
+    them, so each line holding one must name its set. Generated status-block
+    lines are exempt: each number there carries its results.json pointer.
+    Ratios of the form k/n (p%) or k/n = v must recompute from the stated
+    denominator — presence of the numbers cannot catch a mismatch.
+    """
+    md_files = sorted((REPO_ROOT).glob("*.md")) + sorted((REPO_ROOT / "docs").glob("*.md"))
+    md_files += sorted((REPO_ROOT / "configs").glob("*.md"))
+    md_files += sorted((REPO_ROOT / "data").glob("*.md"))
+    tokens_120 = ("generat", "label", "run #2", "withdrawn", "judge", "cross_validation", "human")
+    for md in md_files:
+        for lineno, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):
+            low = line.lower()
+            if "results_run2b" in line:
+                continue
+            if re.search(r"(?<![\d.])119(?![\d.])", line) and "analysis" not in low:
+                problems.append(
+                    f"{md.relative_to(REPO_ROOT)}:{lineno} counts 119 without "
+                    "naming the analysis set"
+                )
+            if re.search(r"(?<![\d.])120(?![\d.])", line) and not any(
+                tok in low for tok in tokens_120
+            ):
+                problems.append(
+                    f"{md.relative_to(REPO_ROOT)}:{lineno} counts 120 without "
+                    "naming the generated set"
+                )
+            for match in re.finditer(r"(\d+)/(\d+)\s*\((\d+(?:\.\d+)?)%\)", line):
+                k, n, p = int(match.group(1)), int(match.group(2)), float(match.group(3))
+                tol = 0.06 if "." in match.group(3) else 0.51
+                if abs(k / n * 100 - p) > tol:
+                    problems.append(
+                        f"{md.relative_to(REPO_ROOT)}:{lineno} ratio {k}/{n} "
+                        f"does not recompute to {p}%"
+                    )
+            for match in re.finditer(r"(\d+)/(\d+)\s*=\s*(\d+\.\d+)(?!\s*%)", line):
+                k, n, v = int(match.group(1)), int(match.group(2)), float(match.group(3))
+                if abs(k / n - v) > 0.0006:
+                    problems.append(
+                        f"{md.relative_to(REPO_ROOT)}:{lineno} ratio {k}/{n} "
+                        f"does not recompute to {v}"
+                    )
+
+
 def check_cross_document(results: dict[str, Any], problems: list[str]) -> None:
     """Claims the documents make about each other and about the repository."""
     texts = {path: path.read_text(encoding="utf-8") for path in DOCS}
@@ -496,6 +545,8 @@ def check_cross_document(results: dict[str, Any], problems: list[str]) -> None:
     # backtick path): withdrawn and comparison figures are deliberately kept
     # but not embedded, and WITHDRAWN_RUN2.md names them. This matches the
     # definition in tests/test_figures_reliability.py.
+    check_count_labels(problems)
+
     referenced_figs: set[str] = set()
     for md in md_files:
         for lineno, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):

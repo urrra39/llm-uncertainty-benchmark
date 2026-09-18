@@ -724,7 +724,7 @@ achieved rather than spending a third pilot. The final mix weights toward the
 stronger dataset: 90 PopQA rows and 30 TriviaQA rows.
 
 The pilot's per-dataset rates projected 36.6% pooled for that mix. **The full
-120-row run measured exactly 50.0% (60 correct / 60 incorrect) on the heuristic
+120-row generated run measured exactly 50.0% (60 correct / 60 incorrect) on the heuristic
 labeler and 57 correct / 63 incorrect after judging** — 50% error, inside the
 25–65% band and at the centre of D1's 40–60% target, and well above the
 projection. The 40-row pilot's per-dataset rates were simply noisy estimates;
@@ -819,7 +819,7 @@ the target stayed at 120.
 
 - No DeLong test; paired bootstrap substituted, per the brief's allowance.
 - No third pilot iteration; the gate permits two.
-- n=120, not 200. The measured 16.8–19.0 s/question did not clear the
+- n=120 generated rows, not 200. The measured 16.8–19.0 s/question did not clear the
   under-20-s bar that would have justified the larger run.
 - The human-validation CSV ships with 100 rows and an empty `human_label`
   column. No human has labeled it. It is a template for validation, not
@@ -842,7 +842,7 @@ AUROC is invariant under any strictly monotone transform of the score, so two
 signals related by such a transform are the same signal for every purpose this
 benchmark measures. Three pairs in the 21-row table shared an AUROC to three
 decimals, which is the signature of that situation. I measured the Spearman rank
-correlation of each pair over the 120 frozen rows, taking the values from the
+correlation of each pair over the 120 generated rows, taking the values from the
 stored `views.primary.correlation` matrix rather than recomputing them:
 
 | pair | Spearman | verdict |
@@ -1202,7 +1202,7 @@ produce data and the block will carry real intervals, at which point the
 Hanley–McNeil section of the README becomes historical rather than load-bearing.
 Measured cost of the added bootstrap work at n=600: 4.67 s per AUROC interval and
 1.17 s per AUPRC interval at 10,000 resamples, against 1.14 s and 0.63 s at
-n=120, so the analysis stage gets slower but stays in minutes.
+n=120 generated rows, so the analysis stage gets slower but stays in minutes.
 
 ### D26. Device detection, and the CPU path verified rather than assumed
 
@@ -1347,7 +1347,7 @@ token; autoregressive decode is bandwidth-bound, so a T4 at ~320 GB/s against
 CPU DDR4 at ~20 GB/s is ≈16×; applied to run #2's measured 16.8–19.0 s/question
 that gives ≈6.5–7.4 s/question, so 600 questions is ≈65–75 minutes of
 generation, plus ≈18 minutes of API-bound labeling and 10–20 minutes of analysis
-at n=600 (scaled from 4.67 s per AUROC interval against 1.14 s at n=120), for a
+at n=600 (scaled from 4.67 s per AUROC interval against 1.14 s at n=120 generated rows), for a
 total band of ≈1.5–2.5 hours. This is an estimate. It has not been measured, and
 it will not be until run #3 is run.
 
@@ -1466,7 +1466,7 @@ throughout; everything new targets run #3 or the infrastructure around it.
 - **R5. The bootstrap is roughly calibrated; the audit's suspicion is not
   sustained.** 200 exchangeable null trials hold type-I near 0.05 and a planted
   0.196 gap has power (`tests/test_bootstrap_calibration.py`). The t_random
-  non-significance is Holm-over-20 plus n=120, as documented — so no
+  non-significance is Holm-over-20 plus n=120 generated rows, as documented — so no
   null-centred estimator was added and the published p-values stay traceable
   to one procedure. A defended non-implementation, per the audit's own rule.
 - **R6. D27 reopened.** The session-9 closure extrapolated CPU/bfloat16
@@ -1561,7 +1561,7 @@ run below closes the divergence with 27/27 scored.
   available.** At 1 disagreement in 16 audited rows the Wilson interval was
   [0.011, 0.283] — an order of magnitude wide — and "unmeasured at useful
   precision" was the only honest label for it. The full-audit rerun later
-  measured 4/120 [0.013, 0.083]. A later good outcome does not retroactively
+  measured 4/120 generated rows [0.013, 0.083]. A later good outcome does not retroactively
   justify the earlier weaker claim, and it does not retroactively condemn
   the downgrade either: decide on the evidence at hand, record the decision,
   re-measure when cheap.
@@ -1571,7 +1571,7 @@ run below closes the divergence with 27/27 scored.
 - **R19. The auditor's five label errors are real, and reproduced in code.**
   A hand-check of `data/human_validation_sample_run2b.csv` flagged five rows;
   `scripts/audit_label_errors.py` reproduces all five against the committed run
-  artifacts (5/5) and sweeps all 120 rows. The sweep enumerates the fuzzy
+  artifacts (5/5) and sweeps all 120 generated rows. The sweep enumerates the fuzzy
   rule's entire correct population as its false-positive population: the rule
   marked exactly two rows correct and both are subject-echo errors
   (`popqa-5864218` "Jamaica" inside "Kingston, Jamaica";
@@ -1616,10 +1616,10 @@ run below closes the divergence with 27/27 scored.
   and both results files are committed (`labels.parquet` pre-fix,
   `labels_fixed.parquet`, `results_run2b.json` unchanged,
   `results_run2b_fixedlabels.json` from the same analyze pipeline). The relabel
-  moves exactly the six demonstrable errors; counts 71/49 → 68/51 at n=119 (one
+  moves exactly the six demonstrable errors; counts 71/49 → 68/51 at n=119 analysis rows (one
   row rule-ambiguous and queued). The estimator in `scripts/labeler_variance.py`
   was validated to reproduce every committed AUROC point and CI bound exactly
-  before it measured the like-for-like deltas on the shared 119 rows.
+  before it measured the like-for-like deltas on the shared 119 analysis rows.
 - **R23. Correcting the length-biased labels attenuates the length-correlated
   signals — the round's headline.** The deltas whose CI excludes zero are
   exactly the length-correlated set: a_total_logprob −0.066 [−0.130, −0.015],
@@ -1654,7 +1654,7 @@ run below closes the divergence with 27/27 scored.
   `drop_gold_in_question`, C2 on) the pool is **2036 unique questions** after
   collapsing 42 near-duplicate groups — a 6.79× margin for 300 draws, matching
   `configs/run3_gpu.yaml`'s comment.
-- **R27. Gates after A3 (C3):** pooled 68/51@119 (base 0.571), PopQA 23/37
+- **R27. Gates after A3 (C3):** pooled 68/51 at n=119 analysis rows (base 0.571), PopQA 23/37
   (0.383), TriviaQA 45/14 (0.763). random-baseline PASS 0.538 [0.433, 0.639];
   minimum_rows_per_class PASS; abstention PASS; per_dataset_class_counts FAIL
   (minority 23 and 14 under the fixed labels — D5's 23-and-12 was the pre-fix
@@ -1730,6 +1730,6 @@ derived figures/CSVs re-rendered from committed artifacts.
   field advertised run #2's question-length finding ("At n=120, a trivial
   question-length baseline nearly matched 6x-cost self-consistency...") after
   run #2 was withdrawn over echo contamination. Replaced with run #2b's null
-  result (n=119, nothing separates under stratified bootstrap; the
+  result (n=119 analysis rows, nothing separates under stratified bootstrap; the
   length-biased-labeler correction). Topics unchanged: benchmark,
   calibration, evaluation, hallucination-detection, llm, uncertainty.
