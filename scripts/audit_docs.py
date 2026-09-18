@@ -485,6 +485,35 @@ def check_cross_document(results: dict[str, Any], problems: list[str]) -> None:
         if claim in decisions:
             problems.append(f"docs/DECISIONS.md still asserts: {claim!r}")
 
+    # Figures must live in the repository, not on a host. Any markdown image
+    # or <img> tag pointing at an http(s) URL fails, wherever it appears in
+    # tracked markdown — links rot and the pixels cannot be verified against
+    # the results file they claim to plot.
+    md_files = sorted((REPO_ROOT).glob("*.md")) + sorted((REPO_ROOT / "docs").glob("*.md"))
+    md_files += sorted((REPO_ROOT / "configs").glob("*.md"))
+    md_files += sorted((REPO_ROOT / "data").glob("*.md"))
+    # A figure counts as referenced by any mention (embedded image or
+    # backtick path): withdrawn and comparison figures are deliberately kept
+    # but not embedded, and WITHDRAWN_RUN2.md names them. This matches the
+    # definition in tests/test_figures_reliability.py.
+    referenced_figs: set[str] = set()
+    for md in md_files:
+        for lineno, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"!\[[^\]]*\]\(https?://|<img\s[^>]*src\s*=\s*[\"']https?://", line):
+                problems.append(
+                    f"{md.relative_to(REPO_ROOT)}:{lineno} embeds an external image URL"
+                )
+            for match in re.finditer(r"!\[[^\]]*\]\((figures/[^)]+)\)", line):
+                if not (REPO_ROOT / match.group(1)).exists():
+                    problems.append(
+                        f"{md.relative_to(REPO_ROOT)}:{lineno} references "
+                        f"{match.group(1)}, which does not exist"
+                    )
+            referenced_figs.update(re.findall(r"figures/[A-Za-z0-9_./-]+\.png", line))
+    for png in sorted((REPO_ROOT / "figures").rglob("*.png")):
+        if str(png.relative_to(REPO_ROOT)) not in referenced_figs:
+            problems.append(f"{png.relative_to(REPO_ROOT)} is on disk but unreferenced")
+
     # Files the documents reference must exist. Three prefixes are exempt: the
     # documents deliberately name paths that are gone or not yet written, and
     # say so in the surrounding prose. `data/run2/` and `data/artifacts/` are
