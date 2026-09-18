@@ -377,8 +377,6 @@ beating them, which at this n nothing demonstrably does.
 ## Acknowledgements
 
 Sole authorship; the repository history records the owner's earlier identity.
-Parts of the implementation were produced with AI assistance under the
-author's direction and review.
 
 ## License
 

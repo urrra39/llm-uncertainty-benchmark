@@ -62,3 +62,24 @@ jobs:
         run: uv run pytest -q
         env:
           UNC_BENCH_OFFLINE: "1"
+
+      # Sole authorship. Any pushed commit message attributing the work to a
+      # tool fails the build. History still carries one such trailer, reported
+      # and awaiting the owner's decision; the shallow checkout scans the
+      # pushed tip, not the past.
+      - name: authorship commit messages
+        run: |
+          if git log --format='%B' | grep -iE "co-authored|generated with|copilot|assisted by|ai assistance|with the help of"; then
+            echo "authorship trailer found in commit messages" >&2
+            exit 1
+          fi
+
+      # Same rule for tracked file contents. Judge and subject model names
+      # are objects of study and are whitelisted. This workflow file carries
+      # the search pattern itself, so it is excluded from its own scan.
+      - name: authorship file contents
+        run: |
+          if git grep -iE "co-authored|generated with|copilot|assisted by|ai assistance|with the help of" -- . ':!.github/workflows/ci.yml' | grep -viE "qwen2.5-0.5b-instruct|deberta-v3-base-mnli|gpt-5-mini|claude-haiku-4-5"; then
+            echo "authorship statement found in tracked files" >&2
+            exit 1
+          fi
