@@ -110,6 +110,17 @@ construction (D11's assertion). The extra cost is bounded: the secondary judge
 runs only on rows the primary judge was asked about, so `cross_validation_n`
 is a ceiling, not a budget. The heuristic (no-key) path is unaffected.
 
+## Template diversity, pre-registered (added with the PopQA single-template finding)
+
+Run #2b's PopQA column realized as one question template (59 of 60 rows
+"What is the capital of X?"), so its PopQA numbers describe 59 near-identical
+forms. The widened relation set for run #3 exists partly to fix this, and the
+fix is a measured property, not a hope: the most frequent normalized question
+template holds at most 40% of rows in each 300-row subset, counted by a
+build-time census over normalized question text before generation. Run #2b's
+59/60 (98%) would have failed that target. If the census fails, the dataset is
+rebuilt with different relations before any generation — it is not waived.
+
 ## Power
 
 Hanley–McNeil analytic interval at 150 positives / 150 negatives, AUROC 0.60:

@@ -78,6 +78,16 @@ these differing base rates). Findings, stated flatly:
   verification signal is strongest on the subset where the labels were
   length-biased before correction, because P(True) is essentially
   length-independent (Spearman with answer length 0.049).
+- **The PopQA column is one question template, not a dataset.** Realized
+  distribution: 59 of 60 rows "What is the capital of X?", plus one "What
+  sport does Mr. Olympia play?" (`popqa-2088053`, labelled incorrect). The
+  0.828 above is `c_p_true_plain`'s behaviour on 59 near-identical forms: 0.866 on
+  the 59-row template subset, with the single excluded row moving the estimate
+  by 0.038. One row cannot support any within-PopQA comparison, so nothing
+  about PopQA — or short factual questions generally — follows from this
+  column. Run #3's widened relation set exists partly to fix this, with a
+  pre-registered 40%-per-template ceiling
+  ([docs/PREREGISTRATION.md](docs/PREREGISTRATION.md)).
 - **Correcting the labeler attenuated exactly the length-correlated
   signals** (the round's central measurement, below): the top family-A
   numbers of the pre-fix table were partly a labeler artifact, not signal.
