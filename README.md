@@ -279,6 +279,15 @@ All drawn from `results_run2b_fixedlabels.json` alone (`unc-bench figures
 
 ## Reproduction
 
+The config changes mid-sequence on purpose: everything through `label` runs
+under `configs/run2b_clean.yaml` and produces the pre-fix label set; the
+relabel step corrects it deterministically; `analyze` and `figures` then run
+under `configs/run2b_fixedlabels.yaml`, which reads the corrected set and
+writes the published results file. Running `analyze` against the clean config
+by mistake does not fail — it succeeds in about 12 minutes and rewrites the
+archived pre-fix comparison (`results_run2b.json`, `figures/run2b/`), so
+check which config is on the command line before quoting any number.
+
 ```bash
 uv sync --extra local
 uv run unc-bench build-dataset  --config configs/run2b_clean.yaml
@@ -287,7 +296,7 @@ uv run unc-bench score-signals  --config configs/run2b_clean.yaml --family b
 uv run unc-bench score-signals  --config configs/run2b_clean.yaml --family actc
 uv run unc-bench ablation       --config configs/run2b_clean.yaml
 uv run unc-bench label          --config configs/run2b_clean.yaml  # heuristic: no judge key here
-uv run python scripts/relabel_run2b.py     # writes the corrected labels_fixed.parquet
+make relabel-run2b                         # writes the corrected labels_fixed.parquet
 uv run unc-bench analyze        --config configs/run2b_fixedlabels.yaml  # the published results file
 uv run unc-bench figures        --config configs/run2b_fixedlabels.yaml
 ```
@@ -295,9 +304,15 @@ uv run unc-bench figures        --config configs/run2b_fixedlabels.yaml
 Family B runs as its own pass. Labels fall back to exact match plus the fuzzy
 rule without judge credentials (recorded, not hidden). The published numbers
 are the fixed-label analyze; re-running `analyze` reproduces
-`results_run2b_fixedlabels.json` bit-identically apart from the timestamp
-(measured, D13). Planned next: run #3 at n=600 on a GPU
-(`configs/run3_gpu.yaml`, pre-registered in
+`results_run2b_fixedlabels.json` bit-identically apart from the timestamp and
+the `environment.platform` string (verified from a clean clone; the sandbox OS
+reports 27.0 where the committed file reports 26.6.2). Measured stage
+wall-clock on this class of machine: generation 735 s and family B 57 s
+(`data/run2b/timings.json`), fixed-label analyze plus figures about 14.5
+minutes, pre-fix analyze about 12.5 minutes; the remaining stages were not
+timed, so a full-sequence total is inferred at roughly 40–50 minutes plus
+dataset downloads rather than measured. Planned next: run #3 at n=600 on a
+GPU (`configs/run3_gpu.yaml`, pre-registered in
 [docs/PREREGISTRATION.md](docs/PREREGISTRATION.md), never executed).
 
 ## Hardware, runtime and costs

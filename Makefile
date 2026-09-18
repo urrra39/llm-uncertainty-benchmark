@@ -1,6 +1,6 @@
 .PHONY: help setup lint fmt type test check pilot all clean-artifacts \
         build_dataset generate score_signals label analyze figures nondeterminism \
-        export-artifacts check-artifact-size
+        relabel-run2b export-artifacts check-artifact-size
 
 UV      ?= uv
 RUN     ?= $(UV) run
@@ -51,6 +51,9 @@ score_signals: ## stage 3
 
 label: ## stage 4
 	$(RUN) unc-bench label --config $(CONFIG)
+
+relabel-run2b: ## recompute the corrected labels from committed generations
+	$(RUN) python scripts/relabel_run2b.py
 
 analyze: ## stage 5, writes results.json
 	$(RUN) unc-bench analyze --config $(CONFIG)
