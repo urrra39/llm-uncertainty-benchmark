@@ -514,6 +514,21 @@ def check_cross_document(results: dict[str, Any], problems: list[str]) -> None:
         if str(png.relative_to(REPO_ROOT)) not in referenced_figs:
             problems.append(f"{png.relative_to(REPO_ROOT)} is on disk but unreferenced")
 
+    # The frame sentence must precede the generated status block: a reader
+    # meets the verdict's meaning before the verdict. It is hand prose, not
+    # generator output, so it lives outside the generated lines.
+    frame = (
+        "Three classical gates pass; the three failures in the block below are "
+        "two human gates nobody has opened and one per-dataset class floor "
+        "that the pre-registered run #3 exists to clear"
+    )
+    frame_at = readme.find(frame)
+    status_at = readme.find("> Status, generated from")
+    if frame_at < 0:
+        problems.append("README.md lacks the frame sentence before the status block")
+    elif not 0 <= frame_at < status_at:
+        problems.append("README.md frame sentence does not precede the status block")
+
     # Files the documents reference must exist. Three prefixes are exempt: the
     # documents deliberately name paths that are gone or not yet written, and
     # say so in the surrounding prose. `data/run2/` and `data/artifacts/` are

@@ -4,6 +4,8 @@ A benchmark ranking uncertainty signals — token logprobs, self-consistency,
 self-verification, and trivial baselines — by how well each predicts that
 Qwen2.5-0.5B-Instruct answered a short factual question wrong.
 
+Three classical gates pass; the three failures in the block below are two human gates nobody has opened and one per-dataset class floor that the pre-registered run #3 exists to clear — so what follows is a measurement with its status attached, not a publishable finding.
+
 > Status, generated from `results_run2b_fixedlabels.json` (`scripts/render_readme_header.py`):
 > Primary run: run2b_fixedlabels (n=119, 68 incorrect / 51 correct) [results_run2b_fixedlabels.json#run_name, views.primary.n, views.primary.n_incorrect, views.primary.n_correct].
 > VALIDITY FAILED: per_dataset_class_counts, labeling_protocol_validated, human_label_coverage as recorded in results_run2b_fixedlabels.json#validity_gates (t_random pooled, results_run2b_fixedlabels.json#views.primary.signals.t_random: 0.538 [0.433, 0.639]).
