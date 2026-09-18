@@ -1726,3 +1726,10 @@ derived figures/CSVs re-rendered from committed artifacts.
 - **R35. RUN2B-LABELSET is closed on the code-sweep half.** The corrected label
   set is the committed, published one; the human-coverage half remains open and
   is tracked by HUMAN-COVERAGE. `docs/OPEN_DEFECTS.md` reflects the split.
+- **R36. The repository description referenced a withdrawn run.** The About
+  field advertised run #2's question-length finding ("At n=120, a trivial
+  question-length baseline nearly matched 6x-cost self-consistency...") after
+  run #2 was withdrawn over echo contamination. Replaced with run #2b's null
+  result (n=119, nothing separates under stratified bootstrap; the
+  length-biased-labeler correction). Topics unchanged: benchmark,
+  calibration, evaluation, hallucination-detection, llm, uncertainty.
